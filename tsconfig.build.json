@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src/server/types.d.ts"],
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "outDir": "dist/server",
+    "rootDir": "src/server"
+  },
+  "include": ["src/server/**/*"],
+  "exclude": ["src/client/**/*", "node_modules"]
+}

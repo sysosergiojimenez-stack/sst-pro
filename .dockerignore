@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+mi-app.zip
+*.log
+.vscode
+.idea
+src/client/**/*.test.*
+src/server/**/*.test.*
