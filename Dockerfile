@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+RUN npm run build && find dist/server -name "*.js" -exec sh -c 'mv "$1" "${1%.js}.cjs"' _ {} \; && find dist/server -name "*.cjs" -exec sed -i 's/\.js")/.cjs")/g' {} \;
 
 FROM node:20-slim
 WORKDIR /app
@@ -12,6 +12,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 ENV GOOGLE_APPLICATION_CREDENTIALS=/secrets/service-account.json
+EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3001}/health || exit 1
-CMD ["node", "dist/server/index.js"]
+  CMD curl -f http://localhost:3001/health || exit 1
+CMD ["node", "dist/server/index.cjs"]

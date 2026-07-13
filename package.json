@@ -7,7 +7,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "build": "vite build && tsc -p tsconfig.build.json",
-    "start": "node dist/server/index.js"
+    "start": "node dist/server/index.cjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
