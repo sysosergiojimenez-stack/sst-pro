@@ -2,7 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "typeRoots": ["./node_modules/@types", "./src/server/types.d.ts"],
+    "module": "commonjs",
+    "moduleResolution": "node",
     "allowImportingTsExtensions": false,
+    "esModuleInterop": true,
     "noEmit": false,
     "declaration": false,
     "declarationMap": false,
