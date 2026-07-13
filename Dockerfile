@@ -3,7 +3,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npm run build && find dist/server -name "*.js" -exec sh -c 'mv "$1" "${1%.js}.cjs"' _ {} \; && find dist/server -name "*.cjs" -exec sed -i 's/\.js")/.cjs")/g' {} \;
+RUN npm run build
+RUN echo '{"name":"sst-pro-server","version":"1.0.0","private":true}' > dist/server/package.json
 
 FROM node:20-slim
 WORKDIR /app
@@ -15,4 +16,4 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=/secrets/service-account.json
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3001/health || exit 1
-CMD ["node", "dist/server/index.cjs"]
+CMD ["node", "dist/server/index.js"]
