@@ -7,7 +7,7 @@ const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'sst-documentos-empleados
 const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || 'sg-sst-501720';
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: process.env.GOOGLE_SHEETS_KEY_PATH || '/home/syso_sergiojimenez/credentials/service-account.json',
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_SHEETS_KEY_PATH || '/home/syso_sergiojimenez/credentials/service-account.json',
   scopes: [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/devstorage.read_write',
