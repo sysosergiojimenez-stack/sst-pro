@@ -97,7 +97,13 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 // API REST - Listar empleados
 app.get('/api/empleados', async (c) => {
   try {
-    const empleados = await getEmpleados();
+    const obra = c.req.query('obra');
+    const proyecto = c.req.query('proyecto');
+    const filtro = obra || proyecto;
+    let empleados = await getEmpleados();
+    if (filtro) {
+      empleados = empleados.filter(e => e.obra === filtro);
+    }
     return c.json({ success: true, data: empleados });
   } catch (error: any) {
     console.error('Error GET /api/empleados:', error.message);
@@ -990,7 +996,9 @@ app.use('/*', serveStatic({ root: './dist/client' }));
 app.get('/api/epp/notas-salida', async (c) => {
   try {
     const obra = c.req.query('obra');
-    const data = obra ? await getNotasSalidaByProyecto(obra) : await getAllNotasSalida();
+    const proyecto = c.req.query('proyecto');
+    const filtro = obra || proyecto;
+    const data = filtro ? await getNotasSalidaByProyecto(filtro) : await getAllNotasSalida();
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/epp/notas-salida:', error.message);
@@ -1059,6 +1067,8 @@ app.delete('/api/epp/notas-salida/:rowIndex', async (c) => {
 app.get('/api/epp/salidas', async (c) => {
   try {
     const obra = c.req.query('obra');
+    const proyecto = c.req.query('proyecto');
+    const filtro = obra || proyecto;
     const refNota = c.req.query('refNota');
     const trabajador = c.req.query('trabajador');
     let data;
@@ -1066,8 +1076,8 @@ app.get('/api/epp/salidas', async (c) => {
       data = await getSalidasByTrabajador(trabajador);
     } else if (refNota) {
       data = await getSalidasByNota(refNota);
-    } else if (obra) {
-      data = await getSalidasByProyecto(obra);
+    } else if (filtro) {
+      data = await getSalidasByProyecto(filtro);
     } else {
       data = await getAllSalidas();
     }
