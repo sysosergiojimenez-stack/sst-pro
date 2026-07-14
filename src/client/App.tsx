@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './lib/trpc';
-import { Sun, Moon, Building2, Users, Shield, AlertTriangle, Menu, X, ChevronLeft, LogOut, UserCircle } from 'lucide-react';
+import { Sun, Moon, Building2, Users, Shield, AlertTriangle, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ClipboardCheck, HardDrive, ChevronDown } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
@@ -16,7 +16,7 @@ const trpcClient = trpc.createClient({
   links: [httpBatchLink({ url: '/trpc' })],
 });
 
-type View = 'proyectos' | 'empleados' | 'admin';
+type View = 'proyectos' | 'empleados' | 'incidentes' | 'inspecciones' | 'epp' | 'admin';
 
 interface Proyecto {
   rowIndex: number;
@@ -32,7 +32,8 @@ export default function App() {
   const { user, loading: authLoading, login, logout, canAccess } = useAuth();
   const [view, setView] = useState<View>('proyectos');
   const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
@@ -55,11 +56,13 @@ export default function App() {
     setSelectedProyecto(null);
   };
 
-  // Si no esta logueado, mostrar login
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Cargando...</p>
+        </div>
       </div>
     );
   }
@@ -69,55 +72,96 @@ export default function App() {
   }
 
   const navItems = [
-    { id: 'proyectos' as View, icon: Building2, label: 'Proyectos', color: 'text-blue-400' },
-    { id: 'empleados' as View, icon: Users, label: 'Empleados', color: 'text-emerald-400' },
-    ...(canAccess('admin-usuarios') ? [{ id: 'admin' as View, icon: Shield, label: 'Usuarios', color: 'text-purple-400' }] : []),
+    { id: 'proyectos' as View, icon: Building2, label: 'Proyectos', desc: 'Gestión de obras', color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600' },
+    { id: 'empleados' as View, icon: Users, label: 'Empleados', desc: 'Personal y nómina', color: 'text-emerald-400', gradient: 'from-emerald-500 to-emerald-600' },
+    { id: 'incidentes' as View, icon: AlertTriangle, label: 'Incidentes', desc: 'Reportes y análisis', color: 'text-amber-400', gradient: 'from-amber-500 to-amber-600' },
+    { id: 'inspecciones' as View, icon: ClipboardCheck, label: 'Inspecciones', desc: 'Checklist y hallazgos', color: 'text-violet-400', gradient: 'from-violet-500 to-violet-600' },
+    { id: 'epp' as View, icon: HardHat, label: 'EPP', desc: 'Equipos de protección', color: 'text-orange-400', gradient: 'from-orange-500 to-orange-600' },
+    ...(canAccess('admin-usuarios') ? [{ id: 'admin' as View, icon: Shield, label: 'Usuarios', desc: 'Admin y permisos', color: 'text-purple-400', gradient: 'from-purple-500 to-purple-600' }] : []),
   ];
+
+  const viewTitles: Record<string, string> = {
+    proyectos: 'Proyectos',
+    empleados: 'Empleados',
+    incidentes: 'Incidentes',
+    inspecciones: 'Inspecciones',
+    epp: 'EPP - Equipos de Protección',
+    admin: 'Administración de Usuarios',
+  };
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <div className="min-h-screen bg-background text-foreground flex">
+          {/* Mobile overlay */}
+          {sidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm animate-fade-in"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
           {/* Sidebar */}
           <aside 
-            className={`fixed lg:relative z-40 h-screen bg-card/95 backdrop-blur-xl border-r border-border transition-all duration-500 ease-in-out flex flex-col ${
-              sidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:w-20 lg:translate-x-0 overflow-hidden'
-            }`}
+            className={`fixed lg:sticky top-0 left-0 z-50 h-screen bg-card/95 backdrop-blur-xl border-r border-border transition-all duration-300 ease-out flex flex-col shadow-xl shadow-black/5
+              ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+              ${sidebarExpanded ? 'w-72' : 'lg:w-20 w-0'}
+            `}
           >
             {/* Logo */}
-            <div className="p-6 border-b border-border flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
-                <Building2 className="text-white" size={22} />
+            <div className="h-16 border-b border-border flex items-center gap-3 px-4 flex-shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
+                <HardHat className="text-white" size={20} />
               </div>
-              {sidebarOpen && (
-                <div className="overflow-hidden fade-in">
-                  <h1 className="font-bold text-sm tracking-tight">SST Pro</h1>
-                  <p className="text-xs text-muted-foreground">Seguridad Industrial</p>
+              {sidebarExpanded && (
+                <div className="overflow-hidden animate-fade-in">
+                  <h1 className="font-bold text-sm tracking-tight leading-tight">SST Pro</h1>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Seguridad Industrial</p>
                 </div>
               )}
+              <button 
+                onClick={() => { setSidebarOpen(false); setSidebarExpanded(!sidebarExpanded); }}
+                className="ml-auto p-1.5 rounded-lg hover:bg-secondary transition-colors hidden lg:block"
+              >
+                <ChevronLeft size={16} className={`transition-transform duration-300 ${!sidebarExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              <button 
+                onClick={() => setSidebarOpen(false)}
+                className="ml-auto p-1.5 rounded-lg hover:bg-secondary transition-colors lg:hidden"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-2">
-              {navItems.map((item) => {
+            <nav className="flex-1 p-3 space-y-1 overflow-y-auto hide-scrollbar-mobile">
+              {navItems.map((item, idx) => {
                 const Icon = item.icon;
                 const isActive = view === item.id && !selectedProyecto;
                 return (
                   <button
                     key={item.id}
-                    onClick={() => { setView(item.id); setSelectedProyecto(null); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
-                      isActive 
+                    onClick={() => { setView(item.id); setSelectedProyecto(null); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative
+                      ${isActive 
                         ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/10' 
-                        : 'hover:bg-secondary/80 text-muted-foreground hover:text-foreground'
-                    }`}
+                        : 'hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-transparent'
+                      }
+                      ${sidebarExpanded ? '' : 'lg:justify-center lg:px-2'}
+                    `}
+                    title={!sidebarExpanded ? item.label : undefined}
                   >
-                    <Icon size={20} className={`flex-shrink-0 transition-colors ${isActive ? 'text-primary' : item.color}`} />
-                    {sidebarOpen && (
-                      <span className="text-sm font-medium fade-in">{item.label}</span>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isActive ? `bg-gradient-to-br ${item.gradient} shadow-lg` : 'bg-secondary group-hover:bg-secondary/60'}`}>
+                      <Icon size={18} className={isActive ? 'text-white' : item.color} />
+                    </div>
+                    {sidebarExpanded && (
+                      <div className="flex-1 text-left animate-fade-in">
+                        <div className="text-sm font-medium leading-tight">{item.label}</div>
+                        <div className="text-[10px] text-muted-foreground leading-tight">{item.desc}</div>
+                      </div>
                     )}
-                    {isActive && sidebarOpen && (
-                      <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    {isActive && sidebarExpanded && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     )}
                   </button>
                 );
@@ -125,90 +169,76 @@ export default function App() {
             </nav>
 
             {/* Bottom actions */}
-            <div className="p-4 border-t border-border space-y-2">
+            <div className="p-3 border-t border-border space-y-1 flex-shrink-0">
               <button
                 onClick={toggleTheme}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-secondary/80 transition-colors text-muted-foreground hover:text-foreground"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/80 transition-all duration-200 text-muted-foreground hover:text-foreground ${sidebarExpanded ? '' : 'lg:justify-center lg:px-2'}`}
+                title={!sidebarExpanded ? 'Cambiar tema' : undefined}
               >
-                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                {sidebarOpen && <span className="text-sm font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>}
+                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                {sidebarExpanded && <span className="text-sm font-medium animate-fade-in">{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>}
               </button>
             </div>
           </aside>
 
-          {/* Mobile overlay */}
-          {sidebarOpen && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-
           {/* Main content */}
-          <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <main className="flex-1 flex flex-col min-h-screen overflow-hidden w-full">
             {/* Top bar */}
-            <header className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <header className="sticky top-0 z-30 glass border-b border-border px-4 lg:px-6 h-16 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors lg:hidden"
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors lg:hidden flex-shrink-0"
                 >
-                  {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                  <Menu size={20} />
                 </button>
-                <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="hidden lg:block p-2 rounded-lg hover:bg-secondary transition-colors"
-                >
-                  {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-                </button>
-                
-                <div className="flex items-center gap-3">
+
+                <div className="flex items-center gap-2 min-w-0">
                   {selectedProyecto ? (
                     <>
                       <button 
                         onClick={handleBackToProyectos}
-                        className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                        className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
                       >
                         <ChevronLeft size={18} />
                       </button>
-                      <div className="h-6 w-px bg-border" />
-                      <div className="flex items-center gap-2">
+                      <div className="h-6 w-px bg-border flex-shrink-0" />
+                      <div className="flex items-center gap-2 min-w-0">
                         {selectedProyecto.logo ? (
-                          <img src={selectedProyecto.logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                          <img src={selectedProyecto.logo} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
                             <Building2 size={16} className="text-white" />
                           </div>
                         )}
-                        <div>
-                          <h2 className="text-lg font-semibold">{selectedProyecto.denominacion}</h2>
+                        <div className="min-w-0">
+                          <h2 className="text-sm lg:text-base font-semibold truncate">{selectedProyecto.denominacion}</h2>
                           {selectedProyecto.ubicacion && (
-                            <p className="text-xs text-muted-foreground">{selectedProyecto.ubicacion}</p>
+                            <p className="text-[10px] lg:text-xs text-muted-foreground truncate">{selectedProyecto.ubicacion}</p>
                           )}
                         </div>
                       </div>
                     </>
                   ) : (
-                    <h2 className="text-lg font-semibold">
-                      {view === 'proyectos' && 'Proyectos'}
-                      {view === 'empleados' && 'Todos los Empleados'}
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm lg:text-lg font-semibold">{viewTitles[view] || view}</h2>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">{user.nombres} {user.apellidos}</p>
-                  <p className="text-xs text-muted-foreground">{user.rol}</p>
+              <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
+                <div className="text-right hidden md:block">
+                  <p className="text-sm font-medium leading-tight">{user.nombres} {user.apellidos}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">{user.rol}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <UserCircle className="text-white" size={20} />
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                  <UserCircle className="text-white" size={18} />
                 </div>
                 <button
                   onClick={logout}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400"
-                  title="Cerrar Sesion"
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400 flex-shrink-0"
+                  title="Cerrar Sesión"
                 >
                   <LogOut size={18} />
                 </button>
@@ -216,14 +246,29 @@ export default function App() {
             </header>
 
             {/* Content */}
-            <div className="flex-1 p-6 overflow-auto">
-              <div className="slide-up">
+            <div className="flex-1 p-4 lg:p-6 overflow-auto">
+              <div className="animate-fade-in-up max-w-full">
                 {selectedProyecto ? (
                   <ProyectoDashboard proyecto={selectedProyecto} user={user} />
                 ) : (
                   <>
                     {view === 'proyectos' && <Proyectos onSelectProyecto={handleSelectProyecto} />}
                     {view === 'empleados' && <Empleados />}
+                    {view === 'incidentes' && <Incidentes />}
+                    {view === 'inspecciones' && (
+                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                        <ClipboardCheck size={48} className="mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">Inspecciones</h3>
+                        <p className="text-sm">Módulo en desarrollo</p>
+                      </div>
+                    )}
+                    {view === 'epp' && (
+                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                        <HardHat size={48} className="mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">EPP - Equipos de Protección Personal</h3>
+                        <p className="text-sm">Módulo en desarrollo</p>
+                      </div>
+                    )}
                     {view === 'admin' && canAccess('admin-usuarios') && <AdminUsuarios />}
                   </>
                 )}
