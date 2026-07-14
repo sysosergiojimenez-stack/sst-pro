@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, TrendingUp, ShieldCheck, Package, ChevronRight, Activity, CheckCircle2, XCircle, Clock, Building2 } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
@@ -22,30 +22,13 @@ type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones';
 
 export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) {
   const [moduloActivo, setModuloActivo] = useState<Modulo>('overview');
-  const [activeTab, setActiveTab] = useState<Modulo>('overview');
-
-  // Datos demo - en producción vendrían de la API
-  const stats = [
-    { id: 'empleados' as Modulo, label: 'Empleados', value: 12, icon: Users, color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600', border: 'border-blue-500/20', bg: 'bg-blue-500/10' },
-    { id: 'incidentes' as Modulo, label: 'Incidentes', value: 0, icon: AlertTriangle, color: 'text-amber-400', gradient: 'from-amber-500 to-amber-600', border: 'border-amber-500/20', bg: 'bg-amber-500/10' },
-    { id: 'inspecciones' as Modulo, label: 'Inspecciones', value: 5, icon: ClipboardCheck, color: 'text-emerald-400', gradient: 'from-emerald-500 to-emerald-600', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10' },
-    { id: 'epp' as Modulo, label: 'EPP Items', value: 48, icon: HardHat, color: 'text-violet-400', gradient: 'from-violet-500 to-violet-600', border: 'border-violet-500/20', bg: 'bg-violet-500/10' },
-  ];
-
-  const tabs = [
-    { id: 'overview' as Modulo, label: 'Resumen', icon: Activity },
-    { id: 'empleados' as Modulo, label: 'Empleados', icon: Users },
-    { id: 'incidentes' as Modulo, label: 'Incidentes', icon: AlertTriangle },
-    { id: 'inspecciones' as Modulo, label: 'Inspecciones', icon: ClipboardCheck },
-    { id: 'epp' as Modulo, label: 'EPP', icon: HardHat },
-  ];
 
   // Si hay un módulo activo (no overview), renderizar ese componente
   if (moduloActivo === 'empleados') {
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
+          onClick={() => setModuloActivo('overview')}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -59,7 +42,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
+          onClick={() => setModuloActivo('overview')}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -73,7 +56,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
+          onClick={() => setModuloActivo('overview')}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -87,7 +70,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
+          onClick={() => setModuloActivo('overview')}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -101,7 +84,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     );
   }
 
-  // OVERVIEW
+  // OVERVIEW - Solo header + módulos grandes
   return (
     <div className="space-y-6 animate-fade-in-up max-w-7xl mx-auto">
       {/* Header del proyecto */}
@@ -120,59 +103,11 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         </div>
       </div>
 
-      {/* Stats Cards - Estilo Empleados */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <button 
-              key={i} 
-              onClick={() => { setActiveTab(stat.id); setModuloActivo(stat.id); }}
-              className={`stat-card ${activeTab === stat.id ? 'stat-card-active' : 'stat-card-inactive'} text-left`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-md`}>
-                  <Icon size={16} className="text-white" />
-                </div>
-                <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
-              </div>
-              <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tabs de navegación */}
-      <div className="flex flex-wrap gap-2 border-b border-border pb-1">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); if (tab.id !== 'overview') setModuloActivo(tab.id); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-sm font-medium transition-all duration-200 ${
-                isActive 
-                  ? 'bg-primary/10 text-primary border border-b-0 border-primary/20' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-              }`}
-            >
-              <Icon size={16} />
-              {tab.label}
-              {tab.id === 'incidentes' && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Contenido del overview */}
+      {/* Módulos del Proyecto */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Módulos rápidos */}
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Activity size={20} className="text-primary" />
+            <Building2 size={20} className="text-primary" />
             Módulos del Proyecto
           </h3>
 
@@ -303,7 +238,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                   <span>2 EPP con stock bajo</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-blue-400">
-                  <TrendingUp size={12} />
+                  <CheckCircle2 size={12} />
                   <span>0 incidentes este mes</span>
                 </div>
               </div>
