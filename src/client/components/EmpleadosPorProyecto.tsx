@@ -71,7 +71,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/empleados?obra=${encodeURIComponent(proyecto.denominacion)}`);
+      const response = await fetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
       const data = await response.json();
       if (data.success) {
         setEmpleados(data.data);
