@@ -111,11 +111,11 @@ export async function getAllRemisiones(): Promise<Remision[]> {
 
 export async function getRemisionesByProyecto(proyecto: string): Promise<Remision[]> {
   const allEntradas = await getAllEntradas();
-  const numeracionesProyecto = new Set(
+  const idsRemisionProyecto = new Set(
     allEntradas.filter(e => e.proyecto === proyecto).map(e => e.refRemision)
   );
   const allRemisiones = await getAllRemisiones();
-  return allRemisiones.filter(r => numeracionesProyecto.has(r.numeracion));
+  return allRemisiones.filter(r => idsRemisionProyecto.has(r.idRegistro));
 }
 
 export async function getRemisionByNumeracion(numeracion: string): Promise<Remision | null> {
