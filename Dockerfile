@@ -1,3 +1,5 @@
+# SST Pro - Seguridad Industrial
+# Build: v2 - Forzando rebuild para fix de credenciales EPP
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
