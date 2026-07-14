@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { trpc } from '../lib/trpc';
-import { Building2, Users, Search, X, Plus, UserPlus, FileText, Sparkles, Loader2, ExternalLink, Pencil, Trash2, Phone, Mail, HardHat, Calendar, HeartPulse, Droplets, ShieldCheck, AlertCircle, CheckCircle2, XCircle2 } from 'lucide-react';
+import { Building2, Users, Search, X, Plus, UserPlus, FileText, Sparkles, Loader2, ExternalLink, Pencil, Trash2, Phone, Mail, HardHat, Calendar, HeartPulse, Droplets, ShieldCheck, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function Empleados() {
   const { data, isLoading, error, refetch } = trpc.empleados.list.useQuery();
@@ -129,7 +129,7 @@ export default function Empleados() {
         <button className="stat-card stat-card-inactive">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-md">
-              <XCircle2 size={16} className="text-white" />
+              <XCircle size={16} className="text-white" />
             </div>
             <span className="text-xs font-medium text-muted-foreground">Inactivos</span>
           </div>
@@ -243,7 +243,7 @@ export default function Empleados() {
                     </td>
                     <td className="px-4 py-3">
                       {e.estado === 'Inactivo' ? (
-                        <span className="badge badge-danger"><XCircle2 size={10} />Inactivo</span>
+                        <span className="badge badge-danger"><XCircle size={10} />Inactivo</span>
                       ) : (
                         <span className="badge badge-success"><CheckCircle2 size={10} />Activo</span>
                       )}
