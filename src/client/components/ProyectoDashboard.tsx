@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, TrendingUp, ShieldCheck, Package, ChevronRight, Activity, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, TrendingUp, ShieldCheck, Package, ChevronRight, Activity, CheckCircle2, XCircle, Clock, Building2 } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
@@ -26,10 +26,10 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
 
   // Datos demo - en producción vendrían de la API
   const stats = [
-    { label: 'Empleados', value: 12, icon: Users, color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600', border: 'border-blue-500/20', bg: 'bg-blue-500/10' },
-    { label: 'Incidentes', value: 0, icon: AlertTriangle, color: 'text-amber-400', gradient: 'from-amber-500 to-amber-600', border: 'border-amber-500/20', bg: 'bg-amber-500/10' },
-    { label: 'Inspecciones', value: 5, icon: ClipboardCheck, color: 'text-emerald-400', gradient: 'from-emerald-500 to-emerald-600', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10' },
-    { label: 'EPP Items', value: 48, icon: HardHat, color: 'text-violet-400', gradient: 'from-violet-500 to-violet-600', border: 'border-violet-500/20', bg: 'bg-violet-500/10' },
+    { id: 'empleados' as Modulo, label: 'Empleados', value: 12, icon: Users, color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600', border: 'border-blue-500/20', bg: 'bg-blue-500/10' },
+    { id: 'incidentes' as Modulo, label: 'Incidentes', value: 0, icon: AlertTriangle, color: 'text-amber-400', gradient: 'from-amber-500 to-amber-600', border: 'border-amber-500/20', bg: 'bg-amber-500/10' },
+    { id: 'inspecciones' as Modulo, label: 'Inspecciones', value: 5, icon: ClipboardCheck, color: 'text-emerald-400', gradient: 'from-emerald-500 to-emerald-600', border: 'border-emerald-500/20', bg: 'bg-emerald-500/10' },
+    { id: 'epp' as Modulo, label: 'EPP Items', value: 48, icon: HardHat, color: 'text-violet-400', gradient: 'from-violet-500 to-violet-600', border: 'border-violet-500/20', bg: 'bg-violet-500/10' },
   ];
 
   const tabs = [
@@ -45,7 +45,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => setModuloActivo('overview')}
+          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -59,7 +59,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => setModuloActivo('overview')}
+          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -73,12 +73,12 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => setModuloActivo('overview')}
+          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <EPP proyecto={proyecto.idRegistro} />
+        <EPP proyecto={proyecto.denominacion} />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     return (
       <div className="animate-fade-in">
         <button
-          onClick={() => setModuloActivo('overview')}
+          onClick={() => { setModuloActivo('overview'); setActiveTab('overview'); }}
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
@@ -107,7 +107,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       {/* Header del proyecto */}
       <div className="bg-card border border-border rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
-          <Building2Icon size={32} className="text-white" />
+          <Building2 size={32} className="text-white" />
         </div>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{proyecto.denominacion}</h1>
@@ -127,8 +127,8 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           return (
             <button 
               key={i} 
-              onClick={() => { setActiveTab(stat.id as Modulo); setModuloActivo(stat.id as Modulo); }}
-              className={`stat-card ${activeTab === (stat.id as Modulo) ? 'stat-card-active' : 'stat-card-inactive'} text-left`}
+              onClick={() => { setActiveTab(stat.id); setModuloActivo(stat.id); }}
+              className={`stat-card ${activeTab === stat.id ? 'stat-card-active' : 'stat-card-inactive'} text-left`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-md`}>
@@ -290,32 +290,27 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
 
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Próxima Capacitación</p>
-              <p className="text-sm">15 de julio, 2025</p>
+              <p className="text-sm">Inducción SST - 15 de agosto</p>
             </div>
-          </div>
 
-          {/* Alertas */}
-          <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
-            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2 mb-2">
-              <AlertTriangle size={14} /> Alertas
-            </h4>
-            <ul className="space-y-2 text-xs text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
-                2 empleados próximos a vencimiento de examen médico
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
-                Capacitación SST pendiente para 3 nuevos ingresos
-              </li>
-            </ul>
+            <div className="h-px bg-border" />
+
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Alertas</p>
+              <div className="space-y-2 mt-2">
+                <div className="flex items-center gap-2 text-xs text-amber-400">
+                  <AlertTriangle size={12} />
+                  <span>2 EPP con stock bajo</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-blue-400">
+                  <TrendingUp size={12} />
+                  <span>0 incidentes este mes</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function Building2Icon({ size = 24, className = '' }: { size?: number; className?: string }) {
-  return <Building2 size={size} className={className} />;
 }
