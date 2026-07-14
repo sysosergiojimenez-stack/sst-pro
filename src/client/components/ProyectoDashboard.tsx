@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
@@ -20,8 +20,84 @@ interface ProyectoDashboardProps {
 
 type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones';
 
+interface StatsProyecto {
+  empleados: number;
+  empleadosActivos: number;
+  empleadosInactivos: number;
+  incidentesAbiertos: number;
+  incidentesCerrados: number;
+  eppItems: number;
+  eppBajoStock: number;
+}
+
 export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) {
   const [moduloActivo, setModuloActivo] = useState<Modulo>('overview');
+  const [stats, setStats] = useState<StatsProyecto>({
+    empleados: 0, empleadosActivos: 0, empleadosInactivos: 0,
+    incidentesAbiertos: 0, incidentesCerrados: 0,
+    eppItems: 0, eppBajoStock: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        // Fetch empleados
+        const empRes = await fetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const empData = empRes.ok ? await empRes.json() : { data: [] };
+        const empleados = empData.data || [];
+        const activos = empleados.filter((e: any) => (e.estado || '').toLowerCase() === 'activo').length;
+        const inactivos = empleados.length - activos;
+
+        // Fetch incidentes
+        const incRes = await fetch(`/api/incidentes?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const incData = incRes.ok ? await incRes.json() : { data: [] };
+        const incidentes = incData.data || [];
+        const abiertos = incidentes.filter((i: any) => (i.estado || '').toLowerCase() === 'abierto').length;
+        const cerrados = incidentes.length - abiertos;
+
+        // Fetch EPP productos
+        const eppRes = await fetch(`/api/epp/productos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const eppData = eppRes.ok ? await eppRes.json() : { data: [] };
+        const productos = eppData.data || [];
+
+        // Fetch EPP entradas para calcular stock
+        const entRes = await fetch(`/api/epp/entradas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const entData = entRes.ok ? await entRes.json() : { data: [] };
+        const entradas = entData.data || [];
+
+        // Fetch EPP salidas para calcular stock
+        const salRes = await fetch(`/api/epp/salidas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const salData = salRes.ok ? await salRes.json() : { data: [] };
+        const salidas = salData.data || [];
+
+        // Calcular stock por producto
+        let bajoStock = 0;
+        for (const prod of productos) {
+          const entradasProd = entradas.filter((e: any) => e.codigo === prod.codigo).reduce((sum: number, e: any) => sum + (parseInt(e.cantidad) || 0), 0);
+          const salidasProd = salidas.filter((s: any) => s.refItem === prod.codigo).reduce((sum: number, s: any) => sum + (parseInt(s.cantidad) || 0), 0);
+          const stock = entradasProd - salidasProd;
+          if (stock < 5) bajoStock++;
+        }
+
+        setStats({
+          empleados: empleados.length,
+          empleadosActivos: activos,
+          empleadosInactivos: inactivos,
+          incidentesAbiertos: abiertos,
+          incidentesCerrados: cerrados,
+          eppItems: productos.length,
+          eppBajoStock: bajoStock
+        });
+      } catch (e) {
+        console.error('Error fetching stats:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, [proyecto.denominacion]);
 
   // Si hay un módulo activo (no overview), renderizar ese componente
   if (moduloActivo === 'empleados') {
@@ -84,7 +160,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     );
   }
 
-  // OVERVIEW - Solo header + módulos grandes
+  // OVERVIEW
   return (
     <div className="space-y-6 animate-fade-in-up max-w-7xl mx-auto">
       {/* Header del proyecto */}
@@ -103,7 +179,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         </div>
       </div>
 
-      {/* Módulos del Proyecto */}
+      {/* Módulos del Proyecto con datos reales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -126,8 +202,15 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               <h4 className="font-semibold text-base">Empleados</h4>
               <p className="text-sm text-muted-foreground mt-1">Gestión del personal asignado al proyecto</p>
               <div className="flex items-center gap-3 mt-3">
-                <span className="badge badge-success"><CheckCircle2 size={10} />12 activos</span>
-                <span className="badge badge-muted">2 inactivos</span>
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-success"><CheckCircle2 size={10} />{stats.empleadosActivos} activos</span>
+                    {stats.empleadosInactivos > 0 && <span className="badge badge-muted">{stats.empleadosInactivos} inactivos</span>}
+                    {stats.empleados === 0 && <span className="badge badge-muted">Sin empleados</span>}
+                  </>
+                )}
               </div>
             </button>
 
@@ -145,8 +228,15 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               <h4 className="font-semibold text-base">Incidentes</h4>
               <p className="text-sm text-muted-foreground mt-1">Registro y seguimiento de incidentes</p>
               <div className="flex items-center gap-3 mt-3">
-                <span className="badge badge-success"><CheckCircle2 size={10} />0 abiertos</span>
-                <span className="badge badge-muted">5 cerrados</span>
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-success"><CheckCircle2 size={10} />{stats.incidentesAbiertos} abiertos</span>
+                    {stats.incidentesCerrados > 0 && <span className="badge badge-muted">{stats.incidentesCerrados} cerrados</span>}
+                    {(stats.incidentesAbiertos + stats.incidentesCerrados) === 0 && <span className="badge badge-muted">Sin incidentes</span>}
+                  </>
+                )}
               </div>
             </button>
 
@@ -182,8 +272,18 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               <h4 className="font-semibold text-base">EPP</h4>
               <p className="text-sm text-muted-foreground mt-1">Control de Equipos de Protección Personal</p>
               <div className="flex items-center gap-3 mt-3">
-                <span className="badge badge-info"><Package size={10} />48 items</span>
-                <span className="badge badge-success">98% OK</span>
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-info"><Package size={10} />{stats.eppItems} items</span>
+                    {stats.eppBajoStock > 0 ? (
+                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.eppBajoStock} bajo stock</span>
+                    ) : (
+                      <span className="badge badge-success">Stock OK</span>
+                    )}
+                  </>
+                )}
               </div>
             </button>
           </div>
@@ -233,14 +333,27 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Alertas</p>
               <div className="space-y-2 mt-2">
-                <div className="flex items-center gap-2 text-xs text-amber-400">
-                  <AlertTriangle size={12} />
-                  <span>2 EPP con stock bajo</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-blue-400">
-                  <CheckCircle2 size={12} />
-                  <span>0 incidentes este mes</span>
-                </div>
+                {loading ? (
+                  <p className="text-xs text-muted-foreground">Cargando...</p>
+                ) : (
+                  <>
+                    {stats.eppBajoStock > 0 ? (
+                      <div className="flex items-center gap-2 text-xs text-amber-400">
+                        <AlertTriangle size={12} />
+                        <span>{stats.eppBajoStock} EPP con stock bajo</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-emerald-400">
+                        <CheckCircle2 size={12} />
+                        <span>Stock EPP OK</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-blue-400">
+                      <CheckCircle2 size={12} />
+                      <span>{stats.incidentesAbiertos} incidentes abiertos</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
