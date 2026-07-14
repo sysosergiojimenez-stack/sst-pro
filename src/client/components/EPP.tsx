@@ -131,7 +131,7 @@ export default function EPP({ proyecto }: EPPProps) {
       if (salData.success) setSalidas(salData.data);
       if (empData.success) setEmpleados(empData.data);
 
-      const remRes = await fetch('/api/epp/remisiones');
+      const remRes = await fetch(`/api/epp/remisiones?proyecto=${encodeURIComponent(proyecto)}`);
       const remData = await remRes.json();
       if (remData.success) setRemisiones(remData.data);
     } catch (err: any) {
