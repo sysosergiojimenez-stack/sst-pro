@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './lib/trpc';
-import { Sun, Moon, Building2, Users, Shield, AlertTriangle, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ClipboardCheck, HardDrive, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
-import Empleados from './components/Empleados';
-import Incidentes from './components/Incidentes';
 import Proyectos from './components/Proyectos';
 import ProyectoDashboard from './components/ProyectoDashboard';
 
@@ -16,7 +14,7 @@ const trpcClient = trpc.createClient({
   links: [httpBatchLink({ url: '/trpc' })],
 });
 
-type View = 'proyectos' | 'empleados' | 'incidentes' | 'inspecciones' | 'epp' | 'admin';
+type View = 'proyectos' | 'admin';
 
 interface Proyecto {
   rowIndex: number;
@@ -72,22 +70,9 @@ export default function App() {
   }
 
   const navItems = [
-    { id: 'proyectos' as View, icon: Building2, label: 'Proyectos', desc: 'Gestión de obras', color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600' },
-    { id: 'empleados' as View, icon: Users, label: 'Empleados', desc: 'Personal y nómina', color: 'text-emerald-400', gradient: 'from-emerald-500 to-emerald-600' },
-    { id: 'incidentes' as View, icon: AlertTriangle, label: 'Incidentes', desc: 'Reportes y análisis', color: 'text-amber-400', gradient: 'from-amber-500 to-amber-600' },
-    { id: 'inspecciones' as View, icon: ClipboardCheck, label: 'Inspecciones', desc: 'Checklist y hallazgos', color: 'text-violet-400', gradient: 'from-violet-500 to-violet-600' },
-    { id: 'epp' as View, icon: HardHat, label: 'EPP', desc: 'Equipos de protección', color: 'text-orange-400', gradient: 'from-orange-500 to-orange-600' },
+    { id: 'proyectos' as View, icon: Building2, label: 'Proyectos', desc: 'Gestión de obras SST', color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600' },
     ...(canAccess('admin-usuarios') ? [{ id: 'admin' as View, icon: Shield, label: 'Usuarios', desc: 'Admin y permisos', color: 'text-purple-400', gradient: 'from-purple-500 to-purple-600' }] : []),
   ];
-
-  const viewTitles: Record<string, string> = {
-    proyectos: 'Proyectos',
-    empleados: 'Empleados',
-    incidentes: 'Incidentes',
-    inspecciones: 'Inspecciones',
-    epp: 'EPP - Equipos de Protección',
-    admin: 'Administración de Usuarios',
-  };
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
@@ -135,7 +120,7 @@ export default function App() {
 
             {/* Navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto hide-scrollbar-mobile">
-              {navItems.map((item, idx) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = view === item.id && !selectedProyecto;
                 return (
@@ -221,7 +206,7 @@ export default function App() {
                     </>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm lg:text-lg font-semibold">{viewTitles[view] || view}</h2>
+                      <h2 className="text-sm lg:text-lg font-semibold">{view === 'proyectos' ? 'Proyectos' : 'Usuarios'}</h2>
                     </div>
                   )}
                 </div>
@@ -249,26 +234,10 @@ export default function App() {
             <div className="flex-1 p-4 lg:p-6 overflow-auto">
               <div className="animate-fade-in-up max-w-full">
                 {selectedProyecto ? (
-                  <ProyectoDashboard proyecto={selectedProyecto} user={user} />
+                  <ProyectoDashboard proyecto={selectedProyecto} />
                 ) : (
                   <>
                     {view === 'proyectos' && <Proyectos onSelectProyecto={handleSelectProyecto} />}
-                    {view === 'empleados' && <Empleados />}
-                    {view === 'incidentes' && <Incidentes />}
-                    {view === 'inspecciones' && (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                        <ClipboardCheck size={48} className="mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">Inspecciones</h3>
-                        <p className="text-sm">Módulo en desarrollo</p>
-                      </div>
-                    )}
-                    {view === 'epp' && (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                        <HardHat size={48} className="mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">EPP - Equipos de Protección Personal</h3>
-                        <p className="text-sm">Módulo en desarrollo</p>
-                      </div>
-                    )}
                     {view === 'admin' && canAccess('admin-usuarios') && <AdminUsuarios />}
                   </>
                 )}
