@@ -64,8 +64,9 @@ export async function getProductoByCodigo(codigo: string): Promise<Producto | nu
 export async function appendProducto(producto: Omit<Producto, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_PRODUCTOS}!A:F`,
+    range: `${SHEET_PRODUCTOS}!A1:F1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[producto.codigo, producto.proyecto, producto.nombre, producto.proveedor, producto.clasificacion, producto.stockMinimo]] },
   });
 }
@@ -270,8 +271,9 @@ export async function getNotaSalidaById(idRegistro: string): Promise<NotaSalida 
 export async function appendNotaSalida(nota: Omit<NotaSalida, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NOTAS_SALIDA}!A:H`,
+    range: `${SHEET_NOTAS_SALIDA}!A1:H1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[
       nota.idRegistro, nota.fechaHora, nota.userEmail,
       nota.obra, nota.orden, nota.fecha,
@@ -375,8 +377,9 @@ export async function getSalidasByTrabajador(trabajador: string): Promise<Salida
 export async function appendSalida(salida: Omit<Salida, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_SALIDAS}!A:G`,
+    range: `${SHEET_SALIDAS}!A1:G1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[
       salida.idRegistro, salida.fechaHora, salida.userEmail,
       salida.refNotaSalida, salida.refItem, salida.cantidad,
@@ -389,8 +392,9 @@ export async function appendMultipleSalidas(salidas: Omit<Salida, 'rowIndex'>[])
   if (salidas.length === 0) return;
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_SALIDAS}!A:G`,
+    range: `${SHEET_SALIDAS}!A1:G1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: salidas.map(s => [
       s.idRegistro, s.fechaHora, s.userEmail,
       s.refNotaSalida, s.refItem, s.cantidad,
@@ -464,8 +468,9 @@ export async function getEntradasByRemisionId(idRegistro: string): Promise<Entra
 export async function appendEntrada(entrada: Omit<Entrada, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_ENTRADAS}!A:H`,
+    range: `${SHEET_ENTRADAS}!A1:H1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[
       entrada.idRegistro,
       entrada.dateTime || new Date().toISOString(),
@@ -483,8 +488,9 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
   if (entradas.length === 0) return;
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_ENTRADAS}!A:H`,
+    range: `${SHEET_ENTRADAS}!A1:H1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: entradas.map(e => [
       e.idRegistro,
       e.dateTime || new Date().toISOString(),
