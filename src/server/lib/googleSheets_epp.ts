@@ -466,9 +466,14 @@ export async function appendEntrada(entrada: Omit<Entrada, 'rowIndex'>): Promise
     range: `${SHEET_ENTRADAS}!A:H`,
     valueInputOption: 'RAW',
     requestBody: { values: [[
-      entrada.idRegistro, entrada.dateTime, entrada.userEmail,
-      entrada.refRemision, entrada.codigo, entrada.item,
-      entrada.cantidad, entrada.proyecto
+      entrada.idRegistro,
+      entrada.dateTime || new Date().toISOString(),
+      entrada.userEmail || 'sistema',
+      entrada.refRemision,
+      entrada.codigo,
+      entrada.item,
+      entrada.cantidad,
+      entrada.proyecto
     ]] },
   });
 }
@@ -480,9 +485,14 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
     range: `${SHEET_ENTRADAS}!A:H`,
     valueInputOption: 'RAW',
     requestBody: { values: entradas.map(e => [
-      e.idRegistro, e.dateTime, e.userEmail,
-      e.refRemision, e.codigo, e.item,
-      e.cantidad, e.proyecto
+      e.idRegistro,
+      e.dateTime || new Date().toISOString(),
+      e.userEmail || 'sistema',
+      e.refRemision,
+      e.codigo,
+      e.item,
+      e.cantidad,
+      e.proyecto
     ]) },
   });
 }
