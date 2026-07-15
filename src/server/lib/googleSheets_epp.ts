@@ -105,7 +105,7 @@ function rowToRemision(row: any[], index: number): Remision {
 export async function getAllRemisiones(): Promise<Remision[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_REMISIONES}!A2:H`,
+    range: `${SHEET_REMISIONES}!A2:L`,
   });
   const rows = response.data.values || [];
   return rows.map((row, index) => rowToRemision(row, index));
