@@ -93,12 +93,12 @@ function rowToRemision(row: any[], index: number): Remision {
     idRegistro: row[0] || '',
     fechaHora: row[1] || '',
     userEmail: row[2] || '',
-    proyecto: row[3] || '',
-    proveedor: row[4] || '',
-    numeracion: row[5] || '',
-    fecha: row[6] || '',
-    detalle: row[7] || '',
-    scaneado: row[8] || '',
+    proveedor: row[3] || '',
+    numeracion: row[4] || '',
+    fecha: row[5] || '',
+    detalle: row[6] || '',
+    scaneado: row[7] || '',
+    proyecto: row[11] || '',
   };
 }
 
@@ -133,12 +133,13 @@ export async function getRemisionById(idRegistro: string): Promise<Remision | nu
 export async function appendRemision(remision: Omit<Remision, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_REMISIONES}!A:I`,
+    range: `${SHEET_REMISIONES}!A:L`,
     valueInputOption: 'RAW',
     requestBody: { values: [[
       remision.idRegistro, remision.fechaHora, remision.userEmail,
-      remision.proyecto, remision.proveedor, remision.numeracion,
-      remision.fecha, remision.detalle, remision.scaneado
+      remision.proveedor, remision.numeracion, remision.fecha,
+      remision.detalle, remision.scaneado, '', '', '',
+      remision.proyecto
     ]] },
   });
 }
