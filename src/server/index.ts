@@ -190,10 +190,18 @@ app.post('/api/gemini', async (c) => {
     const body = await c.req.json();
     
     if (!body.pdfBase64 || body.pdfBase64.length < 100) {
-      return c.json({ error: 'PDF vacio o corrupto' }, 400);
+      return c.json({ error: 'PDF vacio o corrupto. Length: ' + (body.pdfBase64?.length || 0) }, 400);
     }
 
+    // Validar que GEMINI_API_KEY esté configurada
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return c.json({ error: 'GEMINI_API_KEY no configurada en el servidor' }, 500);
+    }
+
+    console.log('[GEMINI] Procesando PDF, length:', body.pdfBase64.length);
     const datos = await extraerDatosConGemini(body.pdfBase64, body.mimeType || 'application/pdf');
+    console.log('[GEMINI] Datos extraidos:', JSON.stringify(datos).substring(0, 200));
 
     const nombreArchivo = `FICHA_${datos.nroDocumento || 'SIN_DOC'}_${datos.nombres || 'SIN_NOMBRE'}_${Date.now()}.pdf`;
     const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, body.mimeType || 'application/pdf');
@@ -205,8 +213,12 @@ app.post('/api/gemini', async (c) => {
 
     return c.json({ success: true, data: resultado });
   } catch (error: any) {
-    console.error('Error /api/gemini:', error.message);
-    return c.json({ error: error.message }, 500);
+    console.error('[GEMINI] Error completo:', error);
+    console.error('[GEMINI] Stack:', error.stack);
+    return c.json({ 
+      error: error.message || 'Error desconocido',
+      stack: error.stack || 'No stack trace'
+    }, 500);
   }
 });
 
