@@ -57,23 +57,32 @@ export async function subirPDFAGCS(
       throw new Error(`GCS upload error: ${response.status} - ${errorText}`);
     }
     const result = await response.json();
-    const aclUrl = `https://storage.googleapis.com/storage/v1/b/${GCS_BUCKET_NAME}/o/${encodeURIComponent(nombreArchivo)}/acl`;
-    const aclResponse = await fetch(aclUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token.token,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ entity: 'allUsers', role: 'READER' }),
-    });
-    if (!aclResponse.ok) {
-      console.warn('No se pudo hacer publico el objeto:', await aclResponse.text());
+
+    // Intentar hacer público el objeto, pero no fallar si no se puede
+    try {
+      const aclUrl = `https://storage.googleapis.com/storage/v1/b/${GCS_BUCKET_NAME}/o/${encodeURIComponent(nombreArchivo)}/acl`;
+      const aclResponse = await fetch(aclUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token.token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ entity: 'allUsers', role: 'READER' }),
+      });
+      if (!aclResponse.ok) {
+        console.warn('[GCS] No se pudo hacer publico el objeto (permisos insuficientes):', aclResponse.status);
+      } else {
+        console.log('[GCS] Objeto hecho publico exitosamente');
+      }
+    } catch (aclError) {
+      console.warn('[GCS] Error al intentar hacer publico (ignorado):', aclError);
     }
+
     const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET_NAME}/${encodeURIComponent(nombreArchivo)}`;
-    console.log('PDF subido a GCS:', publicUrl);
+    console.log('[GCS] PDF subido:', publicUrl);
     return publicUrl;
   } catch (error) {
-    console.error('Error subiendo a GCS:', error);
+    console.error('[GCS] Error subiendo a GCS:', error);
     throw new Error('Error al subir PDF a GCS: ' + (error as Error).message);
   }
 }
