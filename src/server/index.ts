@@ -709,6 +709,7 @@ app.post('/api/epp/remisiones', async (c) => {
       idRegistro,
       fechaHora: new Date().toISOString(),
       userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
       proveedor: body.proveedor || '',
       numeracion: body.numeracion || '',
       fecha: convertirFecha(body.fecha || ''),
