@@ -310,11 +310,13 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
 
       const entradasBatch = datosExtraidos.items.map((item: any, idx: number) => ({
         idRegistro: `ENT-${Date.now()}-${idx}`,
-        proyecto,
+        dateTime: new Date().toISOString(),
+        userEmail: 'sistema',
         refRemision: remisionId,
         codigo: item.codigo,
         item: item.nombre,
         cantidad: item.cantidad,
+        proyecto,
       }));
 
       await fetch('/api/epp/entradas/batch', {
