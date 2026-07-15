@@ -129,8 +129,9 @@ export async function getRemisionById(idRegistro: string): Promise<Remision | nu
 export async function appendRemision(remision: Omit<Remision, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_REMISIONES}!A:L`,
+    range: `${SHEET_REMISIONES}!A1:L1`,
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[
       remision.idRegistro, remision.fechaHora, remision.userEmail,
       remision.proveedor, remision.numeracion, remision.fecha,
