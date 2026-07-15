@@ -638,7 +638,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       {vista === 'productos' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Catalogo de Productos</h2>
+            <h2 className="text-lg font-semibold">Planilla de Productos EPP</h2>
             <button onClick={() => setShowProductoForm(true)} className="bg-secondary border border-border px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
               <Plus size={16} /> Nuevo Producto
             </button>
@@ -666,32 +666,64 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           ) : productosFiltrados.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground"><Package size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay productos registrados</p></div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {productosFiltrados.map((p, i) => {
-                const stock = stockDisponible(p.codigo);
-                const bajo = isStockBajo(p);
-                return (
-                  <div key={p.codigo} className={`glass-card p-5 card-hover fade-in ${bajo ? 'border-red-500/30' : ''}`} style={{ animationDelay: `${i * 50}ms` }}>
-                    <div className="flex items-start justify-between">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0"><Package size={24} className="text-white" /></div>
-                      <span className="badge-info px-2 py-1 rounded-full text-xs">{p.clasificacion}</span>
-                    </div>
-                    <h3 className="font-semibold mt-3">{p.nombre}</h3>
-                    <p className="text-sm text-muted-foreground">{p.codigo}</p>
-                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{p.proveedor}</span>
-                      <span className={`font-medium ${bajo ? 'text-red-400' : 'text-emerald-400'}`}>
-                        Stock: {stock} {bajo && `(Min: ${p.stockMinimo})`}
-                      </span>
-                    </div>
-                    {bajo && (
-                      <div className="mt-2 flex items-center gap-1 text-xs text-red-400">
-                        <AlertCircle size={12} /> Stock bajo
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Header de la planilla */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-secondary/50 border-b border-border">
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Codigo</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
+                      <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Entradas</th>
+                      <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Salidas</th>
+                      <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Stock</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productosFiltrados.map((p, i) => {
+                      const entradas = totalEntradasByProducto(p.codigo);
+                      const salidas = totalSalidasByProducto(p.codigo);
+                      const stock = stockDisponible(p.codigo);
+                      const bajo = isStockBajo(p);
+                      return (
+                        <tr key={p.codigo} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${bajo ? 'bg-red-500/5' : ''}`}>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.codigo}</td>
+                          <td className="px-4 py-3 font-medium">{p.nombre}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{p.proveedor || '-'}</td>
+                          <td className="px-4 py-3 text-right font-mono text-emerald-400">{entradas}</td>
+                          <td className="px-4 py-3 text-right font-mono text-amber-400">{salidas}</td>
+                          <td className="px-4 py-3 text-right font-mono font-bold">{stock}</td>
+                          <td className="px-4 py-3 text-center">
+                            {bajo ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                                <AlertCircle size={10} /> Bajo
+                              </span>
+                            ) : stock > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
+                                <CheckCircle2 size={10} /> OK
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">
+                                <AlertTriangle size={10} /> Agotado
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {/* Totales */}
+              <div className="bg-secondary/30 border-t border-border px-4 py-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{productosFiltrados.length} productos</span>
+                <span>
+                  {productosFiltrados.filter(p => isStockBajo(p)).length} con stock bajo · {' '}
+                  {productosFiltrados.filter(p => stockDisponible(p.codigo) === 0).length} agotados
+                </span>
+              </div>
             </div>
           )}
         </div>
