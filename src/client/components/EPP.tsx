@@ -282,6 +282,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idRegistro: remisionId,
+          proyecto: proyecto,
           proveedor: datosExtraidos.proveedor,
           numeracion: datosExtraidos.numeracion,
           fecha: datosExtraidos.fecha,
