@@ -112,12 +112,8 @@ export async function getAllRemisiones(): Promise<Remision[]> {
 }
 
 export async function getRemisionesByProyecto(proyecto: string): Promise<Remision[]> {
-  const allEntradas = await getAllEntradas();
-  const idsRemisionProyecto = new Set(
-    allEntradas.filter(e => e.proyecto === proyecto).map(e => e.refRemision)
-  );
   const allRemisiones = await getAllRemisiones();
-  return allRemisiones.filter(r => idsRemisionProyecto.has(r.idRegistro));
+  return allRemisiones.filter(r => r.proyecto === proyecto);
 }
 
 export async function getRemisionByNumeracion(numeracion: string): Promise<Remision | null> {
