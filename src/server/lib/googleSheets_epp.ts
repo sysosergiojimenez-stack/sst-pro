@@ -202,7 +202,7 @@ export async function updateRemision(
 export async function deleteRemision(rowIndex: number): Promise<void> {
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_REMISIONES}!A${rowIndex}:H${rowIndex}`,
+    range: `${SHEET_REMISIONES}!A${rowIndex}:L${rowIndex}`,
   });
   console.log('Remision eliminada en fila:', rowIndex);
 }
