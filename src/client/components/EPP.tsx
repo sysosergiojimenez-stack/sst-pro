@@ -733,7 +733,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       {vista === 'remisiones' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Remisiones y Facturas</h2>
+            <h2 className="text-lg font-semibold">Planilla de Remisiones y Facturas</h2>
             <div className="flex gap-2">
               <button onClick={() => setShowGeminiForm(true)} className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25 text-sm">
                 <Brain size={16} /> Procesar con IA
@@ -762,32 +762,57 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           ) : remisionesFiltradas.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground"><Truck size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay remisiones registradas</p></div>
           ) : (
-            <div className="space-y-3">
-              {remisionesFiltradas.map((r, i) => (
-                <div key={r.idRegistro} className="glass-card p-5 card-hover fade-in" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0"><Truck size={24} className="text-white" /></div>
-                      <div><h3 className="font-semibold">{r.numeracion}</h3><p className="text-sm text-muted-foreground">{r.proveedor}</p><p className="text-xs text-muted-foreground mt-1">{formatearFecha(r.fecha)}</p>{r.detalle && <p className="text-xs text-primary mt-1">{r.detalle}</p>}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {r.scaneado && (
-                        <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
-                          <FileText size={16} />
-                        </a>
-                      )}
-                      <button onClick={() => setShowRemisionDetail(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver detalle"><Eye size={16} /></button>
-                      <button onClick={() => startEditRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                      <button onClick={() => handleDeleteRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-border"><p className="text-xs text-muted-foreground mb-2">{entradasByRemision(r.idRegistro).length} items en esta remision</p>
-                    <div className="space-y-1">{entradasByRemision(r.idRegistro).slice(0, 3).map(e => (
-                      <div key={e.idRegistro} className="flex items-center justify-between text-sm bg-secondary/50 px-3 py-2 rounded-lg"><span>{e.item} <span className="text-muted-foreground">({e.codigo})</span></span><span className="font-medium">{e.cantidad} und</span></div>
-                    ))}{entradasByRemision(r.idRegistro).length > 3 && <p className="text-xs text-muted-foreground pl-3">+{entradasByRemision(r.idRegistro).length - 3} items mas...</p>}</div>
-                  </div>
-                </div>
-              ))}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-secondary/50 border-b border-border">
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Numeracion</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Items</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...remisionesFiltradas].sort((a, b) => {
+                      const fechaA = a.fecha ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(0);
+                      const fechaB = b.fecha ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(0);
+                      return fechaB.getTime() - fechaA.getTime();
+                    }).map((r, i) => {
+                      const itemsCount = entradasByRemision(r.idRegistro).length;
+                      return (
+                        <tr key={r.idRegistro} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                          <td className="px-4 py-3 text-muted-foreground">{formatearFecha(r.fecha)}</td>
+                          <td className="px-4 py-3 font-medium">{r.numeracion}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{r.proveedor || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">
+                              <Package size={10} /> {itemsCount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1">
+                              {r.scaneado && (
+                                <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
+                                  <FileText size={16} />
+                                </a>
+                              )}
+                              <button onClick={() => setShowRemisionDetail(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver detalle"><Eye size={16} /></button>
+                              <button onClick={() => startEditRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-secondary/30 border-t border-border px-4 py-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{remisionesFiltradas.length} remisiones</span>
+                <span>Ordenadas por fecha descendente</span>
+              </div>
             </div>
           )}
         </div>
