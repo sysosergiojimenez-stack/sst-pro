@@ -1011,43 +1011,54 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           ) : notasFiltradas.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground"><ArrowDownCircle size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay notas de salida</p></div>
           ) : (
-            <div className="space-y-3">
-              {notasFiltradas.map((n, i) => (
-                <div key={n.idRegistro} className="glass-card p-5 card-hover fade-in" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center flex-shrink-0"><ArrowDownCircle size={24} className="text-white" /></div>
-                      <div>
-                        <h3 className="font-semibold">{n.orden || n.idRegistro}</h3>
-                        <p className="text-sm text-muted-foreground">Retira: {n.quienRetira}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{formatearFecha(n.fecha)}</p>
-                        {n.observaciones && <p className="text-xs text-primary mt-1">{n.observaciones}</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setShowNotaDetail(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver detalle"><Eye size={16} /></button>
-                      <button onClick={() => startEditNota(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                      <button onClick={() => handleDeleteNotaSalida(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="text-xs text-muted-foreground mb-2">{salidasByNota(n.idRegistro).length} salidas en esta nota</p>
-                    <div className="space-y-1">
-                      {salidasByNota(n.idRegistro).slice(0, 3).map(s => {
-                        const prod = productos.find(p => p.codigo === s.refItem);
-                        const emp = buscarEmpleado(s.trabajadorRetira);
-                        return (
-                          <div key={s.idRegistro} className="flex items-center justify-between text-sm bg-secondary/50 px-3 py-2 rounded-lg">
-                            <span>{prod?.nombre || s.refItem} <span className="text-muted-foreground">({emp?.nombres || s.trabajadorRetira})</span></span>
-                            <span className="font-medium">{s.cantidad} und</span>
-                          </div>
-                        );
-                      })}
-                      {salidasByNota(n.idRegistro).length > 3 && <p className="text-xs text-muted-foreground pl-3">+{salidasByNota(n.idRegistro).length - 3} salidas mas...</p>}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-secondary/50 border-b border-border">
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">N° Orden</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Quien Retira</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Items</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...notasFiltradas].sort((a, b) => {
+                      const fechaA = a.fecha ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(0);
+                      const fechaB = b.fecha ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(0);
+                      return fechaB.getTime() - fechaA.getTime();
+                    }).map((n) => {
+                      const itemsCount = salidasByNota(n.idRegistro).length;
+                      const emp = buscarEmpleado(n.quienRetira);
+                      const nombreRetira = emp ? `${emp.nombres} ${emp.apellidos}` : n.quienRetira;
+                      return (
+                        <tr key={n.idRegistro} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                          <td className="px-4 py-3 text-muted-foreground">{formatearFecha(n.fecha)}</td>
+                          <td className="px-4 py-3 font-medium">{n.orden || n.idRegistro}</td>
+                          <td className="px-4 py-3">{nombreRetira}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                              <Package size={10} /> {itemsCount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => setShowNotaDetail(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver detalle"><Eye size={16} /></button>
+                              <button onClick={() => startEditNota(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteNotaSalida(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-secondary/30 border-t border-border px-4 py-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{notasFiltradas.length} notas de salida</span>
+                <span>Ordenadas por fecha descendente</span>
+              </div>
             </div>
           )}
         </div>
