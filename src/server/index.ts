@@ -25,6 +25,10 @@ import {
   deleteProyecto
 } from './lib/googleSheets';
 import { sheets, SPREADSHEET_ID } from './lib/googleSheets';
+import {
+  getAllCapacitaciones, getCapacitacionesByProyecto,
+  appendCapacitacion, updateCapacitacion, deleteCapacitacion
+} from './lib/googleSheets_capacitaciones';
 import { 
   getAllIncidentes, 
   getIncidentesByProyecto, 
@@ -1169,6 +1173,228 @@ app.put('/api/epp/productos/:rowIndex', async (c) => {
 });
 
 
+
+// ============================================
+// API REST - CAPACITACIONES Y CHARLAS DE SEGURIDAD
+// ============================================
+
+app.get('/api/capacitaciones', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getCapacitacionesByProyecto(proyecto) : await getAllCapacitaciones();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/capacitaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/capacitaciones', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `CAP-${Date.now()}`;
+    await appendCapacitacion({
+      idRegistro,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      titulo: body.titulo || '',
+      fechaProgramada: body.fechaProgramada || '',
+      hora: body.hora || '',
+      lugar: body.lugar || '',
+      responsable: body.responsable || '',
+      tipo: body.tipo || '',
+      estado: body.estado || 'Pendiente',
+      fechaRealizada: body.fechaRealizada || '',
+      asistentes: body.asistentes || '',
+      observaciones: body.observaciones || '',
+      evidenciaPDF: body.evidenciaPDF || '',
+      temasTratados: body.temasTratados || '',
+    });
+    return c.json({ success: true, message: 'Charla programada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/capacitaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// EXTRACCIÓN DE ASISTENTES CON IA
+// ============================================
+
+app.post('/api/capacitaciones/extract-asistentes', async (c) => {
+  try {
+    const body = await c.req.json();
+    
+    if (!body.pdfBase64 || body.pdfBase64.length < 100) {
+      return c.json({ error: 'PDF vacio o corrupto' }, 400);
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
+    }
+
+    console.log('[GEMINI-CAP] Procesando PDF de asistencia, length:', body.pdfBase64.length);
+
+    const prompt = `Analiza este PDF de una planilla de asistencia de una charla/capacitación de seguridad industrial (SST).
+    
+Extrae la lista de personas que asistieron. Para cada persona, obtén:
+- Nombre completo
+- Número de documento/CI (si está visible)
+- Cargo/rol (si está visible)
+- Firma o marca de asistencia (si está presente)
+
+Devuelve ÚNICAMENTE un JSON con este formato exacto:
+{
+  "asistentes": [
+    {
+      "nombre": "Nombre completo",
+      "documento": "12345678",
+      "cargo": "Oficial",
+      "asistio": true
+    }
+  ],
+  "totalAsistentes": 15,
+  "temasTratados": "Resumen de los temas mencionados en el documento",
+  "observaciones": "Cualquier observación adicional",
+  "fechaDocumento": "DD/MM/YYYY"
+}
+
+Si no puedes leer bien el PDF, devuelve:
+{
+  "asistentes": [],
+  "totalAsistentes": 0,
+  "temasTratados": "",
+  "observaciones": "No se pudo extraer información del PDF",
+  "fechaDocumento": ""
+}`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: body.mimeType || 'application/pdf',
+                  data: body.pdfBase64
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[GEMINI-CAP] Error:', response.status, errorText);
+      return c.json({ error: `Error Gemini: ${response.status}` }, 500);
+    }
+
+    const result = await response.json();
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    console.log('[GEMINI-CAP] Respuesta raw:', text.substring(0, 500));
+
+    // Extraer JSON de la respuesta
+    let datosExtraidos: any = { asistentes: [], totalAsistentes: 0, temasTratados: '', observaciones: '', fechaDocumento: '' };
+    
+    try {
+      // Buscar JSON en la respuesta (puede venir entre ```json ... ```)
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        datosExtraidos = JSON.parse(jsonStr);
+      } else {
+        datosExtraidos = JSON.parse(text);
+      }
+    } catch (parseError) {
+      console.error('[GEMINI-CAP] Error parseando JSON:', parseError);
+      return c.json({ 
+        error: 'No se pudo parsear la respuesta de la IA',
+        rawResponse: text.substring(0, 1000)
+      }, 500);
+    }
+
+    // Subir PDF a GCS como evidencia
+    const nombreArchivo = body.nombreArchivo || `EVIDENCIA_ASISTENCIA_${Date.now()}.pdf`;
+    const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, body.mimeType || 'application/pdf');
+
+    return c.json({ 
+      success: true, 
+      data: {
+        ...datosExtraidos,
+        evidenciaPDF: gcsUrl
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[GEMINI-CAP] Error completo:', error);
+    return c.json({ 
+      error: error.message || 'Error desconocido',
+      stack: error.stack || 'No stack trace'
+    }, 500);
+  }
+});
+app.put('/api/capacitaciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await updateCapacitacion(rowIndex, body);
+    return c.json({ success: true, message: 'Charla actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/capacitaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/capacitaciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteCapacitacion(rowIndex);
+    return c.json({ success: true, message: 'Charla eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/capacitaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/capacitaciones/evidencia', async (c) => {
+  try {
+    const body = await c.req.json();
+    const archivos = body.archivos || [];
+    if (archivos.length === 0) {
+      return c.json({ error: 'No se proporcionaron archivos' }, 400);
+    }
+    const urls: string[] = [];
+    for (let i = 0; i < archivos.length; i++) {
+      const archivo = archivos[i];
+      const nombreArchivo = `CAPACITACION_${body.idRegistro || Date.now()}_${i}_${Date.now()}.pdf`;
+      const url = await subirPDFAGCS(archivo.base64, nombreArchivo, archivo.mimeType || 'application/pdf');
+      urls.push(url);
+    }
+    return c.json({ success: true, urls });
+  } catch (error: any) {
+    console.error('Error POST /api/capacitaciones/evidencia:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
 
 // Fallback SPA
 app.get('*', (c) => {
