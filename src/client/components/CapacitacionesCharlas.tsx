@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { GraduationCap, Calendar as CalendarIcon, List, Plus, X, Save, Pencil, Trash2, Eye, CheckCircle2, Clock, MapPin, FileText, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { GraduationCap, Calendar as CalendarIcon, List, Plus, X, Save, Pencil, Trash2, Eye, CheckCircle2, Clock, MapPin, FileText, ChevronLeft, ChevronRight, Users, Image as ImageIcon } from 'lucide-react';
 
 interface Capacitacion {
   rowIndex: number;
@@ -19,6 +19,7 @@ interface Capacitacion {
   observaciones: string;
   evidenciaPDF: string;
   temasTratados: string;
+  imagenesAsistencia: string;
 }
 
 interface Empleado {
@@ -97,6 +98,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const [realizarForm, setRealizarForm] = useState({ fechaRealizada: '', observaciones: '', temasTratados: '' });
   const [asistentesSeleccionados, setAsistentesSeleccionados] = useState<string[]>([]);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [imagenesPlanilla, setImagenesPlanilla] = useState<File[]>([]);
   const [guardandoRealizada, setGuardandoRealizada] = useState(false);
 
   const [mesActual, setMesActual] = useState(new Date());
@@ -172,6 +174,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     setRealizarForm({ fechaRealizada: new Date().toISOString().split('T')[0], observaciones: '', temasTratados: '' });
     setAsistentesSeleccionados([]);
     setPdfFiles([]);
+    setImagenesPlanilla([]);
   };
 
   const toggleAsistente = (doc: string) => {
@@ -184,7 +187,9 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     setGuardandoRealizada(true);
     try {
       let urls: string[] = [];
+      let urlsImagenes: string[] = [];
       let asistentesExtraidosIA: any[] = [];
+      let asistentesExtraidosImagenes: any[] = [];
       let temasExtraidos = realizarForm.temasTratados;
       let observacionesExtraidas = realizarForm.observaciones;
 
@@ -231,7 +236,38 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         }
       }
 
-      // 2. Combinar asistentes: IA + seleccionados manualmente
+      // 1b. Procesar imagenes de planilla de firmas (mas barato en tokens que el PDF completo)
+      if (imagenesPlanilla.length > 0) {
+        const imagenesBase64 = await Promise.all(imagenesPlanilla.map(f => new Promise<{ base64: string; mimeType: string; nombre: string }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve({ base64: (reader.result as string).split(',')[1], mimeType: f.type, nombre: f.name });
+          reader.onerror = reject;
+          reader.readAsDataURL(f);
+        })));
+
+        const upImgRes = await fetch('/api/capacitaciones/imagenes-asistencia', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archivos: imagenesBase64, idRegistro: showRealizarForm.idRegistro }),
+        });
+        const upImgData = await upImgRes.json();
+        if (upImgData.success) urlsImagenes = upImgData.urls;
+
+        console.log('[FRONT] Extrayendo asistentes de', imagenesBase64.length, 'imagenes con IA...');
+        const extractImgRes = await fetch('/api/capacitaciones/extract-asistentes-imagenes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imagenes: imagenesBase64.map(im => ({ base64: im.base64, mimeType: im.mimeType })) }),
+        });
+        const extractImgData = await extractImgRes.json();
+        console.log('[FRONT] Respuesta IA (imagenes):', extractImgData);
+        if (extractImgData.success && extractImgData.data?.asistentes) {
+          asistentesExtraidosImagenes = extractImgData.data.asistentes;
+          console.log('[FRONT] IA extrajo', asistentesExtraidosImagenes.length, 'asistentes de las imagenes');
+        } else {
+          alert('La IA no pudo leer las imagenes de la planilla. Se usaran los demas asistentes detectados.');
+        }
+      }
+
+      // 2. Combinar asistentes: IA (PDF) + IA (imagenes) + seleccionados manualmente
       let asistentesFinales: any[] = [];
 
       if (asistentesExtraidosIA.length > 0) {
@@ -267,6 +303,23 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         }
       });
 
+      // Agregar asistentes extraidos de las imagenes de planilla que no esten ya en la lista
+      asistentesExtraidosImagenes.forEach((a: any) => {
+        const yaExiste = asistentesFinales.some(x =>
+          (a.documento && x.nroDocumento === a.documento) ||
+          (!a.documento && x.nombre.toLowerCase() === (a.nombre || '').toLowerCase())
+        );
+        if (!yaExiste && a.nombre) {
+          const emp = empleados.find(e => e.nroDocumento === a.documento);
+          asistentesFinales.push({
+            nroDocumento: a.documento || emp?.nroDocumento || 'N/A',
+            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : a.nombre,
+            cargo: a.cargo || emp?.cargo || 'N/A',
+            asistio: true,
+          });
+        }
+      });
+
       if (asistentesFinales.length === 0 && asistentesSeleccionados.length === 0) {
         alert('No se detectaron asistentes. Seleccione manualmente o suba un PDF válido.');
         setGuardandoRealizada(false);
@@ -282,11 +335,13 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           observaciones: observacionesExtraidas,
           temasTratados: temasExtraidos,
           evidenciaPDF: JSON.stringify(urls),
+          imagenesAsistencia: JSON.stringify(urlsImagenes),
         }),
       });
 
       setShowRealizarForm(null);
       setPdfFiles([]);
+      setImagenesPlanilla([]);
       setAsistentesSeleccionados([]);
       fetchData();
       alert(`Charla marcada como realizada! ${asistentesFinales.length} asistentes registrados.`);
@@ -329,6 +384,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     const exp = expandida === cap.idRegistro;
     const asistentesData = parseAsistentes(cap.asistentes);
     const evidencias = parseEvidencias(cap.evidenciaPDF);
+    const imagenesPlanillaCargadas = parseEvidencias(cap.imagenesAsistencia);
     const esRealizada = (cap.estado || '').toLowerCase() === 'realizada';
     return (
       <Fragment key={cap.idRegistro}>
@@ -390,7 +446,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
               )}
               <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><FileText size={14} /> Evidencia ({evidencias.length})</h4>
               {evidencias.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {evidencias.map((url, idx) => (
                     <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs bg-background/50 px-3 py-1.5 rounded-lg text-primary hover:underline flex items-center gap-1">
                       <FileText size={12} /> Evidencia {idx + 1}
@@ -398,7 +454,19 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Sin evidencia cargada</p>
+                <p className="text-sm text-muted-foreground mb-4">Sin evidencia cargada</p>
+              )}
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><ImageIcon size={14} /> Fotos de planilla de firmas ({imagenesPlanillaCargadas.length})</h4>
+              {imagenesPlanillaCargadas.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {imagenesPlanillaCargadas.map((url, idx) => (
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                      <img src={url} alt={`Planilla ${idx + 1}`} className="w-20 h-20 object-cover rounded-lg border border-border hover:border-primary transition-colors" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Sin fotos de planilla</p>
               )}
             </td>
           </tr>
@@ -511,6 +579,17 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                   <div className="mt-2 space-y-1">
                     {pdfFiles.map((f, idx) => (
                       <p key={idx} className="text-xs text-primary flex items-center gap-1"><FileText size={12} /> {f.name}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Fotos de la planilla de firmas (mas rapido y barato que subir el PDF completo)</label>
+                <input type="file" accept="image/*" multiple onChange={(e) => setImagenesPlanilla(Array.from(e.target.files || []))} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                {imagenesPlanilla.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {imagenesPlanilla.map((f, idx) => (
+                      <p key={idx} className="text-xs text-primary flex items-center gap-1"><ImageIcon size={12} /> {f.name}</p>
                     ))}
                   </div>
                 )}
