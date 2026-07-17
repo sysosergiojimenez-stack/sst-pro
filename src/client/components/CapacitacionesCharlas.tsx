@@ -27,6 +27,8 @@ interface Empleado {
   nroDocumento: string;
   nombres: string;
   apellidos: string;
+  cargo?: string;
+  empresa?: string;
 }
 
 interface CapacitacionesCharlasProps {
@@ -100,6 +102,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [imagenesPlanilla, setImagenesPlanilla] = useState<File[]>([]);
   const [guardandoRealizada, setGuardandoRealizada] = useState(false);
+  const [asistenciasPorCharla, setAsistenciasPorCharla] = useState<Record<string, any[]>>({});
+  const [cargandoAsistencias, setCargandoAsistencias] = useState<string | null>(null);
 
   const [mesActual, setMesActual] = useState(new Date());
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
@@ -184,59 +188,32 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const handleGuardarRealizada = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showRealizarForm) return;
+    if (asistentesSeleccionados.length === 0 && imagenesPlanilla.length === 0) {
+      alert('Seleccione al menos un asistente o suba una foto de la planilla de firmas');
+      return;
+    }
     setGuardandoRealizada(true);
     try {
+      // 1. Subir fotos de la actividad (evidencia general, sin IA)
       let urls: string[] = [];
-      let urlsImagenes: string[] = [];
-      let asistentesExtraidosIA: any[] = [];
-      let asistentesExtraidosImagenes: any[] = [];
-      let temasExtraidos = realizarForm.temasTratados;
-      let observacionesExtraidas = realizarForm.observaciones;
-
-      // 1. Procesar PDFs con IA para extraer asistentes
       if (pdfFiles.length > 0) {
-        const archivos = await Promise.all(pdfFiles.map(f => new Promise<{ base64: string; mimeType: string; nombre: string }>((resolve, reject) => {
+        const archivosActividad = await Promise.all(pdfFiles.map(f => new Promise<{ base64: string; mimeType: string; nombre: string }>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve({ base64: (reader.result as string).split(',')[1], mimeType: f.type, nombre: f.name });
           reader.onerror = reject;
           reader.readAsDataURL(f);
         })));
-
-        // Subir evidencias a GCS
         const upRes = await fetch('/api/capacitaciones/evidencia', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ archivos, idRegistro: showRealizarForm.idRegistro }),
+          body: JSON.stringify({ archivos: archivosActividad, idRegistro: showRealizarForm.idRegistro }),
         });
         const upData = await upRes.json();
         if (upData.success) urls = upData.urls;
-
-        // Extraer asistentes con IA del primer PDF
-        if (archivos.length > 0) {
-          console.log('[FRONT] Extrayendo asistentes con IA del PDF...');
-          console.log('[FRONT] PDF size:', archivos[0].base64.length, 'chars');
-          const extractRes = await fetch('/api/capacitaciones/extract-asistentes', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pdfBase64: archivos[0].base64,
-              nombreArchivo: `EVIDENCIA_IA_${showRealizarForm.idRegistro}_${Date.now()}.pdf`,
-              mimeType: archivos[0].mimeType,
-            }),
-          });
-          const extractData = await extractRes.json();
-          console.log('[FRONT] Respuesta IA:', extractData);
-          if (extractData.success && extractData.data) {
-            asistentesExtraidosIA = extractData.data.asistentes || [];
-            temasExtraidos = extractData.data.temasTratados || realizarForm.temasTratados;
-            observacionesExtraidas = extractData.data.observaciones || realizarForm.observaciones;
-            console.log('[FRONT] IA extrajo', asistentesExtraidosIA.length, 'asistentes:', asistentesExtraidosIA);
-          } else {
-            console.warn('[FRONT] IA no extrajo asistentes:', extractData.error || 'Respuesta sin datos');
-            alert('La IA no pudo extraer asistentes del PDF. Se usarán los seleccionados manualmente.');
-          }
-        }
       }
 
-      // 1b. Procesar imagenes de planilla de firmas (mas barato en tokens que el PDF completo)
+      // 2. Procesar fotos de la planilla de firmas: subir + leer columna CIC con IA
+      let urlsImagenes: string[] = [];
+      const cedulasDetectadas: { documento: string; nombreLeido: string }[] = [];
       if (imagenesPlanilla.length > 0) {
         const imagenesBase64 = await Promise.all(imagenesPlanilla.map(f => new Promise<{ base64: string; mimeType: string; nombre: string }>((resolve, reject) => {
           const reader = new FileReader();
@@ -252,99 +229,89 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         const upImgData = await upImgRes.json();
         if (upImgData.success) urlsImagenes = upImgData.urls;
 
-        console.log('[FRONT] Extrayendo asistentes de', imagenesBase64.length, 'imagenes con IA...');
-        const extractImgRes = await fetch('/api/capacitaciones/extract-asistentes-imagenes', {
+        const extractRes = await fetch('/api/capacitaciones/extract-asistentes-imagenes', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imagenes: imagenesBase64.map(im => ({ base64: im.base64, mimeType: im.mimeType })) }),
         });
-        const extractImgData = await extractImgRes.json();
-        console.log('[FRONT] Respuesta IA (imagenes):', extractImgData);
-        if (extractImgData.success && extractImgData.data?.asistentes) {
-          asistentesExtraidosImagenes = extractImgData.data.asistentes;
-          console.log('[FRONT] IA extrajo', asistentesExtraidosImagenes.length, 'asistentes de las imagenes');
+        const extractData = await extractRes.json();
+        if (extractData.success && Array.isArray(extractData.data?.cedulas)) {
+          cedulasDetectadas.push(...extractData.data.cedulas);
         } else {
-          alert('La IA no pudo leer las imagenes de la planilla. Se usaran los demas asistentes detectados.');
+          alert('La IA no pudo leer las cedulas de la planilla. Se usaran solo los asistentes seleccionados manualmente.');
         }
       }
 
-      // 2. Combinar asistentes: IA (PDF) + IA (imagenes) + seleccionados manualmente
-      let asistentesFinales: any[] = [];
+      // 3. Cruzar las cedulas detectadas contra los Empleados del proyecto (la nomina)
+      const asistenciasFinales: any[] = [];
+      const documentosAgregados = new Set<string>();
 
-      if (asistentesExtraidosIA.length > 0) {
-        // Usar asistentes extraídos por IA, cruzar con empleados para obtener nombres completos
-        asistentesFinales = asistentesExtraidosIA.map((a: any) => {
-          // Buscar empleado por nombre o documento
-          const empByDoc = empleados.find(e => e.nroDocumento === a.documento);
-          const empByName = empleados.find(e => 
-            `${e.nombres} ${e.apellidos}`.toLowerCase().includes(a.nombre.toLowerCase()) ||
-            a.nombre.toLowerCase().includes(`${e.nombres} ${e.apellidos}`.toLowerCase())
-          );
-          const emp = empByDoc || empByName;
-          return {
-            nroDocumento: a.documento || emp?.nroDocumento || 'N/A',
-            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : a.nombre,
-            cargo: a.cargo || emp?.cargo || 'N/A',
-            asistio: a.asistio !== false,
-          };
+      cedulasDetectadas.forEach(cd => {
+        const doc = (cd.documento || '').trim();
+        if (!doc || doc === 'NO_LEGIBLE' || documentosAgregados.has(doc)) return;
+        documentosAgregados.add(doc);
+        const emp = empleados.find(e => e.nroDocumento === doc);
+        asistenciasFinales.push({
+          nroDocumento: doc,
+          nombres: emp ? emp.nombres : (cd.nombreLeido || ''),
+          apellidos: emp ? emp.apellidos : '',
+          empresa: emp ? (emp.empresa || '') : '',
+          cargo: emp ? (emp.cargo || '') : '',
+          encontradoEnNomina: !!emp,
         });
-      }
+      });
 
-      // Agregar asistentes seleccionados manualmente que no estén en la lista de IA
-      const docsIA = new Set(asistentesFinales.map(a => a.nroDocumento));
+      // 4. Agregar los seleccionados manualmente que no hayan salido ya de las fotos
       asistentesSeleccionados.forEach(doc => {
-        if (!docsIA.has(doc)) {
-          const emp = empleados.find(e => e.nroDocumento === doc);
-          asistentesFinales.push({
-            nroDocumento: doc,
-            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : doc,
-            cargo: emp?.cargo || 'N/A',
-            asistio: true,
-          });
-        }
+        if (documentosAgregados.has(doc)) return;
+        documentosAgregados.add(doc);
+        const emp = empleados.find(e => e.nroDocumento === doc);
+        asistenciasFinales.push({
+          nroDocumento: doc,
+          nombres: emp?.nombres || '',
+          apellidos: emp?.apellidos || '',
+          empresa: emp?.empresa || '',
+          cargo: emp?.cargo || '',
+          encontradoEnNomina: true,
+        });
       });
 
-      // Agregar asistentes extraidos de las imagenes de planilla que no esten ya en la lista
-      asistentesExtraidosImagenes.forEach((a: any) => {
-        const yaExiste = asistentesFinales.some(x =>
-          (a.documento && x.nroDocumento === a.documento) ||
-          (!a.documento && x.nombre.toLowerCase() === (a.nombre || '').toLowerCase())
-        );
-        if (!yaExiste && a.nombre) {
-          const emp = empleados.find(e => e.nroDocumento === a.documento);
-          asistentesFinales.push({
-            nroDocumento: a.documento || emp?.nroDocumento || 'N/A',
-            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : a.nombre,
-            cargo: a.cargo || emp?.cargo || 'N/A',
-            asistio: true,
-          });
-        }
+      // 5. Guardar las asistencias en la hoja relacionada (reemplaza cualquier intento anterior de esta charla)
+      const batchRes = await fetch('/api/capacitaciones/asistencias-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idCapacitacion: showRealizarForm.idRegistro,
+          proyecto,
+          fecha: realizarForm.fechaRealizada,
+          asistencias: asistenciasFinales,
+        }),
       });
+      const batchData = await batchRes.json();
 
-      if (asistentesFinales.length === 0 && asistentesSeleccionados.length === 0) {
-        alert('No se detectaron asistentes. Seleccione manualmente o suba un PDF válido.');
-        setGuardandoRealizada(false);
-        return;
-      }
-
+      // 6. Actualizar la charla (la columna vieja de "asistentes" ya no se usa)
       await fetch(`/api/capacitaciones/${showRealizarForm.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
           fechaRealizada: realizarForm.fechaRealizada,
-          asistentes: JSON.stringify(asistentesFinales),
-          observaciones: observacionesExtraidas,
-          temasTratados: temasExtraidos,
+          observaciones: realizarForm.observaciones,
+          temasTratados: realizarForm.temasTratados,
           evidenciaPDF: JSON.stringify(urls),
           imagenesAsistencia: JSON.stringify(urlsImagenes),
         }),
       });
 
+      setAsistenciasPorCharla(prev => {
+        const copia = { ...prev };
+        delete copia[showRealizarForm.idRegistro];
+        return copia;
+      });
       setShowRealizarForm(null);
       setPdfFiles([]);
       setImagenesPlanilla([]);
       setAsistentesSeleccionados([]);
       fetchData();
-      alert(`Charla marcada como realizada! ${asistentesFinales.length} asistentes registrados.`);
+      const noEncontrados = batchData?.noEncontrados || 0;
+      alert(`Charla marcada como realizada! ${asistenciasFinales.length} asistentes registrados` + (noEncontrados > 0 ? ` (${noEncontrados} no encontrados en nomina).` : '.'));
     } catch (err: any) {
       alert('Error: ' + err.message);
     } finally {
@@ -411,7 +378,19 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                   <CheckCircle2 size={16} />
                 </button>
               )}
-              <button onClick={() => setExpandida(exp ? null : cap.idRegistro)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${exp ? 'text-primary bg-secondary' : ''}`} title="Ver detalle">
+              <button onClick={async () => {
+                const nuevoExp = exp ? null : cap.idRegistro;
+                setExpandida(nuevoExp);
+                if (nuevoExp && !asistenciasPorCharla[cap.idRegistro]) {
+                  setCargandoAsistencias(cap.idRegistro);
+                  try {
+                    const resAs = await fetch(`/api/capacitaciones/${cap.idRegistro}/asistencias`);
+                    const dataAs = await resAs.json();
+                    if (dataAs.success) setAsistenciasPorCharla(prev => ({ ...prev, [cap.idRegistro]: dataAs.data }));
+                  } catch {}
+                  setCargandoAsistencias(null);
+                }
+              }} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${exp ? 'text-primary bg-secondary' : ''}`} title="Ver detalle">
                 <Eye size={16} />
               </button>
               <button onClick={() => startEdit(cap)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
@@ -434,11 +413,21 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
               {cap.observaciones && (
                 <div className="mb-4"><span className="text-xs text-muted-foreground uppercase">Observaciones</span><p className="font-medium">{cap.observaciones}</p></div>
               )}
-              <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><Users size={14} /> Asistentes ({asistentesData.length})</h4>
-              {asistentesData.length > 0 ? (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {asistentesData.map(a => (
-                    <span key={a.nroDocumento} className="text-xs bg-background/50 px-3 py-1.5 rounded-lg">{a.nombre}</span>
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><Users size={14} /> Asistentes ({(asistenciasPorCharla[cap.idRegistro] || []).length})</h4>
+              {cargandoAsistencias === cap.idRegistro ? (
+                <p className="text-sm text-muted-foreground mb-4">Cargando asistentes...</p>
+              ) : (asistenciasPorCharla[cap.idRegistro] || []).length > 0 ? (
+                <div className="space-y-1 mb-4">
+                  {(asistenciasPorCharla[cap.idRegistro] || []).map((a: any) => (
+                    <div key={a.idRegistro} className="flex items-center justify-between bg-background/50 px-3 py-2 rounded-lg text-sm">
+                      <div>
+                        <span className="font-medium">{a.nombres} {a.apellidos}</span>
+                        <span className="text-xs text-muted-foreground ml-2">CI: {a.nroDocumento}{a.empresa && ` · ${a.empresa}`}{a.cargo && ` · ${a.cargo}`}</span>
+                      </div>
+                      {a.encontradoEnNomina !== 'SI' && (
+                        <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full whitespace-nowrap">No encontrado en nomina</span>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -573,8 +562,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Evidencia (PDF, uno o varios)</label>
-                <input type="file" accept=".pdf" multiple onChange={(e) => setPdfFiles(Array.from(e.target.files || []))} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                <label className="block text-sm font-medium mb-2">Fotos de la actividad (evidencia general, no se procesan con IA)</label>
+                <input type="file" accept="image/*" multiple onChange={(e) => setPdfFiles(Array.from(e.target.files || []))} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
                 {pdfFiles.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {pdfFiles.map((f, idx) => (
