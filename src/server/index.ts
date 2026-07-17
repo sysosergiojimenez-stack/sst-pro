@@ -1236,25 +1236,23 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
     }
 
     console.log('[GEMINI-CAP] Procesando PDF de asistencia, length:', body.pdfBase64.length);
-
-    const prompt = `Analiza este PDF de una planilla de asistencia de una charla/capacitación de seguridad industrial (SST).
-    
-Extrae la lista de personas que asistieron. Para cada persona, obtén:
-- Nombre completo
-- Número de documento/CI (si está visible)
-- Cargo/rol (si está visible)
-- Firma o marca de asistencia (si está presente)
-
-REGLAS IMPORTANTES:
-1. Devuelve ÚNICAMENTE un JSON válido, sin texto adicional antes o después
-2. Asegúrate de que el JSON sea válido: comillas correctas, comas entre elementos, sin comas finales
-3. NO uses markdown, NO uses ```json, solo el JSON puro en una sola línea
-
-Formato exacto (una sola línea, sin saltos de línea dentro del JSON):
-{"asistentes":[{"nombre":"Nombre completo","documento":"12345678","cargo":"Oficial","asistio":true}],"totalAsistentes":15,"temasTratados":"Resumen","observaciones":"Notas","fechaDocumento":"DD/MM/YYYY"}
-
-Si no puedes leer el PDF:
-{"asistentes":[],"totalAsistentes":0,"temasTratados":"","observaciones":"No se pudo extraer información del PDF","fechaDocumento":""}`;
+    const prompt = 'Analiza este PDF de una planilla de asistencia de una charla/capacitación de seguridad industrial (SST).\n'
+    + 'Extrae la lista de personas que asistieron. Para cada persona, obtén:\n'
+    + '- Nombre completo\n'
+    + '- Número de documento/CI (si está visible)\n'
+    + '- Cargo/rol (si está visible)\n'
+    + '- Firma o marca de asistencia (si está presente)\n'
+    + '\n'
+    + 'REGLAS IMPORTANTES:\n'
+    + '1. Devuelve ÚNICAMENTE un JSON válido, sin texto adicional antes o después\n'
+    + '2. Asegúrate de que el JSON sea válido: comillas correctas, comas entre elementos, sin comas finales\n'
+    + '3. NO uses markdown, NO uses backticks json, solo el JSON puro en una sola línea\n'
+    + '\n'
+    + 'Formato exacto (una sola línea, sin saltos de línea dentro del JSON):\n'
+    + '{"asistentes":[{"nombre":"Nombre completo","documento":"12345678","cargo":"Oficial","asistio":true}],"totalAsistentes":15,"temasTratados":"Resumen","observaciones":"Notas","fechaDocumento":"DD/MM/YYYY"}' + '\n'
+    + '\n'
+    + 'Si no puedes leer el PDF:\n'
+    + '{"asistentes":[],"totalAsistentes":0,"temasTratados":"","observaciones":"No se pudo extraer información del PDF","fechaDocumento":""}';
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
       {
