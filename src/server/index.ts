@@ -1222,41 +1222,58 @@ app.post('/api/capacitaciones', async (c) => {
 // EXTRACCIÓN DE ASISTENTES CON IA
 // ============================================
 
+// ============================================
+// EXTRACCIÓN DE ASISTENTES CON IA (usando Gemini Vision)
+// ============================================
+
 app.post('/api/capacitaciones/extract-asistentes', async (c) => {
   try {
     const body = await c.req.json();
     
     if (!body.pdfBase64 || body.pdfBase64.length < 100) {
-      return c.json({ error: 'PDF vacio o corrupto' }, 400);
+      return c.json({ error: 'PDF vacio o corrupto. Length: ' + (body.pdfBase64?.length || 0) }, 400);
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) {
-      return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
+      return c.json({ error: 'GEMINI_API_KEY no configurada en el servidor' }, 500);
     }
 
-    const prompt = 'Analiza este PDF de una PLANILLA DE ASISTENCIA de una charla/capacitación de seguridad industrial (SST).\n'
-    + '\n'
-    + 'INSTRUCCIONES PARA EXTRAER ASISTENTES:\n'
-    + '1. Busca una tabla o lista con nombres de personas\n'
-    + '2. Cada fila de la tabla representa un asistente\n'
-    + '3. Extrae TODOS los nombres que encuentres, no solo los primeros\n'
-    + '4. Los nombres pueden estar en formato: APELLIDOS, NOMBRES o NOMBRES APELLIDOS\n'
-    + '5. Busca también números de documento/CI si están en la misma fila\n'
-    + '6. Busca firmas o marcas de asistencia (check, X, firma)\n'
-    + '7. Si hay una columna de cargo/rol, extráela también\n'
-    + '\n'
-    + 'REGLAS DE FORMATO:\n'
-    + '1. Devuelve ÚNICAMENTE un JSON válido\n'
-    + '2. NO uses markdown, NO uses backticks, solo JSON puro\n'
-    + '3. El JSON debe estar en una sola línea\n'
-    + '4. Asegúrate de incluir TODOS los asistentes que detectes\n'
-    + '\n'
-    + 'Formato JSON (una sola línea):\n'
-    + '{"asistentes":[{"nombre":"APELLIDO NOMBRE","documento":"1234567","cargo":"Oficial","asistio":true}],"totalAsistentes":42,"temasTratados":"Temas de la charla","observaciones":"Notas","fechaDocumento":"DD/MM/YYYY"}' + '\n'
-    + '\n'
-    + 'Si no puedes leer el PDF:\n'
-    + '{"asistentes":[],"totalAsistentes":0,"temasTratados":"","observaciones":"No se pudo extraer información del PDF","fechaDocumento":""}';
+    console.log('[GEMINI-CAP] Procesando PDF de asistencia, length:', body.pdfBase64.length);
+
+    const prompt = `Analiza este documento PDF que contiene una planilla de asistencia de una charla o capacitación de seguridad industrial.
+
+El documento tiene páginas con tablas manuscritas que contienen:
+- Nombres de trabajadores (columna NOMBRE TRABAJADOR)
+- Números de cédula/C.I.C. (columna C.I.C.)
+- Oficios o especialidades (columna Oficio/Especialidad)
+- Empresas (columna EMPRESA)
+- Firmas (columna FIRMA)
+
+EXTRAER TODOS los trabajadores que encuentres en las tablas. Incluso si los nombres están manuscritos o difíciles de leer, intenta transcribirlos lo mejor posible.
+
+Responde ÚNICAMENTE en formato JSON con esta estructura exacta:
+{
+  "asistentes": [
+    {
+      "nombre": "Nombre completo del trabajador",
+      "documento": "número de cédula o CIC",
+      "cargo": "oficio o especialidad",
+      "empresa": "nombre de empresa",
+      "asistio": true
+    }
+  ],
+  "totalAsistentes": 42,
+  "temasTratados": "temas de la charla/capacitación",
+  "observaciones": "observaciones adicionales",
+  "fechaDocumento": "DD/MM/YYYY"
+}
+
+Si no puedes leer el documento, responde con asistentes vacíos:
+{"asistentes":[],"totalAsistentes":0,"temasTratados":"","observaciones":"No se pudo extraer información","fechaDocumento":""}
+
+NO incluyas explicaciones, SOLO el JSON.`;
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
       {
@@ -1266,26 +1283,18 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
           contents: [{
             parts: [
               { text: prompt },
-              {
-                inline_data: {
-                  mime_type: body.mimeType || 'application/pdf',
-                  data: body.pdfBase64
-                }
-              }
+              { inline_data: { mime_type: body.mimeType || 'application/pdf', data: body.pdfBase64 } }
             ]
           }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-          }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
         })
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[GEMINI-CAP] Error:', response.status, errorText);
-      return c.json({ error: `Error Gemini: ${response.status}` }, 500);
+      console.error('[GEMINI-CAP] Error Gemini:', response.status, errorText);
+      return c.json({ error: `Error Gemini: ${response.status}`, details: errorText }, 500);
     }
 
     const result = await response.json();
@@ -1294,13 +1303,11 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
     console.log('[GEMINI-CAP] Respuesta raw:', text.substring(0, 500));
 
     // Extraer JSON de la respuesta
-    // Extraer JSON de la respuesta
     let datosExtraidos: any = { asistentes: [], totalAsistentes: 0, temasTratados: '', observaciones: '', fechaDocumento: '' };
     
     try {
-      // Limpiar texto: quitar markdown, espacios extra, etc.
+      // Limpiar texto y buscar JSON
       let cleanText = text.trim();
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       cleanText = cleanText.replace(/\n\s*/g, ' ').replace(/\s+/g, ' ');
       const jsonMatch = cleanText.match(/\{.*\}/s);
       if (jsonMatch) cleanText = jsonMatch[0];
@@ -1309,32 +1316,40 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
       console.error('[GEMINI-CAP] Error parseando JSON, intentando corrección:', parseError);
       console.error('[GEMINI-CAP] Texto raw:', text.substring(0, 500));
       
-      // Fallback: intentar extraer asistentes con regex
-      const asistentesMatch = text.match(/"nombre"\s*:\s*"([^"]+)"\s*,\s*"documento"\s*:\s*"([^"]*)"\s*,\s*"cargo"\s*:\s*"([^"]*)"\s*,\s*"asistio"\s*:\s*(true|false)/g);
+      // Fallback: extraer con regex
+      const asistentesMatch = text.match(/"nombre"\s*:\s*"([^"]+)"\s*,\s*"documento"\s*:\s*"([^"]*)"\s*,\s*"cargo"\s*:\s*"([^"]*)"\s*,\s*"empresa"\s*:\s*"([^"]*)"\s*,\s*"asistio"\s*:\s*(true|false)/g);
       if (asistentesMatch) {
         datosExtraidos.asistentes = asistentesMatch.map((match: string) => {
-          const nombre = match.match(/"nombre"\s*:\s*"([^"]+)"/)?.[1] || '';
-          const documento = match.match(/"documento"\s*:\s*"([^"]*)"/)?.[1] || '';
-          const cargo = match.match(/"cargo"\s*:\s*"([^"]*)"/)?.[1] || '';
-          const asistio = match.match(/"asistio"\s*:\s*(true|false)/)?.[1] === 'true';
-          return { nombre, documento, cargo, asistio };
+          const nombre = match.match(/"nombre"\s*:\s*"([^"]+)"/);
+          const documento = match.match(/"documento"\s*:\s*"([^"]*)"/);
+          const cargo = match.match(/"cargo"\s*:\s*"([^"]*)"/);
+          const empresa = match.match(/"empresa"\s*:\s*"([^"]*)"/);
+          const asistio = match.match(/"asistio"\s*:\s*(true|false)/);
+          return {
+            nombre: nombre ? nombre[1] : '',
+            documento: documento ? documento[1] : '',
+            cargo: cargo ? cargo[1] : '',
+            empresa: empresa ? empresa[1] : '',
+            asistio: asistio ? asistio[1] === 'true' : true,
+          };
         });
         datosExtraidos.totalAsistentes = datosExtraidos.asistentes.length;
       }
       
       if (datosExtraidos.asistentes.length === 0) {
-        return c.json({ 
+        return c.json({
           error: 'No se pudo parsear la respuesta de la IA',
           rawResponse: text.substring(0, 1000)
         }, 500);
       }
     }
+
     // Subir PDF a GCS como evidencia
     const nombreArchivo = body.nombreArchivo || `EVIDENCIA_ASISTENCIA_${Date.now()}.pdf`;
     const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, body.mimeType || 'application/pdf');
 
-    return c.json({ 
-      success: true, 
+    return c.json({
+      success: true,
       data: {
         ...datosExtraidos,
         evidenciaPDF: gcsUrl
@@ -1343,46 +1358,12 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
 
   } catch (error: any) {
     console.error('[GEMINI-CAP] Error completo:', error);
-    return c.json({ 
+    return c.json({
       error: error.message || 'Error desconocido',
       stack: error.stack || 'No stack trace'
     }, 500);
   }
 });
-// Endpoint de test para verificar Gemini
-app.post('/api/test-gemini', async (c) => {
-  try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Responde solo: TEST_OK' }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 10 }
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return c.json({ error: `Gemini error: ${response.status}`, details: errorText }, 500);
-    }
-
-    const result = await response.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    return c.json({ success: true, geminiResponse: text, keyConfigured: true });
-  } catch (error: any) {
-    return c.json({ error: error.message }, 500);
-  }
-});
-
 
 app.put('/api/capacitaciones/:rowIndex', async (c) => {
   try {
