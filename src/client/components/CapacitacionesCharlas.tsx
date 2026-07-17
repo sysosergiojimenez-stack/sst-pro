@@ -148,13 +148,14 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const handleGuardarRealizada = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showRealizarForm) return;
-    if (asistentesSeleccionados.length === 0) {
-      alert('Seleccione al menos un asistente');
-      return;
-    }
     setGuardandoRealizada(true);
     try {
       let urls: string[] = [];
+      let asistentesExtraidosIA: any[] = [];
+      let temasExtraidos = realizarForm.temasTratados;
+      let observacionesExtraidas = realizarForm.observaciones;
+
+      // 1. Procesar PDFs con IA para extraer asistentes
       if (pdfFiles.length > 0) {
         const archivos = await Promise.all(pdfFiles.map(f => new Promise<{ base64: string; mimeType: string; nombre: string }>((resolve, reject) => {
           const reader = new FileReader();
@@ -162,34 +163,95 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           reader.onerror = reject;
           reader.readAsDataURL(f);
         })));
+
+        // Subir evidencias a GCS
         const upRes = await fetch('/api/capacitaciones/evidencia', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ archivos, idRegistro: showRealizarForm.idRegistro }),
         });
         const upData = await upRes.json();
         if (upData.success) urls = upData.urls;
+
+        // Extraer asistentes con IA del primer PDF
+        if (archivos.length > 0) {
+          console.log('[FRONT] Extrayendo asistentes con IA del PDF...');
+          const extractRes = await fetch('/api/capacitaciones/extract-asistentes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pdfBase64: archivos[0].base64,
+              nombreArchivo: `EVIDENCIA_IA_${showRealizarForm.idRegistro}_${Date.now()}.pdf`,
+              mimeType: archivos[0].mimeType,
+            }),
+          });
+          const extractData = await extractRes.json();
+          if (extractData.success && extractData.data) {
+            asistentesExtraidosIA = extractData.data.asistentes || [];
+            temasExtraidos = extractData.data.temasTratados || realizarForm.temasTratados;
+            observacionesExtraidas = extractData.data.observaciones || realizarForm.observaciones;
+            console.log('[FRONT] IA extrajo', asistentesExtraidosIA.length, 'asistentes');
+          }
+        }
       }
 
-      const asistentesData = asistentesSeleccionados.map(doc => {
-        const emp = empleados.find(e => e.nroDocumento === doc);
-        return { nroDocumento: doc, nombre: emp ? `${emp.nombres} ${emp.apellidos}` : doc };
+      // 2. Combinar asistentes: IA + seleccionados manualmente
+      let asistentesFinales: any[] = [];
+
+      if (asistentesExtraidosIA.length > 0) {
+        // Usar asistentes extraídos por IA, cruzar con empleados para obtener nombres completos
+        asistentesFinales = asistentesExtraidosIA.map((a: any) => {
+          // Buscar empleado por nombre o documento
+          const empByDoc = empleados.find(e => e.nroDocumento === a.documento);
+          const empByName = empleados.find(e => 
+            `${e.nombres} ${e.apellidos}`.toLowerCase().includes(a.nombre.toLowerCase()) ||
+            a.nombre.toLowerCase().includes(`${e.nombres} ${e.apellidos}`.toLowerCase())
+          );
+          const emp = empByDoc || empByName;
+          return {
+            nroDocumento: a.documento || emp?.nroDocumento || 'N/A',
+            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : a.nombre,
+            cargo: a.cargo || emp?.cargo || 'N/A',
+            asistio: a.asistio !== false,
+          };
+        });
+      }
+
+      // Agregar asistentes seleccionados manualmente que no estén en la lista de IA
+      const docsIA = new Set(asistentesFinales.map(a => a.nroDocumento));
+      asistentesSeleccionados.forEach(doc => {
+        if (!docsIA.has(doc)) {
+          const emp = empleados.find(e => e.nroDocumento === doc);
+          asistentesFinales.push({
+            nroDocumento: doc,
+            nombre: emp ? `${emp.nombres} ${emp.apellidos}` : doc,
+            cargo: emp?.cargo || 'N/A',
+            asistio: true,
+          });
+        }
       });
+
+      if (asistentesFinales.length === 0 && asistentesSeleccionados.length === 0) {
+        alert('No se detectaron asistentes. Seleccione manualmente o suba un PDF válido.');
+        setGuardandoRealizada(false);
+        return;
+      }
 
       await fetch(`/api/capacitaciones/${showRealizarForm.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
           fechaRealizada: realizarForm.fechaRealizada,
-          asistentes: JSON.stringify(asistentesData),
-          observaciones: realizarForm.observaciones,
-          temasTratados: realizarForm.temasTratados,
+          asistentes: JSON.stringify(asistentesFinales),
+          observaciones: observacionesExtraidas,
+          temasTratados: temasExtraidos,
           evidenciaPDF: JSON.stringify(urls),
         }),
       });
 
       setShowRealizarForm(null);
+      setPdfFiles([]);
+      setAsistentesSeleccionados([]);
       fetchData();
-      alert('Charla marcada como realizada!');
+      alert(`Charla marcada como realizada! ${asistentesFinales.length} asistentes registrados.`);
     } catch (err: any) {
       alert('Error: ' + err.message);
     } finally {
