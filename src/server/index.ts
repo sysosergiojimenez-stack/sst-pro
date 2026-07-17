@@ -1309,10 +1309,10 @@ app.post('/api/capacitaciones/extract-asistentes', async (c) => {
       const asistentesMatch = text.match(/"nombre"\s*:\s*"([^"]+)"\s*,\s*"documento"\s*:\s*"([^"]*)"\s*,\s*"cargo"\s*:\s*"([^"]*)"\s*,\s*"asistio"\s*:\s*(true|false)/g);
       if (asistentesMatch) {
         datosExtraidos.asistentes = asistentesMatch.map((match: string) => {
-          const nombre = match.match(/"nombre"\s*:\s*"([^"]+)"/)[1];
-          const documento = match.match(/"documento"\s*:\s*"([^"]*)"/)[1];
-          const cargo = match.match(/"cargo"\s*:\s*"([^"]*)"/)[1];
-          const asistio = match.match(/"asistio"\s*:\s*(true|false)/)[1] === 'true';
+          const nombre = match.match(/"nombre"\s*:\s*"([^"]+)"/)?.[1] || '';
+          const documento = match.match(/"documento"\s*:\s*"([^"]*)"/)?.[1] || '';
+          const cargo = match.match(/"cargo"\s*:\s*"([^"]*)"/)?.[1] || '';
+          const asistio = match.match(/"asistio"\s*:\s*(true|false)/)?.[1] === 'true';
           return { nombre, documento, cargo, asistio };
         });
         datosExtraidos.totalAsistentes = datosExtraidos.asistentes.length;
