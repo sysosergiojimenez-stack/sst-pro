@@ -1346,6 +1346,41 @@ Si no puedes leer bien el PDF, devuelve:
     }, 500);
   }
 });
+// Endpoint de test para verificar Gemini
+app.post('/api/test-gemini', async (c) => {
+  try {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Responde solo: TEST_OK' }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 10 }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return c.json({ error: `Gemini error: ${response.status}`, details: errorText }, 500);
+    }
+
+    const result = await response.json();
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    return c.json({ success: true, geminiResponse: text, keyConfigured: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+
 app.put('/api/capacitaciones/:rowIndex', async (c) => {
   try {
     const rowIndex = parseInt(c.req.param('rowIndex'));
