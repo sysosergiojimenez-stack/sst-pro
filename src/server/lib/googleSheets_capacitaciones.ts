@@ -27,6 +27,7 @@ export interface Capacitacion {
   observaciones: string;
   evidenciaPDF: string;
   temasTratados: string;
+  imagenesAsistencia: string;
 }
 
 function rowToCapacitacion(row: any[], index: number): Capacitacion {
@@ -48,13 +49,14 @@ function rowToCapacitacion(row: any[], index: number): Capacitacion {
     observaciones: row[13] || '',
     evidenciaPDF: row[14] || '',
     temasTratados: row[15] || '',
+    imagenesAsistencia: row[16] || '',
   };
 }
 
 export async function getAllCapacitaciones(): Promise<Capacitacion[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_CAPACITACIONES}!A2:P`,
+    range: `${SHEET_CAPACITACIONES}!A2:Q`,
   });
   const rows = response.data.values || [];
   return rows.map((row, index) => rowToCapacitacion(row, index));
@@ -68,7 +70,7 @@ export async function getCapacitacionesByProyecto(proyecto: string): Promise<Cap
 export async function appendCapacitacion(cap: Omit<Capacitacion, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_CAPACITACIONES}!A1:P1`,
+    range: `${SHEET_CAPACITACIONES}!A1:Q1`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[
@@ -77,7 +79,7 @@ export async function appendCapacitacion(cap: Omit<Capacitacion, 'rowIndex'>): P
       cap.hora, cap.lugar, cap.responsable,
       cap.tipo, cap.estado, cap.fechaRealizada,
       cap.asistentes, cap.observaciones, cap.evidenciaPDF,
-      cap.temasTratados
+      cap.temasTratados, cap.imagenesAsistencia
     ]] },
   });
 }
@@ -100,6 +102,7 @@ export async function updateCapacitacion(
     'N': cap.observaciones || '',
     'O': cap.evidenciaPDF || '',
     'P': cap.temasTratados || '',
+    'Q': cap.imagenesAsistencia || '',
   };
   for (const [col, val] of Object.entries(fields)) {
     if (val !== '') {
@@ -120,6 +123,6 @@ export async function updateCapacitacion(
 export async function deleteCapacitacion(rowIndex: number): Promise<void> {
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_CAPACITACIONES}!A${rowIndex}:P${rowIndex}`,
+    range: `${SHEET_CAPACITACIONES}!A${rowIndex}:Q${rowIndex}`,
   });
 }
