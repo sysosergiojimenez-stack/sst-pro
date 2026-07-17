@@ -208,6 +208,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         // Extraer asistentes con IA del primer PDF
         if (archivos.length > 0) {
           console.log('[FRONT] Extrayendo asistentes con IA del PDF...');
+          console.log('[FRONT] PDF size:', archivos[0].base64.length, 'chars');
           const extractRes = await fetch('/api/capacitaciones/extract-asistentes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -217,11 +218,15 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
             }),
           });
           const extractData = await extractRes.json();
+          console.log('[FRONT] Respuesta IA:', extractData);
           if (extractData.success && extractData.data) {
             asistentesExtraidosIA = extractData.data.asistentes || [];
             temasExtraidos = extractData.data.temasTratados || realizarForm.temasTratados;
             observacionesExtraidas = extractData.data.observaciones || realizarForm.observaciones;
-            console.log('[FRONT] IA extrajo', asistentesExtraidosIA.length, 'asistentes');
+            console.log('[FRONT] IA extrajo', asistentesExtraidosIA.length, 'asistentes:', asistentesExtraidosIA);
+          } else {
+            console.warn('[FRONT] IA no extrajo asistentes:', extractData.error || 'Respuesta sin datos');
+            alert('La IA no pudo extraer asistentes del PDF. Se usarán los seleccionados manualmente.');
           }
         }
       }
