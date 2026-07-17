@@ -1245,31 +1245,16 @@ Extrae la lista de personas que asistieron. Para cada persona, obtén:
 - Cargo/rol (si está visible)
 - Firma o marca de asistencia (si está presente)
 
-Devuelve ÚNICAMENTE un JSON con este formato exacto:
-{
-  "asistentes": [
-    {
-      "nombre": "Nombre completo",
-      "documento": "12345678",
-      "cargo": "Oficial",
-      "asistio": true
-    }
-  ],
-  "totalAsistentes": 15,
-  "temasTratados": "Resumen de los temas mencionados en el documento",
-  "observaciones": "Cualquier observación adicional",
-  "fechaDocumento": "DD/MM/YYYY"
-}
+REGLAS IMPORTANTES:
+1. Devuelve ÚNICAMENTE un JSON válido, sin texto adicional antes o después
+2. Asegúrate de que el JSON sea válido: comillas correctas, comas entre elementos, sin comas finales
+3. NO uses markdown, NO uses ```json, solo el JSON puro en una sola línea
 
-Si no puedes leer bien el PDF, devuelve:
-{
-  "asistentes": [],
-  "totalAsistentes": 0,
-  "temasTratados": "",
-  "observaciones": "No se pudo extraer información del PDF",
-  "fechaDocumento": ""
-}`;
+Formato exacto (una sola línea, sin saltos de línea dentro del JSON):
+{"asistentes":[{"nombre":"Nombre completo","documento":"12345678","cargo":"Oficial","asistio":true}],"totalAsistentes":15,"temasTratados":"Resumen","observaciones":"Notas","fechaDocumento":"DD/MM/YYYY"}
 
+Si no puedes leer el PDF:
+{"asistentes":[],"totalAsistentes":0,"temasTratados":"","observaciones":"No se pudo extraer información del PDF","fechaDocumento":""}`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
       {
@@ -1307,25 +1292,41 @@ Si no puedes leer bien el PDF, devuelve:
     console.log('[GEMINI-CAP] Respuesta raw:', text.substring(0, 500));
 
     // Extraer JSON de la respuesta
+    // Extraer JSON de la respuesta
     let datosExtraidos: any = { asistentes: [], totalAsistentes: 0, temasTratados: '', observaciones: '', fechaDocumento: '' };
     
     try {
-      // Buscar JSON en la respuesta (puede venir entre ```json ... ```)
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const jsonStr = jsonMatch[1] || jsonMatch[0];
-        datosExtraidos = JSON.parse(jsonStr);
-      } else {
-        datosExtraidos = JSON.parse(text);
-      }
+      // Limpiar texto: quitar markdown, espacios extra, etc.
+      let cleanText = text.trim();
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/\n\s*/g, ' ').replace(/\s+/g, ' ');
+      const jsonMatch = cleanText.match(/\{.*\}/s);
+      if (jsonMatch) cleanText = jsonMatch[0];
+      datosExtraidos = JSON.parse(cleanText);
     } catch (parseError) {
-      console.error('[GEMINI-CAP] Error parseando JSON:', parseError);
-      return c.json({ 
-        error: 'No se pudo parsear la respuesta de la IA',
-        rawResponse: text.substring(0, 1000)
-      }, 500);
+      console.error('[GEMINI-CAP] Error parseando JSON, intentando corrección:', parseError);
+      console.error('[GEMINI-CAP] Texto raw:', text.substring(0, 500));
+      
+      // Fallback: intentar extraer asistentes con regex
+      const asistentesMatch = text.match(/"nombre"\s*:\s*"([^"]+)"\s*,\s*"documento"\s*:\s*"([^"]*)"\s*,\s*"cargo"\s*:\s*"([^"]*)"\s*,\s*"asistio"\s*:\s*(true|false)/g);
+      if (asistentesMatch) {
+        datosExtraidos.asistentes = asistentesMatch.map((match: string) => {
+          const nombre = match.match(/"nombre"\s*:\s*"([^"]+)"/)[1];
+          const documento = match.match(/"documento"\s*:\s*"([^"]*)"/)[1];
+          const cargo = match.match(/"cargo"\s*:\s*"([^"]*)"/)[1];
+          const asistio = match.match(/"asistio"\s*:\s*(true|false)/)[1] === 'true';
+          return { nombre, documento, cargo, asistio };
+        });
+        datosExtraidos.totalAsistentes = datosExtraidos.asistentes.length;
+      }
+      
+      if (datosExtraidos.asistentes.length === 0) {
+        return c.json({ 
+          error: 'No se pudo parsear la respuesta de la IA',
+          rawResponse: text.substring(0, 1000)
+        }, 500);
+      }
     }
-
     // Subir PDF a GCS como evidencia
     const nombreArchivo = body.nombreArchivo || `EVIDENCIA_ASISTENCIA_${Date.now()}.pdf`;
     const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, body.mimeType || 'application/pdf');
