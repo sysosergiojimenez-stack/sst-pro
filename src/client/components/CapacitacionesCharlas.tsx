@@ -34,8 +34,41 @@ interface CapacitacionesCharlasProps {
 
 const TIPOS_CHARLA = ['Induccion SST', 'Charla de 5 minutos', 'Capacitacion tecnica', 'Simulacro', 'Uso de EPP', 'Trabajo en alturas', 'Otro'];
 
-function parseAsistentes(str: string): { nroDocumento: string; nombre: string }[] {
-  try { return str ? JSON.parse(str) : []; } catch { return []; }
+function parseAsistentes(str: string): { nroDocumento: string; nombre: string; cargo?: string }[] {
+  if (!str) return [];
+  try {
+    const parsed = JSON.parse(str);
+    // Si es un array, devolverlo directamente
+    if (Array.isArray(parsed)) return parsed;
+    // Si es un objeto con propiedad asistentes (formato de respuesta IA)
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.asistentes)) {
+      return parsed.asistentes.map((a: any) => ({
+        nroDocumento: a.documento || a.nroDocumento || 'N/A',
+        nombre: a.nombre || 'Sin nombre',
+        cargo: a.cargo || 'N/A',
+      }));
+    }
+    // Si es un objeto con otras propiedades, intentar extraer array
+    if (parsed && typeof parsed === 'object') {
+      const possibleArrays = Object.values(parsed).filter(v => Array.isArray(v));
+      if (possibleArrays.length > 0) {
+        return possibleArrays[0].map((a: any) => ({
+          nroDocumento: a.documento || a.nroDocumento || 'N/A',
+          nombre: a.nombre || 'Sin nombre',
+          cargo: a.cargo || 'N/A',
+        }));
+      }
+    }
+    return [];
+  } catch {
+    // Si no es JSON válido, intentar parsear como lista de texto
+    const lines = str.split(/\n|,/).map(s => s.trim()).filter(s => s);
+    return lines.map((line, i) => ({
+      nroDocumento: `ASIS-${i+1}`,
+      nombre: line,
+      cargo: 'N/A',
+    }));
+  }
 }
 
 function parseEvidencias(str: string): string[] {
