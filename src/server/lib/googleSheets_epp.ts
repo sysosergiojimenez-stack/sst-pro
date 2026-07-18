@@ -45,7 +45,7 @@ function rowToProducto(row: any[], index: number): Producto {
 export async function getAllProductos(): Promise<Producto[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_PRODUCTOS}!A2:E`,
+    range: `${SHEET_PRODUCTOS}!A2:F`,
   });
   const rows = response.data.values || [];
   return rows.map((row, index) => rowToProducto(row, index));
@@ -170,6 +170,14 @@ export async function updateProducto(
   if (updates.length === 0) return;
   await Promise.all(updates);
   console.log('Producto actualizado en fila:', rowIndex);
+}
+
+export async function deleteProducto(rowIndex: number): Promise<void> {
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PRODUCTOS}!A${rowIndex}:F${rowIndex}`,
+  });
+  console.log('Producto eliminado en fila:', rowIndex);
 }
 
 export async function updateRemision(
