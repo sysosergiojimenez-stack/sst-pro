@@ -103,6 +103,11 @@ export default function EPP({ proyecto }: EPPProps) {
   const [busquedaQuienRetira, setBusquedaQuienRetira] = useState('');
   const [mostrarSugerenciasQuienRetira, setMostrarSugerenciasQuienRetira] = useState(false);
   const [salidaForm, setSalidaForm] = useState({ refItem: '', cantidad: '', trabajadorRetira: '' });
+  const [showProductoEdit, setShowProductoEdit] = useState<Producto | null>(null);
+  const [productosSeleccionados, setProductosSeleccionados] = useState<Set<string>>(new Set());
+  const [editingProductoForm, setEditingProductoForm] = useState({ nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [mostrarSugerenciasProducto, setMostrarSugerenciasProducto] = useState(false);
   const [selectedNota, setSelectedNota] = useState<NotaSalida | null>(null);
   const [salidasTemporales, setSalidasTemporales] = useState<{refItem: string, cantidad: string, trabajadorRetira: string, itemNombre: string}[]>([]);
 
@@ -384,6 +389,68 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     } catch (err: any) { setError(err.message); }
   };
 
+  const startEditProducto = (producto: Producto) => {
+    if (showProductoEdit?.codigo === producto.codigo) { setShowProductoEdit(null); return; }
+    setShowProductoEdit(producto);
+    setEditingProductoForm({
+      nombre: producto.nombre,
+      proveedor: producto.proveedor,
+      clasificacion: producto.clasificacion,
+      stockMinimo: producto.stockMinimo,
+    });
+  };
+
+  const handleEditProducto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showProductoEdit) return;
+    try {
+      const response = await fetch(`/api/epp/productos/${showProductoEdit.rowIndex}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingProductoForm),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      setShowProductoEdit(null);
+      setEditingProductoForm({ nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const handleDeleteProducto = async (producto: Producto) => {
+    if (!confirm(`Eliminar producto "${producto.nombre}"? Esto no borra las entradas/salidas ya registradas con este codigo.`)) return;
+    try {
+      const response = await fetch(`/api/epp/productos/${producto.rowIndex}`, { method: 'DELETE' });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const toggleSeleccionProducto = (codigo: string) => {
+    setProductosSeleccionados(prev => {
+      const next = new Set(prev);
+      if (next.has(codigo)) next.delete(codigo); else next.add(codigo);
+      return next;
+    });
+  };
+
+  const toggleSeleccionarTodosProductos = () => {
+    if (productosSeleccionados.size === productosFiltrados.length) {
+      setProductosSeleccionados(new Set());
+    } else {
+      setProductosSeleccionados(new Set(productosFiltrados.map(p => p.codigo)));
+    }
+  };
+
+  const handleBulkDeleteProductos = async () => {
+    if (productosSeleccionados.size === 0) return;
+    if (!confirm(`Eliminar ${productosSeleccionados.size} producto(s) seleccionado(s)? Esto no borra las entradas/salidas ya registradas.`)) return;
+    try {
+      const aEliminar = productos.filter(p => productosSeleccionados.has(p.codigo));
+      await Promise.all(aEliminar.map(p => fetch(`/api/epp/productos/${p.rowIndex}`, { method: 'DELETE' })));
+      setProductosSeleccionados(new Set());
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
   const handleAddRemision = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -461,6 +528,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       itemNombre: prod?.nombre || salidaForm.refItem,
     }]);
     setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' });
+    setBusquedaProducto('');
   };
 
   const handleGuardarNotaConSalidas = async () => {
@@ -645,9 +713,16 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Planilla de Productos EPP</h2>
-            <button onClick={() => setShowProductoForm(true)} className="bg-secondary border border-border px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
-              <Plus size={16} /> Nuevo Producto
-            </button>
+            <div className="flex gap-2">
+              {productosSeleccionados.size > 0 && (
+                <button onClick={handleBulkDeleteProductos} className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-colors text-sm">
+                  <Trash2 size={16} /> Eliminar ({productosSeleccionados.size})
+                </button>
+              )}
+              <button onClick={() => setShowProductoForm(true)} className="bg-secondary border border-border px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
+                <Plus size={16} /> Nuevo Producto
+              </button>
+            </div>
           </div>
 
           {showProductoForm && (
@@ -678,6 +753,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-secondary/50 border-b border-border">
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={productosFiltrados.length > 0 && productosSeleccionados.size === productosFiltrados.length} onChange={toggleSeleccionarTodosProductos} className="rounded" />
+                      </th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Codigo</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
@@ -685,6 +763,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Salidas</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Stock</th>
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Estado</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -693,8 +772,13 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const salidas = totalSalidasByProducto(p.codigo);
                       const stock = stockDisponible(p.codigo);
                       const bajo = isStockBajo(p);
+                      const editando = showProductoEdit?.codigo === p.codigo;
                       return (
-                        <tr key={p.codigo} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${bajo ? 'bg-red-500/5' : ''}`}>
+                        <Fragment key={p.codigo}>
+                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
+                          </td>
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.codigo}</td>
                           <td className="px-4 py-3 font-medium">{p.nombre}</td>
                           <td className="px-4 py-3 text-muted-foreground">{p.proveedor || '-'}</td>
@@ -716,7 +800,49 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                               </span>
                             )}
                           </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => startEditProducto(p)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteProducto(p)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                            </div>
+                          </td>
                         </tr>
+                        {editando && (
+                          <tr className="bg-secondary/10 border-b border-border/50">
+                            <td colSpan={8} className="px-6 py-4">
+                              <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo</label>
+                                  <p className="font-medium text-sm py-2">{p.codigo}</p>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Nombre</label>
+                                  <input type="text" value={editingProductoForm.nombre} onChange={(e) => setEditingProductoForm({...editingProductoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label>
+                                  <input type="text" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
+                                  <select value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50">
+                                    <option value="">Seleccionar...</option>
+                                    {clasificaciones.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Stock Minimo</label>
+                                  <input type="number" value={editingProductoForm.stockMinimo} onChange={(e) => setEditingProductoForm({...editingProductoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                </div>
+                                <div className="flex items-end gap-2 md:col-span-4">
+                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                                  <button type="button" onClick={() => setShowProductoEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -880,7 +1006,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
             <div className="glass-card p-6 scale-in">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Nueva Nota de Salida</h3>
-                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); setBusquedaProducto(''); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
               </div>
               <form onSubmit={handleGuardarNotaCompleta}>
                 {/* Datos de la Nota */}
@@ -952,15 +1078,36 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <div className="border-t border-border pt-4">
                   <h4 className="text-sm font-medium mb-3">Agregar Item</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-medium mb-2">Producto *</label>
-                      <select value={salidaForm.refItem} onChange={(e) => setSalidaForm({...salidaForm, refItem: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50">
-                        <option value="">Seleccionar...</option>
-                        {productos.map(p => {
-                          const stock = stockDisponible(p.codigo);
-                          return <option key={p.codigo} value={p.codigo}>{p.nombre} (Stock: {stock})</option>;
-                        })}
-                      </select>
+                      <input
+                        type="text"
+                        value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
+                        onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
+                        onFocus={() => setMostrarSugerenciasProducto(true)}
+                        onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
+                        placeholder="Escribi nombre o codigo..."
+                        className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+                        autoComplete="off"
+                      />
+                      {mostrarSugerenciasProducto && busquedaProducto && (
+                        <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                          {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
+                            productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map(p => (
+                              <button
+                                type="button"
+                                key={p.codigo}
+                                onClick={() => { setSalidaForm({ ...salidaForm, refItem: p.codigo }); setBusquedaProducto(''); setMostrarSugerenciasProducto(false); }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary/50 transition-colors"
+                              >
+                                {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2.5 text-sm text-muted-foreground">Sin resultados</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">Cantidad *</label>
@@ -994,7 +1141,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                   <h3 className="font-semibold">Nota: {selectedNota.idRegistro}</h3>
                   <p className="text-sm text-muted-foreground">Orden: {selectedNota.orden} | Retira: {selectedNota.quienRetira}</p>
                 </div>
-                <button onClick={() => { setSelectedNota(null); setSalidasTemporales([]); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+                <button onClick={() => { setSelectedNota(null); setSalidasTemporales([]); setBusquedaProducto(''); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
               </div>
               
               <div className="mb-4">
@@ -1042,14 +1189,37 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 )}
 
                 <form onSubmit={handleAgregarItemSalida} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div><label className="block text-sm font-medium mb-2">Producto *</label>
-                    <select value={salidaForm.refItem} onChange={(e) => setSalidaForm({...salidaForm, refItem: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required>
-                      <option value="">Seleccionar...</option>
-                      {productos.map(p => {
-                        const stock = stockDisponible(p.codigo);
-                        return <option key={p.codigo} value={p.codigo}>{p.nombre} (Stock: {stock})</option>;
-                      })}
-                    </select>
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-2">Producto *</label>
+                    <input
+                      type="text"
+                      value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
+                      onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
+                      onFocus={() => setMostrarSugerenciasProducto(true)}
+                      onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
+                      placeholder="Escribi nombre o codigo..."
+                      className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+                      required={!salidaForm.refItem}
+                      autoComplete="off"
+                    />
+                    {mostrarSugerenciasProducto && busquedaProducto && (
+                      <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                        {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
+                          productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map(p => (
+                            <button
+                              type="button"
+                              key={p.codigo}
+                              onClick={() => { setSalidaForm({ ...salidaForm, refItem: p.codigo }); setBusquedaProducto(''); setMostrarSugerenciasProducto(false); }}
+                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary/50 transition-colors"
+                            >
+                              {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2.5 text-sm text-muted-foreground">Sin resultados</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div><label className="block text-sm font-medium mb-2">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
                   <div><label className="block text-sm font-medium mb-2">Trabajador *</label>

@@ -41,7 +41,7 @@ import {
   deleteIncidente 
 } from './lib/googleSheets_incidentes';
 import {
-  getAllProductos, getProductosByProyecto, getProductoByCodigo, appendProducto, updateProducto,
+  getAllProductos, getProductosByProyecto, getProductoByCodigo, appendProducto, updateProducto, deleteProducto,
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, getRemisionByNumeracion, appendRemision, updateRemision, deleteRemision,
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
@@ -1170,6 +1170,20 @@ app.put('/api/epp/productos/:rowIndex', async (c) => {
     return c.json({ success: true, message: 'Producto actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/productos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/epp/productos/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteProducto(rowIndex);
+    return c.json({ success: true, message: 'Producto eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/epp/productos:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
