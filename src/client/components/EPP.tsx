@@ -113,10 +113,12 @@ export default function EPP({ proyecto }: EPPProps) {
 
   const [showRemisionDetail, setShowRemisionDetail] = useState<Remision | null>(null);
   const [showRemisionEdit, setShowRemisionEdit] = useState<Remision | null>(null);
+  const [remisionesSeleccionadas, setRemisionesSeleccionadas] = useState<Set<string>>(new Set());
   const [editingRemisionForm, setEditingRemisionForm] = useState({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
 
   const [showNotaDetail, setShowNotaDetail] = useState<NotaSalida | null>(null);
   const [showNotaEdit, setShowNotaEdit] = useState<NotaSalida | null>(null);
+  const [notasSeleccionadas, setNotasSeleccionadas] = useState<Set<string>>(new Set());
   const [editingNotaForm, setEditingNotaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
 
   const fetchData = async () => {
@@ -573,6 +575,35 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
+  const toggleSeleccionRemision = (idRegistro: string) => {
+    setRemisionesSeleccionadas(prev => {
+      const next = new Set(prev);
+      if (next.has(idRegistro)) next.delete(idRegistro); else next.add(idRegistro);
+      return next;
+    });
+  };
+
+  const toggleSeleccionarTodasRemisiones = () => {
+    if (remisionesSeleccionadas.size === remisionesFiltradas.length) {
+      setRemisionesSeleccionadas(new Set());
+    } else {
+      setRemisionesSeleccionadas(new Set(remisionesFiltradas.map(r => r.idRegistro)));
+    }
+  };
+
+  const handleBulkDeleteRemisiones = async () => {
+    if (remisionesSeleccionadas.size === 0) return;
+    if (!confirm(`Eliminar ${remisionesSeleccionadas.size} remision(es) seleccionada(s)?`)) return;
+    try {
+      const aEliminar = remisiones.filter(r => remisionesSeleccionadas.has(r.idRegistro));
+      await Promise.all(aEliminar.map(r => fetch(`/api/epp/remisiones/${r.rowIndex}`, { method: 'DELETE' })));
+      const cantidad = aEliminar.length;
+      setRemisionesSeleccionadas(new Set());
+      fetchData();
+      alert(`${cantidad} remision(es) eliminada(s) correctamente.`);
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
   const handleEditRemision = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showRemisionEdit) return;
@@ -589,6 +620,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
   };
 
   const startEditRemision = (remision: Remision) => {
+    if (showRemisionEdit?.idRegistro === remision.idRegistro) { setShowRemisionEdit(null); return; }
+    setShowRemisionDetail(null);
     setShowRemisionEdit(remision);
     setEditingRemisionForm({
       proveedor: remision.proveedor,
@@ -611,6 +644,41 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
+  const toggleSeleccionNota = (idRegistro: string) => {
+    setNotasSeleccionadas(prev => {
+      const next = new Set(prev);
+      if (next.has(idRegistro)) next.delete(idRegistro); else next.add(idRegistro);
+      return next;
+    });
+  };
+
+  const toggleSeleccionarTodasNotas = () => {
+    if (notasSeleccionadas.size === notasFiltradas.length) {
+      setNotasSeleccionadas(new Set());
+    } else {
+      setNotasSeleccionadas(new Set(notasFiltradas.map(n => n.idRegistro)));
+    }
+  };
+
+  const handleBulkDeleteNotas = async () => {
+    if (notasSeleccionadas.size === 0) return;
+    if (!confirm(`Eliminar ${notasSeleccionadas.size} nota(s) de salida seleccionada(s) y todas sus salidas relacionadas?`)) return;
+    try {
+      const aEliminar = notasSalida.filter(n => notasSeleccionadas.has(n.idRegistro));
+      for (const nota of aEliminar) {
+        const salidasRelacionadas = salidasByNota(nota.idRegistro);
+        for (const salida of salidasRelacionadas) {
+          await fetch(`/api/epp/salidas/${salida.rowIndex}`, { method: 'DELETE' });
+        }
+        await fetch(`/api/epp/notas-salida/${nota.rowIndex}`, { method: 'DELETE' });
+      }
+      const cantidad = aEliminar.length;
+      setNotasSeleccionadas(new Set());
+      fetchData();
+      alert(`${cantidad} nota(s) de salida eliminada(s) correctamente.`);
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showNotaEdit) return;
@@ -622,11 +690,14 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowNotaEdit(null);
       setEditingNotaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
+      setBusquedaQuienRetira('');
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
   const startEditNota = (nota: NotaSalida) => {
+    if (showNotaEdit?.idRegistro === nota.idRegistro) { setShowNotaEdit(null); return; }
+    setShowNotaDetail(null);
     setShowNotaEdit(nota);
     setEditingNotaForm({
       orden: nota.orden,
@@ -634,6 +705,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       quienRetira: nota.quienRetira,
       observaciones: nota.observaciones,
     });
+    const empActual = buscarEmpleado(nota.quienRetira);
+    setBusquedaQuienRetira(empActual ? `${empActual.nombres} ${empActual.apellidos} - CI: ${empActual.nroDocumento}` : '');
   };
 
   const productosFiltrados = productos.filter(p =>
@@ -867,6 +940,11 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Planilla de Remisiones y Facturas</h2>
             <div className="flex gap-2">
+              {remisionesSeleccionadas.size > 0 && (
+                <button onClick={handleBulkDeleteRemisiones} className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-colors text-sm">
+                  <Trash2 size={16} /> Eliminar ({remisionesSeleccionadas.size})
+                </button>
+              )}
               <button onClick={() => setShowGeminiForm(true)} className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25 text-sm">
                 <Brain size={16} /> Procesar con IA
               </button>
@@ -899,6 +977,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-secondary/50 border-b border-border">
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={remisionesFiltradas.length > 0 && remisionesSeleccionadas.size === remisionesFiltradas.length} onChange={toggleSeleccionarTodasRemisiones} className="rounded" />
+                      </th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Numeracion</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
@@ -917,6 +998,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       return (
                         <Fragment key={r.idRegistro}>
                         <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${expandida ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={remisionesSeleccionadas.has(r.idRegistro)} onChange={() => toggleSeleccionRemision(r.idRegistro)} className="rounded" />
+                          </td>
                           <td className="px-4 py-3 text-muted-foreground">{formatearFecha(r.fecha)}</td>
                           <td className="px-4 py-3 font-medium">{r.numeracion}</td>
                           <td className="px-4 py-3 text-muted-foreground">{r.proveedor || '-'}</td>
@@ -940,7 +1024,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                         </tr>
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={5} className="px-6 py-4">
+                            <td colSpan={6} className="px-6 py-4">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                                 <div><span className="text-xs text-muted-foreground uppercase">Numeracion</span><p className="font-medium">{r.numeracion}</p></div>
                                 <div><span className="text-xs text-muted-foreground uppercase">Proveedor</span><p className="font-medium">{r.proveedor || '-'}</p></div>
@@ -966,6 +1050,22 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                             </td>
                           </tr>
                         )}
+                        {showRemisionEdit?.idRegistro === r.idRegistro && (
+                          <tr className="bg-secondary/10 border-b border-border/50">
+                            <td colSpan={6} className="px-6 py-4">
+                              <form onSubmit={handleEditRemision} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Detalle</label><input type="text" value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div className="flex items-end gap-2 md:col-span-4">
+                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                                  <button type="button" onClick={() => setShowRemisionEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                        )}
                         </Fragment>
                       );
                     })}
@@ -987,6 +1087,11 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Notas de Salida</h2>
             <div className="flex gap-2">
+              {notasSeleccionadas.size > 0 && (
+                <button onClick={handleBulkDeleteNotas} className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-colors text-sm">
+                  <Trash2 size={16} /> Eliminar ({notasSeleccionadas.size})
+                </button>
+              )}
               <button onClick={() => setShowGeminiSalidaForm(true)} className="bg-secondary border border-border px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
                 <Brain size={16} /> Procesar con IA
               </button>
@@ -1255,6 +1360,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-secondary/50 border-b border-border">
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={notasFiltradas.length > 0 && notasSeleccionadas.size === notasFiltradas.length} onChange={toggleSeleccionarTodasNotas} className="rounded" />
+                      </th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">N° Orden</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Quien Retira</th>
@@ -1275,6 +1383,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       return (
                         <Fragment key={n.idRegistro}>
                         <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${expandida ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
+                          </td>
                           <td className="px-4 py-3 text-muted-foreground">{formatearFecha(n.fecha)}</td>
                           <td className="px-4 py-3 font-medium">{n.orden || n.idRegistro}</td>
                           <td className="px-4 py-3">{nombreRetira}</td>
@@ -1293,7 +1404,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                         </tr>
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={5} className="px-6 py-4">
+                            <td colSpan={6} className="px-6 py-4">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                                 <div><span className="text-xs text-muted-foreground uppercase">Orden</span><p className="font-medium">{n.orden || n.idRegistro}</p></div>
                                 <div><span className="text-xs text-muted-foreground uppercase">Quien Retira</span><p className="font-medium">{nombreRetira}</p></div>
@@ -1320,6 +1431,60 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                             </td>
                           </tr>
                         )}
+                        {showNotaEdit?.idRegistro === n.idRegistro && (
+                          <tr className="bg-secondary/10 border-b border-border/50">
+                            <td colSpan={6} className="px-6 py-4">
+                              <form onSubmit={handleEditNotaSalida} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div className="relative">
+                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Quien Retira</label>
+                                  <input
+                                    type="text"
+                                    value={busquedaQuienRetira}
+                                    onChange={(e) => {
+                                      setBusquedaQuienRetira(e.target.value);
+                                      setMostrarSugerenciasQuienRetira(true);
+                                      if (editingNotaForm.quienRetira) setEditingNotaForm({ ...editingNotaForm, quienRetira: '' });
+                                    }}
+                                    onFocus={() => setMostrarSugerenciasQuienRetira(true)}
+                                    onBlur={() => setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150)}
+                                    placeholder="Escribi nombre o cedula..."
+                                    className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+                                    autoComplete="off"
+                                  />
+                                  {mostrarSugerenciasQuienRetira && busquedaQuienRetira && (
+                                    <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                                      {empleados.filter(e => `${e.nombres} ${e.apellidos} ${e.nroDocumento}`.toLowerCase().includes(busquedaQuienRetira.toLowerCase())).length > 0 ? (
+                                        empleados.filter(e => `${e.nombres} ${e.apellidos} ${e.nroDocumento}`.toLowerCase().includes(busquedaQuienRetira.toLowerCase())).map(emp => (
+                                          <button
+                                            type="button"
+                                            key={emp.nroDocumento}
+                                            onClick={() => {
+                                              setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
+                                              setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
+                                              setMostrarSugerenciasQuienRetira(false);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm hover:bg-secondary/50 transition-colors"
+                                          >
+                                            {emp.nombres} {emp.apellidos} <span className="text-muted-foreground">- CI: {emp.nroDocumento}</span>
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Observaciones</label><input type="text" value={editingNotaForm.observaciones} onChange={(e) => setEditingNotaForm({...editingNotaForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div className="flex items-end gap-2 md:col-span-4">
+                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                                  <button type="button" onClick={() => { setShowNotaEdit(null); setBusquedaQuienRetira(''); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                        )}
                         </Fragment>
                       );
                     })}
@@ -1336,28 +1501,6 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       )}
 
       {/* MODALES */}
-
-      {/* Modal Editar Remision */}
-      {showRemisionEdit && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card p-6 max-w-lg w-full scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2"><Pencil size={20} className="text-primary" />Editar Remision</h2>
-              <button onClick={() => { setShowRemisionEdit(null); setEditingRemisionForm({ proveedor: '', numeracion: '', fecha: '', detalle: '' }); }} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
-            </div>
-            <form onSubmit={handleEditRemision} className="space-y-4">
-              <div><label className="block text-sm font-medium mb-2">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Detalle</label><textarea value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} rows={2} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div className="flex gap-2 pt-2">
-                <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
-                <button type="button" onClick={() => { setShowRemisionEdit(null); setEditingRemisionForm({ proveedor: '', numeracion: '', fecha: '', detalle: '' }); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal Procesar Factura con IA */}
       {showGeminiForm && (
@@ -1435,28 +1578,6 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal Editar Nota de Salida */}
-      {showNotaEdit && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card p-6 max-w-lg w-full scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2"><Pencil size={20} className="text-primary" />Editar Nota de Salida</h2>
-              <button onClick={() => { setShowNotaEdit(null); setEditingNotaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' }); }} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
-            </div>
-            <form onSubmit={handleEditNotaSalida} className="space-y-4">
-              <div><label className="block text-sm font-medium mb-2">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Quien Retira</label><input type="text" value={editingNotaForm.quienRetira} onChange={(e) => setEditingNotaForm({...editingNotaForm, quienRetira: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div><label className="block text-sm font-medium mb-2">Observaciones</label><textarea value={editingNotaForm.observaciones} onChange={(e) => setEditingNotaForm({...editingNotaForm, observaciones: e.target.value})} rows={2} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-              <div className="flex gap-2 pt-2">
-                <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
-                <button type="button" onClick={() => { setShowNotaEdit(null); setEditingNotaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' }); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
-              </div>
-            </form>
           </div>
         </div>
       )}
