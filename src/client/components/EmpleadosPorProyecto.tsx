@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX } from 'lucide-react';
 
 interface Proyecto {
   rowIndex: number;
@@ -22,6 +22,7 @@ interface Empleado {
   telefonoCelular: string;
   email: string;
   scanDocumentos?: string;
+  estado?: string;
 }
 
 interface EmpleadosPorProyectoProps {
@@ -106,6 +107,20 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
+  const handleToggleEstado = async (empleado: Empleado) => {
+    const estadoActual = empleado.estado || 'Activo';
+    const nuevoEstado = estadoActual === 'Inactivo' ? 'Activo' : 'Inactivo';
+    if (!confirm(`Marcar a "${empleado.nombres} ${empleado.apellidos}" como ${nuevoEstado}?`)) return;
+    try {
+      const response = await fetch(`/api/empleados/${empleado.rowIndex}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
   const startEdit = (empleado: Empleado) => {
     setEditingEmpleado(empleado);
     setForm({ nroDocumento: empleado.nroDocumento, nombres: empleado.nombres, apellidos: empleado.apellidos, cargo: empleado.cargo, empresa: empleado.empresa, telefonoCelular: empleado.telefonoCelular, email: empleado.email });
@@ -136,6 +151,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       setShowGeminiForm(false); setDatosExtraidos(null); setPdfFile(null); fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
+
+  const ordenarAlfabetico = (a: Empleado, b: Empleado) =>
+    `${a.apellidos} ${a.nombres}`.localeCompare(`${b.apellidos} ${b.nombres}`, 'es');
+
+  const activosOrdenados = [...empleadosFiltrados]
+    .filter(e => (e.estado || 'Activo') !== 'Inactivo')
+    .sort(ordenarAlfabetico);
+
+  const inactivosOrdenados = [...empleadosFiltrados]
+    .filter(e => (e.estado || 'Activo') === 'Inactivo')
+    .sort(ordenarAlfabetico);
 
   return (
     <div className="space-y-6">
@@ -274,11 +300,18 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Cargo</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Empresa</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Contacto</th>
+                <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Estado</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {empleadosFiltrados.map((emp) => (
+              <tr className="bg-secondary/30">
+                <td colSpan={8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
+              </tr>
+              {activosOrdenados.length === 0 && (
+                <tr><td colSpan={8} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
+              )}
+              {activosOrdenados.map((emp) => (
                 <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50">
                   <td className="py-3 px-4 text-sm">{emp.nroDocumento}</td>
                   <td className="py-3 px-4 text-sm">{emp.nombres}</td>
@@ -286,15 +319,47 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                   <td className="py-3 px-4 text-sm">{emp.cargo}</td>
                   <td className="py-3 px-4 text-sm">{emp.empresa}</td>
                   <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">Activo</span>
+                  </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-1">
                       <button onClick={() => startEdit(emp)} className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
+                      <button onClick={() => handleToggleEstado(emp)} className="p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
                       <button onClick={() => handleDelete(emp)} className="p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
                       {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
                     </div>
                   </td>
                 </tr>
               ))}
+              {inactivosOrdenados.length > 0 && (
+                <>
+                  <tr className="bg-secondary/30">
+                    <td colSpan={8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
+                  </tr>
+                  {inactivosOrdenados.map((emp) => (
+                    <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 opacity-60">
+                      <td className="py-3 px-4 text-sm">{emp.nroDocumento}</td>
+                      <td className="py-3 px-4 text-sm">{emp.nombres}</td>
+                      <td className="py-3 px-4 text-sm">{emp.apellidos}</td>
+                      <td className="py-3 px-4 text-sm">{emp.cargo}</td>
+                      <td className="py-3 px-4 text-sm">{emp.empresa}</td>
+                      <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs">Inactivo</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-1">
+                          <button onClick={() => startEdit(emp)} className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
+                          <button onClick={() => handleToggleEstado(emp)} className="p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
+                          <button onClick={() => handleDelete(emp)} className="p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                          {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              )}
             </tbody>
           </table>
         </div>

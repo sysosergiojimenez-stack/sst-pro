@@ -248,6 +248,7 @@ export interface Empleado {
   telefonoCelular: string;
   email: string;
   scanDocumentos?: string;
+  estado?: string;
 }
 
 export async function getEmpleados(): Promise<Empleado[]> {
@@ -268,6 +269,7 @@ export async function getEmpleados(): Promise<Empleado[]> {
       telefonoCelular: row[26] || '',
       email: row[28] || '',
       scanDocumentos: row[53] || '',
+      estado: row[54] || 'Activo',
     }));
   } catch (error) {
     console.error('Error reading empleados:', error);
@@ -301,6 +303,7 @@ export async function getEmpleadoByRowIndex(rowIndex: number): Promise<Empleado 
       telefonoCelular: row[26] || '',
       email: row[28] || '',
       scanDocumentos: row[53] || '',
+      estado: row[54] || 'Activo',
     };
   } catch (error) {
     console.error('Error reading empleado by row index:', error);
@@ -339,6 +342,7 @@ export async function appendEmpleado(
       empleado.empresa, empleado.cargo,
       '', '', '', '', '', '', '', '',
       empleado.scanDocumentos || '',
+      empleado.estado || 'Activo',
     ]];
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
@@ -393,6 +397,9 @@ export async function updateEmpleado(
     }
     if (empleado.scanDocumentos !== undefined) {
       updates.push({ range: `NOMINA DE PERSONAL!BB${rowIndex}`, values: [[empleado.scanDocumentos]] });
+    }
+    if (empleado.estado !== undefined) {
+      updates.push({ range: `NOMINA DE PERSONAL!BC${rowIndex}`, values: [[empleado.estado]] });
     }
     if (updates.length === 0) {
       console.log('No hay campos para actualizar');
