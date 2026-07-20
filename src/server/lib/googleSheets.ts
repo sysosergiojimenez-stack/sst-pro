@@ -119,8 +119,16 @@ export async function extraerDatosConGemini(
   if (!base64PDF || base64PDF.length < 100) {
     throw new Error('PDF vacio o base64 invalido. Length: ' + (base64PDF?.length || 0));
   }
-  const prompt = `Analiza este documento PDF que contiene una ficha o cedula de un trabajador. 
-Extrae TODOS los datos personales y laborales que encuentres.
+  const prompt = `Analiza este documento, que puede contener VARIAS paginas o imagenes correspondientes a un mismo trabajador. Pueden aparecer los siguientes tipos de documentos, todos OPCIONALES (puede venir solo uno, o varios juntos):
+
+1. CEDULA DE IDENTIDAD (Republica del Paraguay): contiene numero de documento, apellidos, nombres, fecha de nacimiento, lugar de nacimiento y estado civil. Es la fuente MAS CONFIABLE para estos datos personales.
+
+2. ACTA DE INDUCCION EN SEGURIDAD (formulario con checklist de riesgos y firmas): contiene el nombre del trabajador, numero de C.I.C. (cedula), la OBRA, la EMPRESA, y el CARGO O LABOR A DESEMPEÑAR. Usa este documento para CARGO, EMPRESA y OBRA si estan disponibles ahi.
+
+3. CONSTANCIA DE ENTRADA DEL ASEGURADO (IPS - Instituto de Prevision Social): contiene CI Nro, Apellidos, Nombres, y los datos del Empleador (nombre y domicilio). Usa esto para confirmar identidad, y como EMPRESA si no aparece en otro documento.
+
+Extrae TODOS los datos personales y laborales combinando la informacion de TODOS los documentos presentes. Si el mismo dato aparece en mas de un documento, priorizar la CEDULA DE IDENTIDAD para datos personales (nombres, apellidos, fecha de nacimiento, etc), y el ACTA DE INDUCCION o la CONSTANCIA IPS para datos laborales (cargo, empresa, obra).
+
 Responde UNICAMENTE en formato JSON con esta estructura exacta:
 {
   "nroDocumento": "numero de documento de identidad",
@@ -155,7 +163,7 @@ NO incluyas explicaciones, SOLO el JSON.`;
               { inline_data: { mime_type: mimeType, data: base64PDF } }
             ]
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
         })
       }
     );
@@ -191,7 +199,7 @@ NO incluyas explicaciones, SOLO el JSON.`;
       }
     }
     if (!datos) {
-      const jsonMatch = text.match(/\{[\s\S]*?\}/);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           datos = JSON.parse(jsonMatch[0]);
@@ -213,7 +221,8 @@ NO incluyas explicaciones, SOLO el JSON.`;
       }
     }
     if (!datos) {
-      throw new Error('No se pudo extraer JSON de la respuesta de Gemini');
+      console.error('Texto completo recibido de Gemini:', text);
+      throw new Error('No se pudo extraer JSON de la respuesta de Gemini. Respuesta recibida: ' + text.substring(0, 300));
     }
     console.log('JSON extraido via:', extractionMethod);
     if (!datos.nombres && !datos.apellidos && !datos.nroDocumento) {
