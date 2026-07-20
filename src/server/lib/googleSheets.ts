@@ -119,15 +119,17 @@ export async function extraerDatosConGemini(
   if (!base64PDF || base64PDF.length < 100) {
     throw new Error('PDF vacio o base64 invalido. Length: ' + (base64PDF?.length || 0));
   }
-  const prompt = `Analiza este documento, que puede contener VARIAS paginas o imagenes correspondientes a un mismo trabajador. Pueden aparecer los siguientes tipos de documentos, todos OPCIONALES (puede venir solo uno, o varios juntos):
+  const prompt = `Analiza este documento, que puede contener VARIAS paginas o imagenes correspondientes a un mismo trabajador. Pueden aparecer los siguientes tipos de documentos, todos OPCIONALES (puede venir solo uno, o varios juntos). Segui estas reglas ESTRICTAMENTE sobre de que documento sacar cada dato:
 
-1. CEDULA DE IDENTIDAD (Republica del Paraguay): contiene numero de documento, apellidos, nombres, fecha de nacimiento, lugar de nacimiento y estado civil. Es la fuente MAS CONFIABLE para estos datos personales.
+1. CEDULA DE IDENTIDAD (Republica del Paraguay): esta es la UNICA fuente para NOMBRES, APELLIDOS, NUMERO DE DOCUMENTO y FECHA DE NACIMIENTO. Usa solamente este documento para esos 4 campos, salvo que no este presente o no sea legible (ver REGLA DE RESPALDO).
 
-2. ACTA DE INDUCCION EN SEGURIDAD (formulario con checklist de riesgos y firmas): contiene el nombre del trabajador, numero de C.I.C. (cedula), la OBRA, la EMPRESA, y el CARGO O LABOR A DESEMPEÑAR. Usa este documento para CARGO, EMPRESA y OBRA si estan disponibles ahi.
+2. ACTA DE INDUCCION EN SEGURIDAD (formulario con checklist de riesgos y firmas): usa este documento UNICAMENTE para extraer el CARGO, tomando el campo "CARGO O LABOR A DESEMPEÑAR". No uses este documento para ningun otro campo.
 
-3. CONSTANCIA DE ENTRADA DEL ASEGURADO (IPS - Instituto de Prevision Social): contiene CI Nro, Apellidos, Nombres, y los datos del Empleador (nombre y domicilio). Usa esto para confirmar identidad, y como EMPRESA si no aparece en otro documento.
+3. CONSTANCIA DE ENTRADA DEL ASEGURADO (IPS - Instituto de Prevision Social): usa este documento UNICAMENTE para extraer la EMPRESA, tomando el nombre que aparece en la seccion "DATOS DEL EMPLEADOR" junto a "Empleador:" (el nombre de la persona o razon social que sigue al codigo, no el numero). No uses este documento para ningun otro campo, salvo la REGLA DE RESPALDO.
 
-Extrae TODOS los datos personales y laborales combinando la informacion de TODOS los documentos presentes. Si el mismo dato aparece en mas de un documento, priorizar la CEDULA DE IDENTIDAD para datos personales (nombres, apellidos, fecha de nacimiento, etc), y el ACTA DE INDUCCION o la CONSTANCIA IPS para datos laborales (cargo, empresa, obra).
+REGLA DE RESPALDO: Si la CEDULA DE IDENTIDAD no esta presente o no es legible, extrae NOMBRES, APELLIDOS y NUMERO DE DOCUMENTO desde la CONSTANCIA DE IPS: el numero de documento esta en el campo "CI Nro:", y los nombres/apellidos en los campos "Nombres:" y "Apellidos:". En ese caso la fecha de nacimiento puede quedar vacia si no aparece en ningun otro documento.
+
+No mezcles datos entre documentos fuera de estas reglas, y no inventes datos que no esten explicitamente escritos.
 
 Responde UNICAMENTE en formato JSON con esta estructura exacta:
 {
