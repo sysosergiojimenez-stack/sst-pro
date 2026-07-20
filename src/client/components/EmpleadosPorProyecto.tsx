@@ -153,7 +153,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   };
 
   const ordenarAlfabetico = (a: Empleado, b: Empleado) =>
-    `${a.apellidos} ${a.nombres}`.localeCompare(`${b.apellidos} ${b.nombres}`, 'es');
+    a.nombres.localeCompare(b.nombres, 'es') || a.apellidos.localeCompare(b.apellidos, 'es');
 
   const activosOrdenados = [...empleadosFiltrados]
     .filter(e => (e.estado || 'Activo') !== 'Inactivo')
