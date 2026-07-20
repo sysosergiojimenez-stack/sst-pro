@@ -249,6 +249,8 @@ export interface Empleado {
   email: string;
   scanDocumentos?: string;
   estado?: string;
+  fechaInicioContrato?: string;
+  calce?: string;
 }
 
 export async function getEmpleados(): Promise<Empleado[]> {
@@ -269,6 +271,8 @@ export async function getEmpleados(): Promise<Empleado[]> {
       telefonoCelular: row[26] || '',
       email: row[28] || '',
       scanDocumentos: row[53] || '',
+      fechaInicioContrato: row[50] || '',
+      calce: row[52] || '',
       estado: row[54] || 'Activo',
     }));
   } catch (error) {
@@ -303,6 +307,8 @@ export async function getEmpleadoByRowIndex(rowIndex: number): Promise<Empleado 
       telefonoCelular: row[26] || '',
       email: row[28] || '',
       scanDocumentos: row[53] || '',
+      fechaInicioContrato: row[50] || '',
+      calce: row[52] || '',
       estado: row[54] || 'Activo',
     };
   } catch (error) {

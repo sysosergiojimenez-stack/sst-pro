@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2 } from 'lucide-react';
+import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints } from 'lucide-react';
 
 interface Producto {
   rowIndex: number;
@@ -64,6 +64,9 @@ interface Empleado {
   apellidos: string;
   cargo: string;
   empresa: string;
+  estado?: string;
+  fechaInicioContrato?: string;
+  calce?: string;
 }
 
 interface EPPProps {
@@ -72,7 +75,7 @@ interface EPPProps {
 
 const clasificaciones = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
 
-type VistaEPP = 'productos' | 'remisiones' | 'entregas';
+type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion';
 
 export default function EPP({ proyecto }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
@@ -160,6 +163,65 @@ export default function EPP({ proyecto }: EPPProps) {
       return fechaStr;
     }
   };
+
+  const EMPRESA_DOTACION = 'ALTAZENTA NORTE SA';
+  const CLASIFICACIONES_BOTIN = ['BOTIN P/ OBRERO', 'BOTIN P/ SUPERVISOR'];
+  const DIAS_VIGENCIA_DOTACION = 160;
+  const DIAS_ALERTA_PROXIMO = 15;
+
+  const calcularDotacion = (emp: Empleado) => {
+    const salidasDelEmpleado = salidas.filter(s => s.trabajadorRetira === emp.nroDocumento);
+    const conProductoYNota = salidasDelEmpleado.map(s => {
+      const prod = productos.find(p => p.codigo === s.refItem);
+      const nota = notasSalida.find(n => n.idRegistro === s.refNotaSalida);
+      return { s, prod, nota };
+    });
+    const entregasBotin = conProductoYNota
+      .filter(x => x.prod && x.nota?.fecha && CLASIFICACIONES_BOTIN.includes(x.prod.clasificacion?.trim().toUpperCase() || ''));
+
+    if (entregasBotin.length === 0) {
+      return { ultimaDotacion: '', proximaDotacion: '', alerta: 'Sin dotacion registrada' };
+    }
+
+    let fechaMasReciente: Date | null = null;
+    let fechaMasRecienteStr = '';
+    for (const e of entregasBotin) {
+      const d = new Date(e.nota!.fecha);
+      if (!isNaN(d.getTime()) && (!fechaMasReciente || d > fechaMasReciente)) {
+        fechaMasReciente = d;
+        fechaMasRecienteStr = e.nota!.fecha;
+      }
+    }
+
+    if (!fechaMasReciente) {
+      return { ultimaDotacion: '', proximaDotacion: '', alerta: 'Sin dotacion registrada' };
+    }
+
+    const proxima = new Date(fechaMasReciente);
+    proxima.setDate(proxima.getDate() + DIAS_VIGENCIA_DOTACION);
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diasRestantes = Math.floor((proxima.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+
+    let alerta = '';
+    if (diasRestantes < 0) alerta = 'Vencido';
+    else if (diasRestantes <= DIAS_ALERTA_PROXIMO) alerta = 'Proximo a vencer';
+
+    return {
+      ultimaDotacion: fechaMasRecienteStr,
+      proximaDotacion: proxima.toISOString().split('T')[0],
+      alerta,
+    };
+  };
+
+  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === EMPRESA_DOTACION);
+  const dotacionActivos = empleadosDotacion
+    .filter(e => (e.estado || 'Activo') !== 'Inactivo')
+    .sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
+  const dotacionInactivos = empleadosDotacion
+    .filter(e => (e.estado || 'Activo') === 'Inactivo')
+    .sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
 
   // Filtrar entradas por proyecto
   const entradasProyecto = entradas.filter(e => e.proyecto === proyecto);
@@ -713,7 +775,10 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.proveedor.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  const clasificacionesSugeridas = [...new Set([...clasificaciones, ...productos.map(p => p.clasificacion).filter(Boolean)])]
+    .sort((a, b) => a.localeCompare(b, 'es'));
 
   const remisionesFiltradas = remisiones.filter(r =>
     r.proveedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -727,6 +792,9 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <datalist id="clasificaciones-datalist">
+        {clasificacionesSugeridas.map(c => <option key={c} value={c} />)}
+      </datalist>
       {/* Alertas de stock bajo */}
       {productosStockBajo.length > 0 && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
@@ -760,6 +828,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           { id: 'productos' as VistaEPP, label: 'Productos', icon: Package },
           { id: 'remisiones' as VistaEPP, label: 'Remisiones', icon: Truck },
           { id: 'entregas' as VistaEPP, label: 'Notas de Salida', icon: ArrowDownCircle },
+          { id: 'dotacion' as VistaEPP, label: 'Dotacion de Calzados', icon: Footprints },
         ].map(tab => (
           <button key={tab.id} onClick={() => setVista(tab.id)}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${vista === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -808,7 +877,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <div><label className="block text-sm font-medium mb-2">Codigo *</label><input type="text" value={productoForm.codigo} onChange={(e) => setProductoForm({...productoForm, codigo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Nombre *</label><input type="text" value={productoForm.nombre} onChange={(e) => setProductoForm({...productoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Proveedor</label><input type="text" value={productoForm.proveedor} onChange={(e) => setProductoForm({...productoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                <div><label className="block text-sm font-medium mb-2">Clasificacion</label><select value={productoForm.clasificacion} onChange={(e) => setProductoForm({...productoForm, clasificacion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"><option value="">Seleccionar...</option>{clasificaciones.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className="block text-sm font-medium mb-2">Clasificacion</label><input type="text" list="clasificaciones-datalist" value={productoForm.clasificacion} onChange={(e) => setProductoForm({...productoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div><label className="block text-sm font-medium mb-2">Stock Minimo</label><input type="number" value={productoForm.stockMinimo} onChange={(e) => setProductoForm({...productoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div className="md:col-span-3"><button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Producto</button></div>
               </form>
@@ -898,10 +967,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                 </div>
                                 <div>
                                   <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
-                                  <select value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50">
-                                    <option value="">Seleccionar...</option>
-                                    {clasificaciones.map(c => <option key={c} value={c}>{c}</option>)}
-                                  </select>
+                                  <input type="text" list="clasificaciones-datalist" value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
                                 </div>
                                 <div>
                                   <label className="block text-xs text-muted-foreground uppercase mb-1">Stock Minimo</label>
@@ -1495,6 +1561,118 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <span>{notasFiltradas.length} notas de salida</span>
                 <span>Ordenadas por fecha descendente</span>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VISTA DOTACION DE CALZADOS */}
+      {vista === 'dotacion' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold">Dotacion de Calzados de Seguridad</h2>
+            <p className="text-sm text-muted-foreground mt-1">Empleados de ALTAZENTA NORTE SA - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de Botin P/ Obrero</p>
+          </div>
+          {empleadosDotacion.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground"><Footprints size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de ALTAZENTA NORTE SA en este proyecto</p></div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activos ({dotacionActivos.length})</h3>
+                <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-secondary/50 border-b border-border">
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha Inicio Contrato</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Calce</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Ultima Dotacion</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proxima Dotacion</th>
+                          <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dotacionActivos.map(emp => {
+                          const d = calcularDotacion(emp);
+                          return (
+                            <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                              <td className="px-4 py-3 text-muted-foreground">{emp.nroDocumento}</td>
+                              <td className="px-4 py-3 font-medium">{emp.nombres} {emp.apellidos}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{formatearFecha(emp.fechaInicioContrato || '')}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{emp.calce || '-'}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-center">
+                                {d.alerta === 'Vencido' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
+                                ) : d.alerta === 'Proximo a vencer' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium"><AlertCircle size={10} /> Proximo a vencer</span>
+                                ) : d.alerta === 'Sin dotacion registrada' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-medium">Sin registro</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium"><CheckCircle2 size={10} /> OK</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              {/* FIN ACTIVOS DOTACION */}
+
+              {dotacionInactivos.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inactivos ({dotacionInactivos.length})</h3>
+                  <div className="bg-card border border-border rounded-xl overflow-hidden opacity-60">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-secondary/50 border-b border-border">
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha Inicio Contrato</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Calce</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Ultima Dotacion</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proxima Dotacion</th>
+                            <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dotacionInactivos.map(emp => {
+                            const d = calcularDotacion(emp);
+                            return (
+                              <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                                <td className="px-4 py-3 text-muted-foreground">{emp.nroDocumento}</td>
+                                <td className="px-4 py-3 font-medium">{emp.nombres} {emp.apellidos}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{formatearFecha(emp.fechaInicioContrato || '')}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{emp.calce || '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-center">
+                                  {d.alerta === 'Vencido' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
+                                  ) : d.alerta === 'Proximo a vencer' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium"><AlertCircle size={10} /> Proximo a vencer</span>
+                                  ) : d.alerta === 'Sin dotacion registrada' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-medium">Sin registro</span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium"><CheckCircle2 size={10} /> OK</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
