@@ -45,7 +45,7 @@ import {
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, getRemisionByNumeracion, appendRemision, updateRemision, deleteRemision,
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
-  getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, deleteSalida
+  getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida
 } from './lib/googleSheets_epp';
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
@@ -1139,6 +1139,26 @@ app.post('/api/epp/salidas/batch', async (c) => {
     return c.json({ success: true, message: `${salidas.length} salidas registradas` });
   } catch (error: any) {
     console.error('Error POST /api/epp/salidas/batch:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Editar salida
+app.put('/api/epp/salidas/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    const body = await c.req.json();
+    await updateSalida(rowIndex, {
+      refItem: body.refItem,
+      cantidad: body.cantidad,
+      trabajadorRetira: body.trabajadorRetira,
+    });
+    return c.json({ success: true, message: 'Salida actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/epp/salidas:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
