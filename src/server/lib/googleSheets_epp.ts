@@ -411,6 +411,31 @@ export async function appendMultipleSalidas(salidas: Omit<Salida, 'rowIndex'>[])
   });
 }
 
+export async function updateSalida(
+  rowIndex: number,
+  salida: Partial<Pick<Salida, 'refItem' | 'cantidad' | 'trabajadorRetira'>>
+): Promise<void> {
+  const updates: { range: string; values: string[][] }[] = [];
+  if (salida.refItem !== undefined) {
+    updates.push({ range: `${SHEET_SALIDAS}!E${rowIndex}`, values: [[salida.refItem]] });
+  }
+  if (salida.cantidad !== undefined) {
+    updates.push({ range: `${SHEET_SALIDAS}!F${rowIndex}`, values: [[salida.cantidad]] });
+  }
+  if (salida.trabajadorRetira !== undefined) {
+    updates.push({ range: `${SHEET_SALIDAS}!G${rowIndex}`, values: [[salida.trabajadorRetira]] });
+  }
+  if (updates.length === 0) {
+    console.log('No hay campos para actualizar en Salida');
+    return;
+  }
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log('Salida actualizada en fila:', rowIndex);
+}
+
 export async function deleteSalida(rowIndex: number): Promise<void> {
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,

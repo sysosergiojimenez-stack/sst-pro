@@ -775,6 +775,26 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
+  const handleUpdateCantidadSalida = async (rowIndex: number, nuevaCantidad: string) => {
+    try {
+      const response = await fetch(`/api/epp/salidas/${rowIndex}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cantidad: nuevaCantidad }),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const handleEliminarSalidaDeNota = async (rowIndex: number) => {
+    if (!confirm('Eliminar este item de la nota?')) return;
+    try {
+      const response = await fetch(`/api/epp/salidas/${rowIndex}`, { method: 'DELETE' });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showNotaEdit) return;
@@ -1174,7 +1194,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
               </div>
               <div className="bg-secondary/30 border-t border-border px-4 py-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>{remisionesFiltradas.length} remisiones</span>
-                <span>Ordenadas por fecha descendente</span>
+                <span>Mas reciente primero</span>
               </div>
             </div>
           )}
@@ -1676,6 +1696,32 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                   <button type="button" onClick={() => { setShowNotaEdit(null); setBusquedaQuienRetira(''); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
                                 </div>
                               </form>
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Salidas de esta nota ({salidasByNota(n.idRegistro).length})</h4>
+                                <div className="space-y-2">
+                                  {salidasByNota(n.idRegistro).map(s => {
+                                    const prod = productos.find(p => p.codigo === s.refItem);
+                                    const empS = buscarEmpleado(s.trabajadorRetira);
+                                    return (
+                                      <div key={s.idRegistro} className="flex items-center gap-3 bg-secondary/30 p-2.5 rounded-xl text-sm">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium truncate">{prod?.nombre || s.refItem}</p>
+                                          <p className="text-xs text-muted-foreground truncate">Trabajador: {empS ? `${empS.nombres} ${empS.apellidos}` : s.trabajadorRetira}</p>
+                                        </div>
+                                        <input
+                                          type="number"
+                                          defaultValue={s.cantidad}
+                                          onBlur={(e) => { if (e.target.value !== s.cantidad && e.target.value.trim() !== '') handleUpdateCantidadSalida(s.rowIndex, e.target.value); }}
+                                          className="w-20 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm text-center input-glow focus:outline-none focus:border-primary/50"
+                                          min="1"
+                                        />
+                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.rowIndex)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
+                                      </div>
+                                    );
+                                  })}
+                                  {salidasByNota(n.idRegistro).length === 0 && <p className="text-sm text-muted-foreground">No hay salidas registradas</p>}
+                                </div>
+                              </div>
                             </td>
                           </tr>
                         )}
