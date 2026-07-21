@@ -155,10 +155,31 @@ export default function EPP({ proyecto }: EPPProps) {
 
   useEffect(() => { fetchData(); }, [proyecto]);
 
+  // Helpers para trabajar con fechas SIEMPRE en horario local, evitando el corrimiento
+  // de un dia que ocurre cuando "YYYY-MM-DD" se interpreta como medianoche UTC.
+  const parseFechaLocal = (fechaStr: string): Date => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) {
+      return new Date(Number(fechaStr.slice(0, 4)), Number(fechaStr.slice(5, 7)) - 1, Number(fechaStr.slice(8, 10)));
+    }
+    return new Date(fechaStr);
+  };
+  const fechaLocalISO = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dia}`;
+  };
+
   const formatearFecha = (fechaStr: string) => {
     if (!fechaStr) return '-';
     try {
-      return new Date(fechaStr).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+      // Si es una fecha pura (YYYY-MM-DD, sin hora), construirla en horario local
+      // para evitar que se interprete como medianoche UTC y "caiga" al dia anterior.
+      const soloFecha = /^\d{4}-\d{2}-\d{2}$/.test(fechaStr);
+      const fecha = soloFecha
+        ? new Date(Number(fechaStr.slice(0, 4)), Number(fechaStr.slice(5, 7)) - 1, Number(fechaStr.slice(8, 10)))
+        : new Date(fechaStr);
+      return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     } catch {
       return fechaStr;
     }
@@ -186,7 +207,7 @@ export default function EPP({ proyecto }: EPPProps) {
     let fechaMasReciente: Date | null = null;
     let fechaMasRecienteStr = '';
     for (const e of entregasBotin) {
-      const d = new Date(e.nota!.fecha);
+      const d = parseFechaLocal(e.nota!.fecha);
       if (!isNaN(d.getTime()) && (!fechaMasReciente || d > fechaMasReciente)) {
         fechaMasReciente = d;
         fechaMasRecienteStr = e.nota!.fecha;
@@ -210,7 +231,7 @@ export default function EPP({ proyecto }: EPPProps) {
 
     return {
       ultimaDotacion: fechaMasRecienteStr,
-      proximaDotacion: proxima.toISOString().split('T')[0],
+      proximaDotacion: fechaLocalISO(proxima),
       alerta,
     };
   };
@@ -1163,7 +1184,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
               </button>
               <button onClick={() => {
                 const nextNum = notasSalida.filter(n => n.obra === proyecto).length + 1;
-                const hoy = new Date().toISOString().split('T')[0];
+                const hoy = fechaLocalISO(new Date());
                 setNotaSalidaForm(prev => ({...prev, orden: `NS-${String(nextNum).padStart(3, '0')}`, fecha: hoy}));
                 setBusquedaQuienRetira('');
                 setShowNotaSalidaForm(true);
