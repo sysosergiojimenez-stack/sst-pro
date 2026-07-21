@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload } from 'lucide-react';
 
 interface Proyecto {
   rowIndex: number;
@@ -69,6 +70,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     setEmpleadosFiltrados(filtrados);
   }, [empresaFiltro, searchTerm, empleados]);
 
+  const [marcaciones, setMarcaciones] = useState<Array<{ nroDocumento: string; fecha: string }>>([]);
+  const [importandoMarcaciones, setImportandoMarcaciones] = useState(false);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -79,8 +83,148 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         const uniqueEmpresas = [...new Set(data.data.map((e: Empleado) => e.empresa).filter(Boolean))];
         setEmpresas(uniqueEmpresas);
       }
+      const respMarc = await fetch(`/api/marcaciones-biometricas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+      const dataMarc = await respMarc.json();
+      if (dataMarc.success) setMarcaciones(dataMarc.data);
     } catch (error) { console.error('Error:', error); }
     finally { setLoading(false); }
+  };
+
+  const parseFechaDDMYYYY = (fechaStr: string): string => {
+    const partes = fechaStr.trim().split('/');
+    if (partes.length !== 3) return '';
+    const [d, m, y] = partes;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  };
+
+  const handleImportarMarcaciones = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportandoMarcaciones(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const hoja = workbook.Sheets[workbook.SheetNames[0]];
+      const filas: any[][] = XLSX.utils.sheet_to_json(hoja, { header: 1 });
+
+      const registros: Array<{ nroDocumento: string; fecha: string; horaEntrada: string; horaSalida: string; horasRaw: string }> = [];
+      for (let i = 1; i < filas.length; i++) {
+        const fila = filas[i];
+        if (!fila || fila.length < 5) continue;
+        const nroDocumento = String(fila[0] || '').trim();
+        const fechaRaw = String(fila[3] || '').trim();
+        const horasRaw = String(fila[4] || '').trim();
+        if (!nroDocumento || !fechaRaw || !horasRaw) continue;
+
+        const fecha = parseFechaDDMYYYY(fechaRaw);
+        if (!fecha) continue;
+
+        const horas = horasRaw.split(/\s+/).filter(Boolean);
+        const horaEntrada = horas[0] || '';
+        const horaSalida = horas.length > 1 ? horas[horas.length - 1] : '';
+
+        registros.push({ nroDocumento, fecha, horaEntrada, horaSalida, horasRaw, proyecto: proyecto.denominacion });
+      }
+
+      if (registros.length === 0) {
+        alert('No se encontraron marcaciones validas en el archivo.');
+        return;
+      }
+
+      const resp = await fetch('/api/marcaciones-biometricas/importar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registros }),
+      });
+      if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Error'); }
+      const resultado = await resp.json();
+      alert(`Importacion completa: ${resultado.nuevos} registros nuevos, ${resultado.actualizados} actualizados.`);
+      fetchData();
+    } catch (err: any) {
+      alert('Error al importar: ' + err.message);
+    } finally {
+      setImportandoMarcaciones(false);
+      e.target.value = '';
+    }
+  };
+
+  const [showControlHoras, setShowControlHoras] = useState(false);
+  const [trabajadorHoras, setTrabajadorHoras] = useState('');
+  const [fechaDesdeHoras, setFechaDesdeHoras] = useState('');
+  const [fechaHastaHoras, setFechaHastaHoras] = useState('');
+
+  const calcularHoras = (entrada: string, salida: string): number => {
+    if (!entrada || !salida) return 0;
+    const [he, me] = entrada.split(':').map(Number);
+    const [hs, ms] = salida.split(':').map(Number);
+    if (isNaN(he) || isNaN(me) || isNaN(hs) || isNaN(ms)) return 0;
+    let minutos = (hs * 60 + ms) - (he * 60 + me);
+    if (minutos < 0) minutos += 24 * 60;
+    return minutos / 60;
+  };
+
+  const generarInformeHoras = () => {
+    if (!trabajadorHoras || !fechaDesdeHoras || !fechaHastaHoras) {
+      alert('Selecciona un trabajador y el rango de fechas.');
+      return;
+    }
+    if (fechaDesdeHoras > fechaHastaHoras) {
+      alert('La fecha desde no puede ser posterior a la fecha hasta.');
+      return;
+    }
+    const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
+    if (!emp) return;
+
+    const mapaMarcaciones = new Map(marcaciones.filter(m => m.nroDocumento === trabajadorHoras).map((m: any) => [m.fecha, m]));
+
+    const filas: any[] = [];
+    let totalHoras = 0;
+    let diasConMarcacion = 0;
+    let diasAusente = 0;
+
+    const inicio = new Date(fechaDesdeHoras + 'T00:00:00');
+    const fin = new Date(fechaHastaHoras + 'T00:00:00');
+    for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
+      const fechaISO = d.toISOString().split('T')[0];
+      const m: any = mapaMarcaciones.get(fechaISO);
+      const fechaMostrar = d.toLocaleDateString('es-ES');
+      if (m) {
+        const horas = calcularHoras(m.horaEntrada, m.horaSalida);
+        totalHoras += horas;
+        diasConMarcacion++;
+        filas.push({
+          Fecha: fechaMostrar,
+          'Hora Entrada': m.horaEntrada || '-',
+          'Hora Salida': m.horaSalida || '-',
+          'Horas Trabajadas': horas > 0 ? horas.toFixed(2) : '-',
+          Estado: 'Presente',
+        });
+      } else {
+        diasAusente++;
+        filas.push({
+          Fecha: fechaMostrar,
+          'Hora Entrada': '-',
+          'Hora Salida': '-',
+          'Horas Trabajadas': '-',
+          Estado: 'Ausente',
+        });
+      }
+    }
+
+    filas.push({ Fecha: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
+    filas.push({ Fecha: 'Total dias con marcacion', 'Hora Entrada': diasConMarcacion, 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
+    filas.push({ Fecha: 'Total dias ausente', 'Hora Entrada': diasAusente, 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
+    filas.push({ Fecha: 'Total horas trabajadas', 'Hora Entrada': totalHoras.toFixed(2), 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
+
+    const hoja = XLSX.utils.json_to_sheet(filas);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Control de Horas');
+    XLSX.writeFile(libro, `Control_Horas_${emp.nombres}_${emp.apellidos}_${fechaDesdeHoras}_a_${fechaHastaHoras}.xlsx`);
+  };
+
+  const ultimaMarcacion = (nroDocumento: string): string => {
+    const delEmpleado = marcaciones.filter(m => m.nroDocumento === nroDocumento);
+    if (delEmpleado.length === 0) return '';
+    return delEmpleado.reduce((max, m) => (m.fecha > max ? m.fecha : max), delEmpleado[0].fecha);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,6 +324,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           <button onClick={() => { setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }} className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors">
             <Brain size={18} /> Agregar con IA
           </button>
+          <label className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors cursor-pointer">
+            {importandoMarcaciones ? (
+              <><Fingerprint size={18} className="animate-pulse" /> Importando...</>
+            ) : (
+              <><Upload size={18} /> Importar Marcaciones</>
+            )}
+            <input type="file" accept=".xls,.xlsx" onChange={handleImportarMarcaciones} disabled={importandoMarcaciones} className="hidden" />
+          </label>
+          <button onClick={() => setShowControlHoras(!showControlHoras)} className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+            <Fingerprint size={18} /> Control de Horas
+          </button>
         </div>
       </div>
 
@@ -214,6 +369,38 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           </div>
         )}
       </div>
+
+      {showControlHoras && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Fingerprint size={20} className="text-primary" /> Control de Horas - Generar Informe</h3>
+            <button onClick={() => setShowControlHoras(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Trabajador *</label>
+              <select value={trabajadorHoras} onChange={(e) => setTrabajadorHoras(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
+                <option value="">Seleccionar...</option>
+                {[...empleados].sort((a, b) => a.nombres.localeCompare(b.nombres, 'es')).map(e => (
+                  <option key={e.nroDocumento} value={e.nroDocumento}>{e.nombres} {e.apellidos} - CI: {e.nroDocumento}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Desde *</label>
+              <input type="date" value={fechaDesdeHoras} onChange={(e) => setFechaDesdeHoras(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Hasta *</label>
+              <input type="date" value={fechaHastaHoras} onChange={(e) => setFechaHastaHoras(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <button onClick={generarInformeHoras} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+            <FileText size={18} /> Generar Excel
+          </button>
+          <p className="text-xs text-muted-foreground mt-2">El informe incluye marcaciones, horas trabajadas por dia, dias sin marcacion (ausencias), y totales del periodo.</p>
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-card border border-border rounded-xl p-6">
@@ -300,16 +487,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Cargo</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Empresa</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Contacto</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ult. Marcacion</th>
                 <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Estado</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <tr className="bg-secondary/30">
-                <td colSpan={8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
+                <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
               </tr>
               {activosOrdenados.length === 0 && (
-                <tr><td colSpan={8} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
+                <tr><td colSpan={9} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
               )}
               {activosOrdenados.map((emp) => (
                 <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50">
@@ -319,6 +507,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                   <td className="py-3 px-4 text-sm">{emp.cargo}</td>
                   <td className="py-3 px-4 text-sm">{emp.empresa}</td>
                   <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
                   <td className="py-3 px-4 text-center">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">Activo</span>
                   </td>
@@ -335,7 +524,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               {inactivosOrdenados.length > 0 && (
                 <>
                   <tr className="bg-secondary/30">
-                    <td colSpan={8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
+                    <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
                   </tr>
                   {inactivosOrdenados.map((emp) => (
                     <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 opacity-60">
@@ -345,6 +534,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                       <td className="py-3 px-4 text-sm">{emp.cargo}</td>
                       <td className="py-3 px-4 text-sm">{emp.empresa}</td>
                       <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
                       <td className="py-3 px-4 text-center">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs">Inactivo</span>
                       </td>
