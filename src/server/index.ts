@@ -45,7 +45,8 @@ import {
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, getRemisionByNumeracion, appendRemision, updateRemision, deleteRemision,
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
-  getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida
+  getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida,
+  getAllMarcacionesBiometricas, importarMarcacionesBiometricas
 } from './lib/googleSheets_epp';
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
@@ -1139,6 +1140,37 @@ app.post('/api/epp/salidas/batch', async (c) => {
     return c.json({ success: true, message: `${salidas.length} salidas registradas` });
   } catch (error: any) {
     console.error('Error POST /api/epp/salidas/batch:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Todas las marcaciones biometricas
+app.get('/api/marcaciones-biometricas', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    let data = await getAllMarcacionesBiometricas();
+    if (proyecto) {
+      data = data.filter(m => m.proyecto === proyecto);
+    }
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/marcaciones-biometricas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Importar marcaciones biometricas (upsert por documento+fecha)
+app.post('/api/marcaciones-biometricas/importar', async (c) => {
+  try {
+    const body = await c.req.json();
+    const registros = body.registros || [];
+    if (registros.length === 0) {
+      return c.json({ error: 'No se proporcionaron registros' }, 400);
+    }
+    const resultado = await importarMarcacionesBiometricas(registros);
+    return c.json({ success: true, ...resultado });
+  } catch (error: any) {
+    console.error('Error POST /api/marcaciones-biometricas/importar:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
