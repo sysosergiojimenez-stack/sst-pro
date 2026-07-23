@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
+import Bitacora from './Bitacora';
 
 interface Proyecto {
   rowIndex: number;
@@ -19,7 +20,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora';
 
 interface StatsProyecto {
   empleados: number;
@@ -165,6 +166,20 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
         <CapacitacionesCharlas proyecto={proyecto.denominacion} />
+      </div>
+    );
+  }
+
+  if (moduloActivo === 'bitacora') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <Bitacora proyecto={proyecto.denominacion} />
       </div>
     );
   }
@@ -336,6 +351,21 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                   </>
                 )}
               </div>
+            </button>
+
+            {/* Bitacora */}
+            <button
+              onClick={() => setModuloActivo('bitacora')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-rose-500/30 hover:shadow-lg hover:shadow-rose-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
+                  <NotebookPen size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Bitacora</h4>
+              <p className="text-sm text-muted-foreground mt-1">Registro de trabajos realizados con evidencia fotografica</p>
             </button>
           </div>
         </div>
