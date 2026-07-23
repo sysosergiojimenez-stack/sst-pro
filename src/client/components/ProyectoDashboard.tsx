@@ -5,6 +5,7 @@ import Incidentes from './Incidentes';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
 import Bitacora from './Bitacora';
+import Inspecciones from './Inspecciones';
 
 interface Proyecto {
   rowIndex: number;
@@ -193,11 +194,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <ClipboardCheck size={48} className="mb-4 opacity-50" />
-          <h3 className="text-lg font-medium mb-2">Inspecciones</h3>
-          <p className="text-sm">Módulo en desarrollo para este proyecto</p>
-        </div>
+          <Inspecciones proyecto={proyecto.denominacion} />
       </div>
     );
   }
@@ -285,19 +282,16 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
             {/* Inspecciones */}
             <button 
               onClick={() => setModuloActivo('inspecciones')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 group opacity-70"
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 group"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
                   <ClipboardCheck size={24} className="text-white" />
                 </div>
-                <span className="text-[10px] bg-muted px-2 py-1 rounded-full text-muted-foreground">Próximamente</span>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
               </div>
               <h4 className="font-semibold text-base">Inspecciones</h4>
-              <p className="text-sm text-muted-foreground mt-1">Inspecciones de seguridad y calidad</p>
-              <div className="flex items-center gap-3 mt-3">
-                <span className="badge badge-warning"><Clock size={10} />En desarrollo</span>
-              </div>
+              <p className="text-sm text-muted-foreground mt-1">Checklist de seguridad, calendario y hallazgos</p>
             </button>
 
             {/* EPP */}

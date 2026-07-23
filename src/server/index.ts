@@ -35,6 +35,16 @@ import {
   getAllBitacora, getBitacoraByProyecto,
   appendBitacora, updateBitacora, deleteBitacora
 } from './lib/googleSheets_bitacora';
+import {
+  getAllInspecciones, getInspeccionesByProyecto,
+  appendInspeccion, updateInspeccion, deleteInspeccion,
+  getAllInspeccionItems, getItemsByInspeccion,
+  appendInspeccionItemsBatch, deleteItemsByInspeccion,
+  getChecklistTemplate, appendChecklistTemplateItem,
+  updateChecklistTemplateItem, deleteChecklistTemplateItem,
+  getChecklistTemplateGroups, appendChecklistTemplateGroup,
+  updateChecklistTemplateGroup, deleteChecklistTemplateGroup
+} from './lib/googleSheets_inspecciones';
 import { 
   getAllIncidentes, 
   getIncidentesByProyecto, 
@@ -1366,6 +1376,228 @@ app.post('/api/bitacora/fotos', async (c) => {
     return c.json({ success: true, urls });
   } catch (error: any) {
     console.error('Error POST /api/bitacora/fotos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// INSPECCIONES
+// ============================================
+
+app.get('/api/inspecciones', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getInspeccionesByProyecto(proyecto) : await getAllInspecciones();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/inspecciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/inspecciones', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `INSP-${Date.now()}`;
+    await appendInspeccion({
+      idRegistro,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      fechaProgramada: body.fechaProgramada || '',
+      inspector: body.inspector || '',
+      estado: body.estado || 'Programada',
+      fechaRealizada: body.fechaRealizada || '',
+      observacionesGenerales: body.observacionesGenerales || '',
+      idTemplateChecklist: body.idTemplateChecklist || '',
+      areaEquipo: body.areaEquipo || '',
+    });
+    return c.json({ success: true, message: 'Inspeccion programada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/inspecciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/api/inspecciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    await updateInspeccion(rowIndex, body);
+    return c.json({ success: true, message: 'Inspeccion actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/inspecciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/inspecciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    await deleteInspeccion(rowIndex);
+    return c.json({ success: true, message: 'Inspeccion eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/inspecciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/inspecciones/:idInspeccion/items', async (c) => {
+  try {
+    const idInspeccion = c.req.param('idInspeccion');
+    const data = await getItemsByInspeccion(idInspeccion);
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/inspecciones/items:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/inspecciones/:idInspeccion/items', async (c) => {
+  try {
+    const idInspeccion = c.req.param('idInspeccion');
+    const body = await c.req.json();
+    const items = body.items || [];
+    await deleteItemsByInspeccion(idInspeccion);
+    await appendInspeccionItemsBatch(items.map((it: any, idx: number) => ({
+      idRegistro: `${idInspeccion}-ITEM-${idx}`,
+      idInspeccion,
+      item: it.item || '',
+      resultado: it.resultado || '',
+      observacion: it.observacion || '',
+      fotos: it.fotos || '',
+      accionCorrectiva: it.accionCorrectiva || '',
+      responsableAccion: it.responsableAccion || '',
+      fechaLimite: it.fechaLimite || '',
+      estadoAccion: it.estadoAccion || '',
+    })));
+    return c.json({ success: true, message: 'Checklist guardado' });
+  } catch (error: any) {
+    console.error('Error POST /api/inspecciones/items:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/inspecciones/fotos', async (c) => {
+  try {
+    const body = await c.req.json();
+    const archivos = body.archivos || [];
+    if (archivos.length === 0) {
+      return c.json({ error: 'No se proporcionaron fotos' }, 400);
+    }
+    const urls: string[] = [];
+    for (let i = 0; i < archivos.length; i++) {
+      const archivo = archivos[i];
+      const mime = archivo.mimeType || 'image/jpeg';
+      const ext = mime.includes('png') ? 'png' : 'jpg';
+      const nombreArchivo = `INSPECCION_${body.idRegistro || Date.now()}_${i}_${Date.now()}.${ext}`;
+      const url = await subirPDFAGCS(archivo.base64, nombreArchivo, mime);
+      urls.push(url);
+    }
+    return c.json({ success: true, urls });
+  } catch (error: any) {
+    console.error('Error POST /api/inspecciones/fotos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// CHECKLIST MAESTRO (items base editables)
+// ============================================
+
+// ============================================
+// GRUPOS DE CHECKLIST (templates con nombre)
+// ============================================
+
+app.get('/api/checklist-templates', async (c) => {
+  try {
+    const data = await getChecklistTemplateGroups();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/checklist-templates:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/checklist-templates', async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `TPL-${Date.now()}`;
+    await appendChecklistTemplateGroup({ id, nombre: body.nombre || '', activo: 'TRUE' });
+    return c.json({ success: true, message: 'Template creado', id });
+  } catch (error: any) {
+    console.error('Error POST /api/checklist-templates:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/api/checklist-templates/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    await updateChecklistTemplateGroup(rowIndex, body);
+    return c.json({ success: true, message: 'Template actualizado' });
+  } catch (error: any) {
+    console.error('Error PUT /api/checklist-templates:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/checklist-templates/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    await deleteChecklistTemplateGroup(rowIndex);
+    return c.json({ success: true, message: 'Template eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/checklist-templates:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/checklist-template', async (c) => {
+  try {
+    const idTemplate = c.req.query('idTemplate');
+    const data = await getChecklistTemplate(idTemplate);
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/checklist-template:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/checklist-template', async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `ITEM-${Date.now()}`;
+    await appendChecklistTemplateItem({
+      id, idTemplate: body.idTemplate || '', texto: body.texto || '', orden: body.orden ?? 999, activo: 'TRUE',
+    });
+    return c.json({ success: true, message: 'Item agregado', id });
+  } catch (error: any) {
+    console.error('Error POST /api/checklist-template:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/api/checklist-template/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    await updateChecklistTemplateItem(rowIndex, body);
+    return c.json({ success: true, message: 'Item actualizado' });
+  } catch (error: any) {
+    console.error('Error PUT /api/checklist-template:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/checklist-template/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    await deleteChecklistTemplateItem(rowIndex);
+    return c.json({ success: true, message: 'Item eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/checklist-template:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
