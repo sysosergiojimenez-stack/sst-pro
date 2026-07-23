@@ -614,15 +614,18 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       alert('Seleccione producto y cantidad');
       return;
     }
-    if (!notaSalidaForm.quienRetira) {
-      alert('Primero seleccione el trabajador en "Quien Retira (Nro CI)"');
+    // Si estamos editando una nota existente, el trabajador se toma de esa nota.
+    // Si estamos creando una nota nueva, se toma de "Quien Retira" del formulario.
+    const trabajador = showNotaEdit ? showNotaEdit.quienRetira : notaSalidaForm.quienRetira;
+    if (!trabajador) {
+      alert('No se pudo determinar quien retira los productos');
       return;
     }
     const prod = productos.find(p => p.codigo === salidaForm.refItem);
     setSalidasTemporales(prev => [...prev, {
       refItem: salidaForm.refItem,
       cantidad: salidaForm.cantidad,
-      trabajadorRetira: notaSalidaForm.quienRetira,
+      trabajadorRetira: trabajador,
       itemNombre: prod?.nombre || salidaForm.refItem,
     }]);
     setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' });
@@ -630,7 +633,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
   };
 
   const handleGuardarNotaConSalidas = async () => {
-    if (!selectedNota) return;
+    if (!showNotaEdit) return;
     if (salidasTemporales.length === 0) {
       alert('Agregue al menos un producto');
       return;
@@ -640,21 +643,18 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
         idRegistro: `SAL-${Date.now()}-${idx}`,
         fechaHora: new Date().toISOString(),
         userEmail: 'sistema',
-        refNotaSalida: selectedNota.idRegistro,
+        refNotaSalida: showNotaEdit.idRegistro,
         refItem: s.refItem,
         cantidad: s.cantidad,
         trabajadorRetira: s.trabajadorRetira,
       }));
-
       await fetch('/api/epp/salidas/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ salidas: salidasBatch }),
       });
-
       setSalidasTemporales([]);
-      setSelectedNota(null);
       fetchData();
-      alert(`${salidasBatch.length} salidas registradas exitosamente!`);
+      alert(`${salidasBatch.length} producto(s) agregado(s) a la nota!`);
     } catch (err: any) { setError(err.message); }
   };
 
@@ -1406,140 +1406,6 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
             </div>
           )}
 
-          {selectedNota && (
-            <div className="glass-card p-6 scale-in">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold">Nota: {selectedNota.idRegistro}</h3>
-                  <p className="text-sm text-muted-foreground">Orden: {selectedNota.orden} | Retira: {selectedNota.quienRetira}</p>
-                </div>
-                <button onClick={() => { setSelectedNota(null); setSalidasTemporales([]); setBusquedaProducto(''); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
-              </div>
-              
-              <div className="mb-4">
-                <h4 className="text-sm font-medium mb-2">Salidas registradas ({salidasByNota(selectedNota.idRegistro).length})</h4>
-                <div className="space-y-2">
-                  {salidasByNota(selectedNota.idRegistro).map(s => {
-                    const prod = productos.find(p => p.codigo === s.refItem);
-                    const emp = buscarEmpleado(s.trabajadorRetira);
-                    return (
-                      <div key={s.idRegistro} className="flex items-center justify-between bg-secondary/50 p-3 rounded-xl text-sm">
-                        <div>
-                          <p className="font-medium">{prod?.nombre || s.refItem}</p>
-                          <p className="text-xs text-muted-foreground">Trabajador: {emp ? `${emp.nombres} ${emp.apellidos} (${emp.nroDocumento})` : s.trabajadorRetira}</p>
-                        </div>
-                        <span className="font-medium">{s.cantidad} und</span>
-                      </div>
-                    );
-                  })}
-                  {salidasByNota(selectedNota.idRegistro).length === 0 && <p className="text-sm text-muted-foreground">No hay salidas registradas</p>}
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4">
-                <h4 className="text-sm font-medium mb-3">Agregar Productos a la Nota</h4>
-                
-                {/* Lista de items temporales */}
-                {salidasTemporales.length > 0 && (
-                  <div className="mb-4 space-y-2">
-                    <p className="text-xs text-muted-foreground">Items agregados:</p>
-                    {salidasTemporales.map((s, idx) => {
-                      const emp = buscarEmpleado(s.trabajadorRetira);
-                      return (
-                        <div key={idx} className="flex items-center justify-between bg-secondary/50 p-3 rounded-xl text-sm">
-                          <div>
-                            <p className="font-medium">{s.itemNombre}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Cant: {s.cantidad} | Trabajador: {emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira}
-                            </p>
-                          </div>
-                          <button onClick={() => handleEliminarItemTemporal(idx)} className="p-1 rounded hover:bg-red-500/20 text-red-400"><X size={14} /></button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <form onSubmit={handleAgregarItemSalida} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="relative">
-                    <label className="block text-sm font-medium mb-2">Producto *</label>
-                    <input
-                      type="text"
-                      value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
-                      onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); setIndiceResaltadoProducto(0); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
-                      onFocus={() => setMostrarSugerenciasProducto(true)}
-                      onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
-                      onKeyDown={(e) => {
-                        const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
-                        if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          setMostrarSugerenciasProducto(true);
-                          setIndiceResaltadoProducto(i => Math.min(i + 1, filtrados.length - 1));
-                        } else if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          setIndiceResaltadoProducto(i => Math.max(i - 1, 0));
-                        } else if (e.key === 'Enter') {
-                          const p = filtrados[indiceResaltadoProducto];
-                          if (p && mostrarSugerenciasProducto) {
-                            e.preventDefault();
-                            setSalidaForm({ ...salidaForm, refItem: p.codigo });
-                            setBusquedaProducto('');
-                            setMostrarSugerenciasProducto(false);
-                          }
-                        } else if (e.key === 'Escape') {
-                          setMostrarSugerenciasProducto(false);
-                        }
-                      }}
-                      placeholder="Escribi nombre o codigo..."
-                      className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
-                      required={!salidaForm.refItem}
-                      autoComplete="off"
-                    />
-                    {mostrarSugerenciasProducto && busquedaProducto && (
-                      <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
-                        {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
-                          productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
-                            <button
-                              type="button"
-                              key={p.codigo}
-                              ref={(el) => { if (idx === indiceResaltadoProducto) el?.scrollIntoView({ block: 'nearest' }); }}
-                              onMouseEnter={() => setIndiceResaltadoProducto(idx)}
-                              onClick={() => { setSalidaForm({ ...salidaForm, refItem: p.codigo }); setBusquedaProducto(''); setMostrarSugerenciasProducto(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${idx === indiceResaltadoProducto ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
-                            >
-                              {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-4 py-2.5 text-sm text-muted-foreground">Sin resultados</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div><label className="block text-sm font-medium mb-2">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
-                  <div><label className="block text-sm font-medium mb-2">Trabajador *</label>
-                    <select value={salidaForm.trabajadorRetira} onChange={(e) => setSalidaForm({...salidaForm, trabajadorRetira: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required>
-                      <option value="">Seleccionar...</option>
-                      {empleados.map(e => <option key={e.nroDocumento} value={e.nroDocumento}>{e.nombres} {e.apellidos} - {e.nroDocumento}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex items-end"><button type="submit" className="w-full bg-secondary border border-border hover:bg-secondary/80 px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors"><Plus size={16} /> Agregar Item</button></div>
-                </form>
-
-                {salidasTemporales.length > 0 && (
-                  <div className="mt-4 flex gap-2">
-                    <button onClick={handleGuardarNotaConSalidas} className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25">
-                      <Save size={18} /> Guardar {salidasTemporales.length} Salida(s)
-                    </button>
-                    <button onClick={() => setSalidasTemporales([])} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">
-                      Limpiar
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {loading ? (
             <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="glass-card p-4"><div className="skeleton h-6 w-1/4 rounded mb-3" /><div className="skeleton h-4 w-3/4 rounded" /></div>)}</div>
           ) : notasFiltradas.length === 0 ? (
@@ -1572,8 +1438,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
-                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${expandida ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3">
+                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer ${expandida ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{formatearFecha(n.fecha)}</td>
@@ -1584,9 +1450,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                               <Package size={10} /> {itemsCount}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => setShowNotaDetail(expandida ? null : n)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandida ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><Eye size={16} /></button>
                               <button onClick={() => startEditNota(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteNotaSalida(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
@@ -1721,6 +1586,101 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                   })}
                                   {salidasByNota(n.idRegistro).length === 0 && <p className="text-sm text-muted-foreground">No hay salidas registradas</p>}
                                 </div>
+                              </div>
+
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Agregar Productos a la Nota</h4>
+
+                                {salidasTemporales.length > 0 && (
+                                  <div className="mb-3 space-y-2">
+                                    {salidasTemporales.map((s, idx) => {
+                                      const emp = buscarEmpleado(s.trabajadorRetira);
+                                      return (
+                                        <div key={idx} className="flex items-center justify-between bg-secondary/50 p-2.5 rounded-xl text-sm">
+                                          <div>
+                                            <p className="font-medium">{s.itemNombre}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                              Cant: {s.cantidad} | Trabajador: {emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira}
+                                            </p>
+                                          </div>
+                                          <button type="button" onClick={() => handleEliminarItemTemporal(idx)} className="p-1 rounded hover:bg-red-500/20 text-red-400"><X size={14} /></button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div className="relative md:col-span-2">
+                                    <label className="block text-xs text-muted-foreground uppercase mb-1">Producto *</label>
+                                    <input
+                                      type="text"
+                                      value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
+                                      onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); setIndiceResaltadoProducto(0); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
+                                      onFocus={() => setMostrarSugerenciasProducto(true)}
+                                      onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
+                                      onKeyDown={(e) => {
+                                        const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
+                                        if (e.key === 'ArrowDown') {
+                                          e.preventDefault();
+                                          setMostrarSugerenciasProducto(true);
+                                          setIndiceResaltadoProducto(i => Math.min(i + 1, filtrados.length - 1));
+                                        } else if (e.key === 'ArrowUp') {
+                                          e.preventDefault();
+                                          setIndiceResaltadoProducto(i => Math.max(i - 1, 0));
+                                        } else if (e.key === 'Enter') {
+                                          const p = filtrados[indiceResaltadoProducto];
+                                          if (p && mostrarSugerenciasProducto) {
+                                            e.preventDefault();
+                                            setSalidaForm({ ...salidaForm, refItem: p.codigo });
+                                            setBusquedaProducto('');
+                                            setMostrarSugerenciasProducto(false);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setMostrarSugerenciasProducto(false);
+                                        }
+                                      }}
+                                      placeholder="Escribi nombre o codigo..."
+                                      className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+                                      required={!salidaForm.refItem}
+                                      autoComplete="off"
+                                    />
+                                    {mostrarSugerenciasProducto && busquedaProducto && (
+                                      <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                                        {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
+                                          productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
+                                            <button
+                                              type="button"
+                                              key={p.codigo}
+                                              ref={(el) => { if (idx === indiceResaltadoProducto) el?.scrollIntoView({ block: 'nearest' }); }}
+                                              onMouseEnter={() => setIndiceResaltadoProducto(idx)}
+                                              onClick={() => { setSalidaForm({ ...salidaForm, refItem: p.codigo }); setBusquedaProducto(''); setMostrarSugerenciasProducto(false); }}
+                                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${idx === indiceResaltadoProducto ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
+                                            >
+                                              {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
+                                            </button>
+                                          ))
+                                        ) : (
+                                          <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
+                                  <div className="flex items-end"><button type="button" onClick={handleAgregarItemSalida} className="w-full bg-secondary border border-border hover:bg-secondary/80 px-3 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"><Plus size={16} /> Agregar Item</button></div>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreRetira}).</p>
+
+                                {salidasTemporales.length > 0 && (
+                                  <div className="mt-3 flex gap-2">
+                                    <button type="button" onClick={handleGuardarNotaConSalidas} className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm shadow-lg shadow-blue-500/25">
+                                      <Save size={16} /> Guardar {salidasTemporales.length} Producto(s)
+                                    </button>
+                                    <button type="button" onClick={() => setSalidasTemporales([])} className="px-4 py-2 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">
+                                      Limpiar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
