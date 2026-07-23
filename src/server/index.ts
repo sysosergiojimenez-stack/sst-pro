@@ -1384,6 +1384,22 @@ app.post('/api/bitacora/fotos', async (c) => {
 // INSPECCIONES
 // ============================================
 
+app.get('/api/inspecciones/imagen-proxy', async (c) => {
+  try {
+    const url = c.req.query('url');
+    if (!url) return c.json({ error: 'Falta el parametro url' }, 400);
+    const response = await fetch(url);
+    if (!response.ok) return c.json({ error: 'No se pudo descargar la imagen' }, 500);
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    return c.json({ success: true, base64: `data:${mimeType};base64,${base64}` });
+  } catch (error: any) {
+    console.error('Error GET /api/inspecciones/imagen-proxy:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/api/inspecciones', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');

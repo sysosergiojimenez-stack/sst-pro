@@ -1,8 +1,9 @@
 import { useState, useEffect, Fragment } from 'react';
+import jsPDF from 'jspdf';
 import {
   ClipboardCheck, Plus, X, Save, Trash2, Pencil, Calendar, User, Clock,
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, AlertTriangle, MinusCircle,
-  Settings, ExternalLink, Image as ImageIcon, PlayCircle
+  Settings, ExternalLink, Image as ImageIcon, PlayCircle, FileText, CheckSquare, Square
 } from 'lucide-react';
 
 interface Inspeccion {
@@ -94,6 +95,11 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const [editandoGrupoNombre, setEditandoGrupoNombre] = useState('');
 
   const [deletingId, setDeletingId] = useState<Inspeccion | null>(null);
+  const [editingInspeccion, setEditingInspeccion] = useState<Inspeccion | null>(null);
+  const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set());
+  const [generandoReporte, setGenerandoReporte] = useState(false);
+  const [editForm, setEditForm] = useState({ fechaProgramada: '', inspector: '', idTemplateChecklist: '', areaEquipo: '' });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -223,6 +229,158 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
       setItemsExpandidos(data.data || []);
     } catch {
       setItemsExpandidos([]);
+    }
+  };
+
+  const generarReportePDF = async () => {
+    if (seleccionadas.size === 0) return;
+    setGenerandoReporte(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const marginLeft = 14;
+      const marginRight = 14;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+      let y = 20;
+
+      const checkPageBreak = (alturaNecesaria: number) => {
+        if (y + alturaNecesaria > 280) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
+      doc.setFontSize(18);
+      doc.text('Reporte de Inspecciones', marginLeft, y);
+      y += 6;
+      doc.setFontSize(10);
+      doc.setTextColor(120);
+      doc.text(`Proyecto: ${proyecto} | Generado: ${new Date().toLocaleDateString('es-ES')}`, marginLeft, y);
+      doc.setTextColor(0);
+      y += 10;
+
+      const seleccionadasArr = inspecciones.filter(i => seleccionadas.has(i.idRegistro));
+
+      for (const insp of seleccionadasArr) {
+        checkPageBreak(30);
+        doc.setFillColor(240, 240, 240);
+        doc.rect(marginLeft, y - 5, contentWidth, 24, 'F');
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        const nombreChecklist = templateGroups.find(g => g.id === insp.idTemplateChecklist)?.nombre || 'Checklist';
+        doc.text(nombreChecklist, marginLeft + 2, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        y += 6;
+        doc.text(`Fecha: ${insp.fechaProgramada}   Inspector: ${insp.inspector}`, marginLeft + 2, y);
+        y += 5;
+        if (insp.areaEquipo) {
+          doc.text(`Area/Equipo: ${insp.areaEquipo}`, marginLeft + 2, y);
+          y += 5;
+        }
+        y += 6;
+
+        const res = await fetch(`/api/inspecciones/${insp.idRegistro}/items`);
+        const data = await res.json();
+        const items: ItemChecklist[] = data.data || [];
+
+        for (const it of items) {
+          checkPageBreak(20);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          const lineasItem = doc.splitTextToSize(it.item, contentWidth - 30);
+          doc.text(lineasItem, marginLeft, y);
+
+          const esOk = it.resultado === 'Cumple';
+          const esNoOk = it.resultado === 'No Cumple';
+          if (esOk) doc.setTextColor(16, 185, 129);
+          else if (esNoOk) doc.setTextColor(239, 68, 68);
+          else doc.setTextColor(148, 163, 184);
+          doc.text(it.resultado || '-', pageWidth - marginRight - 25, y);
+          doc.setTextColor(0);
+          doc.setFont('helvetica', 'normal');
+          y += lineasItem.length * 5 + 2;
+
+          if (esNoOk) {
+            doc.setFontSize(9);
+            doc.setTextColor(80);
+            if (it.observacion) { checkPageBreak(6); doc.text(`Observacion: ${it.observacion}`, marginLeft + 4, y); y += 5; }
+            if (it.accionCorrectiva) { checkPageBreak(6); doc.text(`Accion correctiva: ${it.accionCorrectiva}`, marginLeft + 4, y); y += 5; }
+            if (it.responsableAccion) { checkPageBreak(6); doc.text(`Responsable: ${it.responsableAccion}`, marginLeft + 4, y); y += 5; }
+            if (it.fechaLimite) { checkPageBreak(6); doc.text(`Fecha limite: ${it.fechaLimite}`, marginLeft + 4, y); y += 5; }
+            doc.setTextColor(0);
+
+            const fotos: string[] = JSON.parse(it.fotos || '[]');
+            if (fotos.length > 0) {
+              checkPageBreak(35);
+              let x = marginLeft + 4;
+              for (const url of fotos) {
+                try {
+                  const imgRes = await fetch(`/api/inspecciones/imagen-proxy?url=${encodeURIComponent(url)}`);
+                  const imgData = await imgRes.json();
+                  if (imgData.base64) {
+                    if (x + 30 > pageWidth - marginRight) { x = marginLeft + 4; y += 32; checkPageBreak(35); }
+                    doc.addImage(imgData.base64, 'JPEG', x, y, 28, 28);
+                    x += 32;
+                  }
+                } catch {
+                  /* si una foto falla, seguimos con las demas */
+                }
+              }
+              y += 34;
+            }
+          }
+          y += 4;
+        }
+        y += 8;
+      }
+
+      doc.save(`Reporte_Inspecciones_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err: any) {
+      alert('Error generando el reporte: ' + err.message);
+    } finally {
+      setGenerandoReporte(false);
+    }
+  };
+
+  const toggleSeleccion = (idRegistro: string) => {
+    setSeleccionadas(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(idRegistro)) nuevo.delete(idRegistro); else nuevo.add(idRegistro);
+      return nuevo;
+    });
+  };
+
+  const toggleSeleccionarTodas = () => {
+    if (seleccionadas.size === inspeccionesOrdenadas.length) {
+      setSeleccionadas(new Set());
+    } else {
+      setSeleccionadas(new Set(inspeccionesOrdenadas.map(i => i.idRegistro)));
+    }
+  };
+
+  const openEdit = (insp: Inspeccion) => {
+    setEditingInspeccion(insp);
+    setEditForm({
+      fechaProgramada: insp.fechaProgramada, inspector: insp.inspector,
+      idTemplateChecklist: insp.idTemplateChecklist, areaEquipo: insp.areaEquipo,
+    });
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!editingInspeccion) return;
+    setGuardandoEdicion(true);
+    try {
+      await fetch(`/api/inspecciones/${editingInspeccion.rowIndex}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      setEditingInspeccion(null);
+      fetchData();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -361,6 +519,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     return (
       <Fragment key={insp.idRegistro}>
         <tr className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+          <td className="px-4 py-3"><input type="checkbox" checked={seleccionadas.has(insp.idRegistro)} onChange={() => toggleSeleccion(insp.idRegistro)} className="rounded" /></td>
           <td className="px-4 py-3 text-muted-foreground whitespace-nowrap"><div className="flex items-center gap-1.5"><Calendar size={12} />{insp.fechaProgramada}</div></td>
           <td className="px-4 py-3"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{insp.inspector}</div></td>
           <td className="px-4 py-3 text-muted-foreground">{templateGroups.find(g => g.id === insp.idTemplateChecklist)?.nombre || '-'}</td>
@@ -379,13 +538,14 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               ) : (
                 <button onClick={() => verDetalle(insp)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandido ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><ClipboardCheck size={16} /></button>
               )}
+              <button onClick={() => openEdit(insp)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
               <button onClick={() => setDeletingId(insp)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
             </div>
           </td>
         </tr>
         {expandido && (
           <tr className="bg-secondary/10 border-b border-border/50">
-            <td colSpan={6} className="px-6 py-4">
+            <td colSpan={7} className="px-6 py-4">
               {insp.observacionesGenerales && (
                 <div className="mb-4"><span className="text-xs text-muted-foreground uppercase">Observaciones Generales</span><p className="mt-1">{insp.observacionesGenerales}</p></div>
               )}
@@ -436,6 +596,11 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
             <button onClick={() => setVista('calendario')} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${vista === 'calendario' ? 'bg-card shadow' : 'text-muted-foreground'}`}>Calendario</button>
           </div>
           <button onClick={() => setShowGestionChecklist(true)} className="p-2.5 rounded-xl bg-secondary border border-border hover:bg-secondary/80 transition-colors" title="Gestionar Checklist"><Settings size={18} /></button>
+          {seleccionadas.size > 0 && (
+            <button onClick={generarReportePDF} disabled={generandoReporte} className="px-4 py-2.5 rounded-xl bg-secondary border border-border hover:bg-secondary/80 transition-colors flex items-center gap-2 text-sm disabled:opacity-50">
+              {generandoReporte ? <><Clock size={16} className="animate-spin" /> Generando...</> : <><FileText size={16} /> Reporte ({seleccionadas.size})</>}
+            </button>
+          )}
           <button onClick={() => setShowProgramarForm(true)} className="btn-gradient text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25">
             <Plus size={18} /> Programar Inspeccion
           </button>
@@ -640,6 +805,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 py-3"><input type="checkbox" checked={seleccionadas.size > 0 && seleccionadas.size === inspeccionesOrdenadas.length} onChange={toggleSeleccionarTodas} className="rounded" /></th>
                     <th className="text-left px-4 py-3">Fecha</th>
                     <th className="text-left px-4 py-3">Inspector</th>
                     <th className="text-left px-4 py-3">Checklist</th>
@@ -702,6 +868,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-secondary/50 border-b border-border">
+                          <th className="px-4 py-3"></th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Inspector</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Checklist</th>
@@ -717,6 +884,44 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {editingInspeccion && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2"><Pencil size={16} className="text-primary" /> Editar Inspeccion</h3>
+              <button onClick={() => setEditingInspeccion(null)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label>
+                <input type="date" value={editForm.fechaProgramada} onChange={(e) => setEditForm({ ...editForm, fechaProgramada: e.target.value })} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Inspector</label>
+                <input type="text" value={editForm.inspector} onChange={(e) => setEditForm({ ...editForm, inspector: e.target.value })} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Checklist a Realizar</label>
+                <select value={editForm.idTemplateChecklist} onChange={(e) => setEditForm({ ...editForm, idTemplateChecklist: e.target.value })} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50">
+                  <option value="">Seleccionar...</option>
+                  {templateGroups.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Area / Equipo a Revisar</label>
+                <input type="text" value={editForm.areaEquipo} onChange={(e) => setEditForm({ ...editForm, areaEquipo: e.target.value })} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+            </div>
+            <div className="p-5 border-t border-border flex gap-3">
+              <button onClick={() => setEditingInspeccion(null)} className="flex-1 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">Cancelar</button>
+              <button onClick={handleGuardarEdicion} disabled={guardandoEdicion} className="flex-1 py-2.5 btn-gradient text-white font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                {guardandoEdicion ? <><Clock size={16} className="animate-spin" /> Guardando...</> : <><Save size={16} /> Guardar Cambios</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

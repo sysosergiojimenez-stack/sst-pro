@@ -106,6 +106,7 @@ export async function updateInspeccion(
 ): Promise<void> {
   const updates = [];
   const fields: Record<string, string> = {
+    'E': insp.fechaProgramada ?? '',
     'F': insp.inspector ?? '',
     'G': insp.estado ?? '',
     'H': insp.fechaRealizada ?? '',
