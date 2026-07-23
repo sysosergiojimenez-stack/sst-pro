@@ -31,6 +31,10 @@ import {
   getAsistenciasByCapacitacion, getAsistenciasByEmpleado,
   appendAsistenciasBatch, deleteAsistenciasByCapacitacion
 } from './lib/googleSheets_capacitaciones';
+import {
+  getAllBitacora, getBitacoraByProyecto,
+  appendBitacora, updateBitacora, deleteBitacora
+} from './lib/googleSheets_bitacora';
 import { 
   getAllIncidentes, 
   getIncidentesByProyecto, 
@@ -1283,6 +1287,85 @@ app.post('/api/capacitaciones', async (c) => {
     return c.json({ success: true, message: 'Charla programada', idRegistro });
   } catch (error: any) {
     console.error('Error POST /api/capacitaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/bitacora', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getBitacoraByProyecto(proyecto) : await getAllBitacora();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/bitacora:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/bitacora', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `BIT-${Date.now()}`;
+    await appendBitacora({
+      idRegistro,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      fecha: body.fecha || '',
+      descripcionTrabajo: body.descripcionTrabajo || '',
+      ubicacionArea: body.ubicacionArea || '',
+      realizadoPor: body.realizadoPor || '',
+      fotos: body.fotos || '',
+    });
+    return c.json({ success: true, message: 'Entrada de bitacora creada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/bitacora:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/api/bitacora/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    await updateBitacora(rowIndex, body);
+    return c.json({ success: true, message: 'Entrada actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/bitacora:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/bitacora/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    await deleteBitacora(rowIndex);
+    return c.json({ success: true, message: 'Entrada eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/bitacora:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/bitacora/fotos', async (c) => {
+  try {
+    const body = await c.req.json();
+    const archivos = body.archivos || [];
+    if (archivos.length === 0) {
+      return c.json({ error: 'No se proporcionaron fotos' }, 400);
+    }
+    const urls: string[] = [];
+    for (let i = 0; i < archivos.length; i++) {
+      const archivo = archivos[i];
+      const mime = archivo.mimeType || 'image/jpeg';
+      const ext = mime.includes('png') ? 'png' : 'jpg';
+      const nombreArchivo = `BITACORA_${body.idRegistro || Date.now()}_${i}_${Date.now()}.${ext}`;
+      const url = await subirPDFAGCS(archivo.base64, nombreArchivo, mime);
+      urls.push(url);
+    }
+    return c.json({ success: true, urls });
+  } catch (error: any) {
+    console.error('Error POST /api/bitacora/fotos:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
