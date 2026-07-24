@@ -359,14 +359,31 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         </div>
         
         {empresas.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={16} className="text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Empresa:</span>
-            <button onClick={() => setEmpresaFiltro('')} className={`px-3 py-2 sm:py-1.5 rounded-full text-xs transition-colors ${!empresaFiltro ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>Todas</button>
-            {empresas.map(empresa => (
-              <button key={empresa} onClick={() => setEmpresaFiltro(empresa)} className={`px-3 py-2 sm:py-1.5 rounded-full text-xs transition-colors ${empresaFiltro === empresa ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>{empresa}</button>
-            ))}
-          </div>
+          <>
+            {/* Dropdown (movil) */}
+            <div className="sm:hidden flex items-center gap-2 w-full">
+              <Filter size={16} className="text-muted-foreground shrink-0" />
+              <select
+                value={empresaFiltro}
+                onChange={(e) => setEmpresaFiltro(e.target.value)}
+                className="flex-1 bg-card border border-border rounded-xl px-3 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+              >
+                <option value="">Todas las empresas</option>
+                {empresas.map(empresa => (
+                  <option key={empresa} value={empresa}>{empresa}</option>
+                ))}
+              </select>
+            </div>
+            {/* Chips (desktop) */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
+              <Filter size={16} className="text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Empresa:</span>
+              <button onClick={() => setEmpresaFiltro('')} className={`px-3 py-1.5 rounded-full text-xs transition-colors ${!empresaFiltro ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>Todas</button>
+              {empresas.map(empresa => (
+                <button key={empresa} onClick={() => setEmpresaFiltro(empresa)} className={`px-3 py-1.5 rounded-full text-xs transition-colors ${empresaFiltro === empresa ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>{empresa}</button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
