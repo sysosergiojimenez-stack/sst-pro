@@ -242,7 +242,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
       <div className="flex items-center gap-4">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+          className="p-3 sm:p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
         >
           <ArrowLeft size={20} />
         </button>

@@ -925,7 +925,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
             <div className="glass-card p-6 scale-in">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Nuevo Producto</h3>
-                <button onClick={() => setShowProductoForm(false)} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+                <button onClick={() => setShowProductoForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
               </div>
               <form onSubmit={handleAddProducto} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label className="block text-sm font-medium mb-2">Codigo *</label><input type="text" value={productoForm.codigo} onChange={(e) => setProductoForm({...productoForm, codigo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
@@ -998,8 +998,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => startEditProducto(p)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
-                              <button onClick={() => handleDeleteProducto(p)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                              <button onClick={() => startEditProducto(p)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteProducto(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
@@ -1076,7 +1076,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
 
           {showRemisionForm && (
             <div className="glass-card p-6 scale-in">
-              <div className="flex items-center justify-between mb-4"><h3 className="font-semibold">Nueva Remision</h3><button onClick={() => setShowRemisionForm(false)} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button></div>
+              <div className="flex items-center justify-between mb-4"><h3 className="font-semibold">Nueva Remision</h3><button onClick={() => setShowRemisionForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button></div>
               <form onSubmit={handleAddRemision} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium mb-2">Proveedor *</label><input type="text" value={remisionForm.proveedor} onChange={(e) => setRemisionForm({...remisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Numeracion *</label><input type="text" value={remisionForm.numeracion} onChange={(e) => setRemisionForm({...remisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
@@ -1132,13 +1132,13 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-1">
                               {r.scaneado && (
-                                <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
+                                <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
                                   <FileText size={16} />
                                 </a>
                               )}
-                              <button onClick={() => setShowRemisionDetail(expandida ? null : r)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandida ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><Eye size={16} /></button>
-                              <button onClick={() => startEditRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                              <button onClick={() => handleDeleteRemision(r)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                              <button onClick={() => setShowRemisionDetail(expandida ? null : r)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandida ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><Eye size={16} /></button>
+                              <button onClick={() => startEditRemision(r)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteRemision(r)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
@@ -1231,7 +1231,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
             <div className="glass-card p-6 scale-in">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Nueva Nota de Salida</h3>
-                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); setBusquedaProducto(''); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); setBusquedaProducto(''); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
               </div>
               <form onSubmit={handleGuardarNotaCompleta}>
                 {/* Datos de la Nota */}
@@ -1452,8 +1452,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => startEditNota(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                              <button onClick={() => handleDeleteNotaSalida(n)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                              <button onClick={() => startEditNota(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
@@ -1580,7 +1580,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                           className="w-20 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm text-center input-glow focus:outline-none focus:border-primary/50"
                                           min="1"
                                         />
-                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.rowIndex)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
+                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
                                       </div>
                                     );
                                   })}
@@ -1820,7 +1820,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-auto scale-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Factura/Remision con IA</h2>
-              <button onClick={() => { setShowGeminiForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+              <button onClick={() => { setShowGeminiForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
             </div>
             {!datosExtraidos ? (
               <form onSubmit={handleGeminiSubmit} className="space-y-4">
@@ -1862,7 +1862,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-auto scale-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Nota de Salida con IA</h2>
-              <button onClick={() => { setShowGeminiSalidaForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+              <button onClick={() => { setShowGeminiSalidaForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
             </div>
             {!datosExtraidos ? (
               <form onSubmit={handleGeminiSalidaSubmit} className="space-y-4">
@@ -1900,7 +1900,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <div className="glass-card p-6 max-w-lg w-full scale-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold flex items-center gap-2"><FileSpreadsheet size={20} className="text-primary" />Generar Reporte</h2>
-              <button onClick={() => setShowReporteModal(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowReporteModal(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
             </div>
             <div className="space-y-3">
               <button onClick={() => generarReporte('inventario')} className="w-full glass-card p-4 text-left hover:bg-secondary/50 transition-colors flex items-center gap-3">

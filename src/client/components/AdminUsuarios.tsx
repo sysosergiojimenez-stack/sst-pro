@@ -139,7 +139,7 @@ export default function AdminUsuarios() {
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">{editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
-            <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => setShowForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -220,8 +220,8 @@ export default function AdminUsuarios() {
                   </td>
                   <td className="py-3 px-4 text-muted-foreground text-xs">{new Date(u.dateTime).toLocaleDateString('es-ES')}</td>
                   <td className="py-3 px-4 text-right">
-                    <button onClick={() => startEdit(u)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary inline-block mr-1" title="Editar"><Pencil size={14} /></button>
-                    <button onClick={() => handleDelete(u)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400 inline-block" title="Eliminar"><Trash2 size={14} /></button>
+                    <button onClick={() => startEdit(u)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary inline-block mr-1" title="Editar"><Pencil size={14} /></button>
+                    <button onClick={() => handleDelete(u)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400 inline-block" title="Eliminar"><Trash2 size={14} /></button>
                   </td>
                 </tr>
               ))}

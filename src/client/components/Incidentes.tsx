@@ -271,7 +271,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold">{editing ? 'Editar Incidente' : 'Nuevo Incidente'}</h2>
-            <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+            <button onClick={() => setShowForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -383,7 +383,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
               <Brain size={20} className="text-primary" />
               Procesar Incidente con IA
             </h2>
-            <button onClick={() => setShowGeminiForm(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+            <button onClick={() => setShowGeminiForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
           </div>
           {!datosExtraidos ? (
             <form onSubmit={handleGeminiSubmit} className="space-y-4">
@@ -475,8 +475,8 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => startEdit(incidente)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                  <button onClick={() => handleDelete(incidente)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                  <button onClick={() => startEdit(incidente)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                  <button onClick={() => handleDelete(incidente)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                 </div>
               </div>
               {(incidente.accionesCorrectivas || incidente.causasRaiz) && (

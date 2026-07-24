@@ -534,12 +534,12 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
           <td className="px-4 py-3">
             <div className="flex items-center justify-center gap-1">
               {insp.estado !== 'Realizada' ? (
-                <button onClick={() => abrirChecklist(insp)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Realizar Checklist"><PlayCircle size={16} /></button>
+                <button onClick={() => abrirChecklist(insp)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Realizar Checklist"><PlayCircle size={16} /></button>
               ) : (
-                <button onClick={() => verDetalle(insp)} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandido ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><ClipboardCheck size={16} /></button>
+                <button onClick={() => verDetalle(insp)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandido ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><ClipboardCheck size={16} /></button>
               )}
-              <button onClick={() => openEdit(insp)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-              <button onClick={() => setDeletingId(insp)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+              <button onClick={() => openEdit(insp)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+              <button onClick={() => setDeletingId(insp)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
             </div>
           </td>
         </tr>
@@ -611,7 +611,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold flex items-center gap-2"><Plus size={16} className="text-primary" /> Programar Inspeccion</h3>
-            <button onClick={() => setShowProgramarForm(false)} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => setShowProgramarForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -645,7 +645,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold flex items-center gap-2"><Settings size={16} className="text-primary" /> Gestionar Checklists</h3>
-            <button onClick={() => { setShowGestionChecklist(false); setGrupoGestion(null); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => { setShowGestionChecklist(false); setGrupoGestion(null); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
 
           <div className="space-y-2 mb-4">
@@ -655,8 +655,8 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                   {editandoGrupoId === g.rowIndex ? (
                     <>
                       <input type="text" value={editandoGrupoNombre} onChange={(e) => setEditandoGrupoNombre(e.target.value)} className="flex-1 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                      <button onClick={() => handleGuardarEdicionGrupo(g.rowIndex)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
-                      <button onClick={() => setEditandoGrupoId(null)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
+                      <button onClick={() => handleGuardarEdicionGrupo(g.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
+                      <button onClick={() => setEditandoGrupoId(null)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
                     </>
                   ) : (
                     <>
@@ -664,26 +664,26 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                         {grupoGestion === g.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         {g.nombre}
                       </button>
-                      <button onClick={() => { setEditandoGrupoId(g.rowIndex); setEditandoGrupoNombre(g.nombre); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
-                      <button onClick={() => handleEliminarGrupo(g.rowIndex)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
+                      <button onClick={() => { setEditandoGrupoId(g.rowIndex); setEditandoGrupoNombre(g.nombre); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
+                      <button onClick={() => handleEliminarGrupo(g.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
                     </>
                   )}
                 </div>
                 {grupoGestion === g.id && (
                   <div className="ml-4 mt-2 mb-2 space-y-2 border-l-2 border-border pl-4">
                     {itemsGrupoGestion.map((t) => (
-                      <div key={t.rowIndex} className="flex items-center gap-2 bg-secondary/20 p-2 rounded-lg text-sm">
+                      <div key={t.rowIndex} className="flex items-center gap-2 bg-secondary/20 p-3 sm:p-2 rounded-lg text-sm">
                         {editandoTemplateId === t.rowIndex ? (
                           <>
                             <input type="text" value={editandoTemplateTexto} onChange={(e) => setEditandoTemplateTexto(e.target.value)} className="flex-1 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                            <button onClick={() => handleGuardarEdicionTemplate(t.rowIndex)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
-                            <button onClick={() => setEditandoTemplateId(null)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
+                            <button onClick={() => handleGuardarEdicionTemplate(t.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
+                            <button onClick={() => setEditandoTemplateId(null)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
                           </>
                         ) : (
                           <>
                             <span className="flex-1">{t.texto}</span>
-                            <button onClick={() => { setEditandoTemplateId(t.rowIndex); setEditandoTemplateTexto(t.texto); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
-                            <button onClick={() => handleEliminarTemplateItem(t.rowIndex)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
+                            <button onClick={() => { setEditandoTemplateId(t.rowIndex); setEditandoTemplateTexto(t.texto); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
+                            <button onClick={() => handleEliminarTemplateItem(t.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
                           </>
                         )}
                       </div>
@@ -717,7 +717,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                 <p className="text-sm text-primary font-medium mt-1">Area/Equipo a revisar: {showChecklistForm.areaEquipo}</p>
               )}
             </div>
-            <button onClick={() => { setShowChecklistForm(null); setChecklistItems([]); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => { setShowChecklistForm(null); setChecklistItems([]); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
           <div className="space-y-3">
             {checklistItems.map((it, idx) => {
@@ -823,9 +823,9 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1))} className="p-2 rounded-lg hover:bg-secondary"><ChevronLeft size={18} /></button>
+              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1))} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><ChevronLeft size={18} /></button>
               <h3 className="font-semibold capitalize">{nombreMes}</h3>
-              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1))} className="p-2 rounded-lg hover:bg-secondary"><ChevronRight size={18} /></button>
+              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1))} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><ChevronRight size={18} /></button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-2">
               {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(d => <div key={d} className="py-1">{d}</div>)}
@@ -892,7 +892,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
           <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2"><Pencil size={16} className="text-primary" /> Editar Inspeccion</h3>
-              <button onClick={() => setEditingInspeccion(null)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"><X size={18} /></button>
+              <button onClick={() => setEditingInspeccion(null)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
