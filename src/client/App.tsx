@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './lib/trpc';
-import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
@@ -37,6 +37,18 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'dark' | 'light';
     if (saved) setTheme(saved);
+  }, []);
+
+  const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -78,6 +90,12 @@ export default function App() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <div className="min-h-screen bg-background text-foreground flex">
+          {!online && (
+            <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white text-xs font-medium py-2 px-4 flex items-center justify-center gap-2 shadow-lg">
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              <span>Sin conexion a internet - los cambios no se guardaran hasta reconectar</span>
+            </div>
+          )}
           {/* Mobile overlay */}
           {sidebarOpen && (
             <div 
