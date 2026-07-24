@@ -317,14 +317,14 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           </h2>
           <p className="text-muted-foreground text-sm mt-1">{empleados.length} empleados registrados</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => { setShowForm(true); setEditingEmpleado(null); setForm({ nroDocumento: '', nombres: '', apellidos: '', cargo: '', empresa: '', telefonoCelular: '', email: '' }); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
+          <button onClick={() => { setShowForm(true); setEditingEmpleado(null); setForm({ nroDocumento: '', nombres: '', apellidos: '', cargo: '', empresa: '', telefonoCelular: '', email: '' }); }} className="bg-primary text-primary-foreground px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors text-sm">
             <Plus size={18} /> Agregar Manual
           </button>
-          <button onClick={() => { setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }} className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+          <button onClick={() => { setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
             <Brain size={18} /> Agregar con IA
           </button>
-          <label className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors cursor-pointer">
+          <label className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors cursor-pointer text-sm">
             {importandoMarcaciones ? (
               <><Fingerprint size={18} className="animate-pulse" /> Importando...</>
             ) : (
@@ -332,7 +332,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             )}
             <input type="file" accept=".xls,.xlsx" onChange={handleImportarMarcaciones} disabled={importandoMarcaciones} className="hidden" />
           </label>
-          <button onClick={() => setShowControlHoras(!showControlHoras)} className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+          <button onClick={() => setShowControlHoras(!showControlHoras)} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
             <Fingerprint size={18} /> Control de Horas
           </button>
         </div>
@@ -351,7 +351,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           {searchTerm && (
             <button 
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-secondary text-muted-foreground"
+              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-2 sm:p-1 rounded-md hover:bg-secondary text-muted-foreground"
             >
               <X size={14} />
             </button>
@@ -362,9 +362,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           <div className="flex items-center gap-2 flex-wrap">
             <Filter size={16} className="text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Empresa:</span>
-            <button onClick={() => setEmpresaFiltro('')} className={`px-3 py-1.5 rounded-full text-xs transition-colors ${!empresaFiltro ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>Todas</button>
+            <button onClick={() => setEmpresaFiltro('')} className={`px-3 py-2 sm:py-1.5 rounded-full text-xs transition-colors ${!empresaFiltro ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>Todas</button>
             {empresas.map(empresa => (
-              <button key={empresa} onClick={() => setEmpresaFiltro(empresa)} className={`px-3 py-1.5 rounded-full text-xs transition-colors ${empresaFiltro === empresa ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>{empresa}</button>
+              <button key={empresa} onClick={() => setEmpresaFiltro(empresa)} className={`px-3 py-2 sm:py-1.5 rounded-full text-xs transition-colors ${empresaFiltro === empresa ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}>{empresa}</button>
             ))}
           </div>
         )}
