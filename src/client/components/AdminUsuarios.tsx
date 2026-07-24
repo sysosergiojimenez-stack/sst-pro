@@ -200,8 +200,8 @@ export default function AdminUsuarios() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
+          <table className="w-full text-sm block sm:table">
+            <thead className="hidden sm:table-header-group">
               <tr className="border-b border-border">
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nombre</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Correo</th>
@@ -210,16 +210,16 @@ export default function AdminUsuarios() {
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block sm:table-row-group">
               {usuarios.map((u) => (
-                <tr key={u.idRegistro} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                  <td className="py-3 px-4 font-medium">{u.nombres} {u.apellidos}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{u.correo}</td>
-                  <td className="py-3 px-4">
+                <tr key={u.idRegistro} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                  <td className="py-3 px-4 font-medium block sm:table-cell">{u.nombres} {u.apellidos}</td>
+                  <td className="py-3 px-4 text-muted-foreground block sm:table-cell">{u.correo}</td>
+                  <td className="py-3 px-4 block sm:table-cell">
                     <span className={`px-2 py-1 rounded-full text-xs border ${getRolColor(u.rol)}`}>{u.rol}</span>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground text-xs">{new Date(u.dateTime).toLocaleDateString('es-ES')}</td>
-                  <td className="py-3 px-4 text-right">
+                  <td className="py-3 px-4 text-muted-foreground text-xs block sm:table-cell">{new Date(u.dateTime).toLocaleDateString('es-ES')}</td>
+                  <td className="py-3 px-4 sm:text-right block sm:table-cell pt-1.5 sm:pt-3 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                     <button onClick={() => startEdit(u)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary inline-block mr-1" title="Editar"><Pencil size={14} /></button>
                     <button onClick={() => handleDelete(u)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400 inline-block" title="Eliminar"><Trash2 size={14} /></button>
                   </td>

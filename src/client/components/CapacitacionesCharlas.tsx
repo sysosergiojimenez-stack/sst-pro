@@ -355,12 +355,12 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     const esRealizada = (cap.estado || '').toLowerCase() === 'realizada';
     return (
       <Fragment key={cap.idRegistro}>
-        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${exp ? 'bg-secondary/20' : ''}`}>
-          <td className="px-4 py-3 text-muted-foreground">{formatearFechaCorta(cap.fechaProgramada)}{cap.hora && ` ${cap.hora}`}</td>
-          <td className="px-4 py-3 font-medium">{cap.titulo}</td>
-          <td className="px-4 py-3 text-muted-foreground">{cap.tipo || '-'}</td>
-          <td className="px-4 py-3 text-muted-foreground">{cap.responsable || '-'}</td>
-          <td className="px-4 py-3 text-center">
+        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${exp ? 'bg-secondary/20' : ''}`}>
+          <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{formatearFechaCorta(cap.fechaProgramada)}{cap.hora && ` ${cap.hora}`}</td>
+          <td className="px-4 py-3 font-medium block sm:table-cell">{cap.titulo}</td>
+          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Tipo: </span>{cap.tipo || '-'}</td>
+          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Responsable: </span>{cap.responsable || '-'}</td>
+          <td className="px-4 py-3 text-center block sm:table-cell">
             {esRealizada ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
                 <CheckCircle2 size={10} /> Realizada
@@ -371,8 +371,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
               </span>
             )}
           </td>
-          <td className="px-4 py-3">
-            <div className="flex items-center justify-center gap-1">
+          <td className="px-4 py-3 block sm:table-cell">
+            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
               {!esRealizada && (
                 <button onClick={() => startRealizar(cap)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-emerald-400" title="Marcar como realizada">
                   <CheckCircle2 size={16} />
@@ -603,8 +603,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2"><Clock size={14} /> Pendientes ({pendientes.length})</h3>
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Titulo</th>
@@ -614,7 +614,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                           <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>{pendientes.map(renderFilaCharla)}</tbody>
+                      <tbody className="block sm:table-row-group">{pendientes.map(renderFilaCharla)}</tbody>
                     </table>
                   </div>
                 </div>
@@ -625,8 +625,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2"><CheckCircle2 size={14} /> Realizadas ({realizadas.length})</h3>
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Titulo</th>
@@ -636,7 +636,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                           <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>{realizadas.map(renderFilaCharla)}</tbody>
+                      <tbody className="block sm:table-row-group">{realizadas.map(renderFilaCharla)}</tbody>
                     </table>
                   </div>
                 </div>
@@ -692,8 +692,8 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
               ) : (
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Titulo</th>
@@ -703,7 +703,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                           <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>{charlasPorFecha(diaSeleccionado).map(renderFilaCharla)}</tbody>
+                      <tbody className="block sm:table-row-group">{charlasPorFecha(diaSeleccionado).map(renderFilaCharla)}</tbody>
                     </table>
                   </div>
                 </div>

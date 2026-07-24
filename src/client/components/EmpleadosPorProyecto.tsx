@@ -478,8 +478,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
+          <table className="w-full block sm:table">
+            <thead className="hidden sm:table-header-group">
               <tr className="border-b border-border">
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Documento</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Nombres</th>
@@ -492,7 +492,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block sm:table-row-group">
               <tr className="bg-secondary/30">
                 <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
               </tr>
@@ -500,23 +500,23 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <tr><td colSpan={9} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
               )}
               {activosOrdenados.map((emp) => (
-                <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50">
-                  <td className="py-3 px-4 text-sm">{emp.nroDocumento}</td>
-                  <td className="py-3 px-4 text-sm">{emp.nombres}</td>
-                  <td className="py-3 px-4 text-sm">{emp.apellidos}</td>
-                  <td className="py-3 px-4 text-sm">{emp.cargo}</td>
-                  <td className="py-3 px-4 text-sm">{emp.empresa}</td>
-                  <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground">{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
-                  <td className="py-3 px-4 text-center">
+                <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0">
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
+                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ult. Marcacion: </span>{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                  <td className="py-3 px-4 text-center block sm:table-cell">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">Activo</span>
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-1">
-                      <button onClick={() => startEdit(emp)} className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
-                      <button onClick={() => handleToggleEstado(emp)} className="p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
-                      <button onClick={() => handleDelete(emp)} className="p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
-                      {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
+                  <td className="py-3 px-4 block sm:table-cell">
+                    <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                      <button onClick={() => startEdit(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
+                      <button onClick={() => handleToggleEstado(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
+                      <button onClick={() => handleDelete(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                      {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
                     </div>
                   </td>
                 </tr>
@@ -527,23 +527,23 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                     <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
                   </tr>
                   {inactivosOrdenados.map((emp) => (
-                    <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 opacity-60">
-                      <td className="py-3 px-4 text-sm">{emp.nroDocumento}</td>
-                      <td className="py-3 px-4 text-sm">{emp.nombres}</td>
-                      <td className="py-3 px-4 text-sm">{emp.apellidos}</td>
-                      <td className="py-3 px-4 text-sm">{emp.cargo}</td>
-                      <td className="py-3 px-4 text-sm">{emp.empresa}</td>
-                      <td className="py-3 px-4 text-sm">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground">{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
-                      <td className="py-3 px-4 text-center">
+                    <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 opacity-60 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0">
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ult. Marcacion: </span>{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                      <td className="py-3 px-4 text-center block sm:table-cell">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs">Inactivo</span>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-1">
-                          <button onClick={() => startEdit(emp)} className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
-                          <button onClick={() => handleToggleEstado(emp)} className="p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
-                          <button onClick={() => handleDelete(emp)} className="p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
-                          {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
+                      <td className="py-3 px-4 block sm:table-cell">
+                        <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                          <button onClick={() => startEdit(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
+                          <button onClick={() => handleToggleEstado(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
+                          <button onClick={() => handleDelete(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                          {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
                         </div>
                       </td>
                     </tr>

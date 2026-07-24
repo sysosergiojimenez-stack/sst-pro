@@ -201,8 +201,8 @@ export default function Empleados() {
       {/* Tabla */}
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto table-responsive">
-          <table className="w-full text-sm min-w-[900px]">
-            <thead>
+          <table className="w-full text-sm block sm:table">
+            <thead className="hidden sm:table-header-group">
               <tr className="bg-secondary/70 border-b border-border">
                 <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
                 <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Empleado</th>
@@ -215,7 +215,7 @@ export default function Empleados() {
                 <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-20">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border block sm:table-row-group">
               {empleadosFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
@@ -226,29 +226,29 @@ export default function Empleados() {
                 </tr>
               ) : (
                 empleadosFiltrados.map((e, i) => (
-                  <tr key={i} className="hover:bg-secondary/40 transition-colors group animate-fade-in" style={{animationDelay: `${i * 0.03}s`}}>
-                    <td className="px-4 py-3">
+                  <tr key={i} className="hover:bg-secondary/40 transition-colors group animate-fade-in block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 p-2 sm:p-0" style={{animationDelay: `${i * 0.03}s`}}>
+                    <td className="px-4 py-3 block sm:table-cell">
                       <span className="font-mono text-xs bg-secondary px-2 py-1 rounded-md">{e.nroDocumento}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 block sm:table-cell">
                       <div className="font-medium text-sm">{e.nombres} {e.apellidos}</div>
                       {e.email && <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Mail size={10} />{e.email}</div>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 block sm:table-cell">
                       <span className="badge badge-muted"><HardHat size={10} />{e.cargo}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{e.obra || '-'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-muted-foreground text-xs block sm:table-cell"><span className="text-muted-foreground/60">Proyecto: </span>{e.obra || '-'}</td>
+                    <td className="px-4 py-3 block sm:table-cell">
                       <span className="badge badge-info"><Building2 size={10} />{e.empresa}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 block sm:table-cell">
                       {e.estado === 'Inactivo' ? (
                         <span className="badge badge-danger"><XCircle size={10} />Inactivo</span>
                       ) : (
                         <span className="badge badge-success"><CheckCircle2 size={10} />Activo</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 block sm:table-cell">
                       {e.telefonoCelular && (
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Phone size={10} />{e.telefonoCelular}
@@ -260,7 +260,7 @@ export default function Empleados() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 block sm:table-cell">
                       {e.scanDocumentos ? (
                         <a href={e.scanDocumentos} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 px-2 py-1 rounded-lg hover:bg-purple-500/20 transition-colors">
                           <FileText size={12} /> Ver
@@ -269,8 +269,8 @@ export default function Empleados() {
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="px-4 py-3 block sm:table-cell">
+                      <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                         <button 
                           onClick={() => { setEditingEmpleado(e); setShowForm(false); setShowGeminiForm(false); setDeletingEmpleado(null); }}
                           className="p-3 sm:p-2 rounded-lg hover:bg-primary/15 text-primary transition-colors"

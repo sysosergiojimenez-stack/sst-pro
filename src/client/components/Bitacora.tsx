@@ -302,8 +302,8 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
       ) : (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm block sm:table">
+              <thead className="hidden sm:table-header-group">
                 <tr className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="text-left px-4 py-3">Fecha</th>
                   <th className="text-left px-4 py-3">Trabajo</th>
@@ -313,7 +313,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
                   <th className="text-center px-4 py-3">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block sm:table-row-group">
                 {entradasOrdenadas.map((entrada) => {
                   const emp = buscarEmpleado(entrada.realizadoPor);
                   const nombreRealizo = emp ? `${emp.nombres} ${emp.apellidos}` : entrada.realizadoPor;
@@ -321,20 +321,20 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
                   const expandido = expandida === entrada.idRegistro;
                   return (
                     <Fragment key={entrada.idRegistro}>
-                      <tr onClick={() => setExpandida(expandido ? null : entrada.idRegistro)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer ${expandido ? 'bg-secondary/20' : ''}`}>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap"><div className="flex items-center gap-1.5"><Calendar size={12} />{entrada.fecha}</div></td>
-                        <td className="px-4 py-3 max-w-xs truncate">{entrada.descripcionTrabajo}</td>
-                        <td className="px-4 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><MapPin size={12} />{entrada.ubicacionArea}</div></td>
-                        <td className="px-4 py-3"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{nombreRealizo}</div></td>
-                        <td className="px-4 py-3 text-center">
+                      <tr onClick={() => setExpandida(expandido ? null : entrada.idRegistro)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${expandido ? 'bg-secondary/20' : ''}`}>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap block sm:table-cell"><div className="flex items-center gap-1.5"><Calendar size={12} />{entrada.fecha}</div></td>
+                        <td className="px-4 py-3 sm:max-w-xs truncate block sm:table-cell">{entrada.descripcionTrabajo}</td>
+                        <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><div className="flex items-center gap-1.5"><MapPin size={12} />{entrada.ubicacionArea}</div></td>
+                        <td className="px-4 py-3 block sm:table-cell"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{nombreRealizo}</div></td>
+                        <td className="px-4 py-3 text-center block sm:table-cell">
                           {fotos.length > 0 ? (
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium"><ImageIcon size={10} /> {fotos.length}</span>
                           ) : (
                             <span className="text-muted-foreground text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                             <button onClick={() => openEdit(entrada)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                             <button onClick={() => setDeletingId(entrada)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                           </div>

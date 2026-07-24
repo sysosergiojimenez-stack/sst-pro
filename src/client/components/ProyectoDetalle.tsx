@@ -517,8 +517,8 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
+              <table className="w-full block sm:table">
+                <thead className="hidden sm:table-header-group">
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Documento</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Nombres</th>
@@ -529,30 +529,30 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="block sm:table-row-group">
                   {empleados.map((emp) => (
-                    <tr key={emp.nroDocumento} className="border-b border-border hover:bg-secondary/50">
-                      <td className="py-3 px-4 text-sm">{emp.nroDocumento}</td>
-                      <td className="py-3 px-4 text-sm">{emp.nombres}</td>
-                      <td className="py-3 px-4 text-sm">{emp.apellidos}</td>
-                      <td className="py-3 px-4 text-sm">{emp.cargo}</td>
-                      <td className="py-3 px-4 text-sm">{emp.empresa}</td>
-                      <td className="py-3 px-4 text-sm">
+                    <tr key={emp.nroDocumento} className="border-b border-border hover:bg-secondary/50 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0">
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
+                      <td className="py-3 px-4 text-sm block sm:table-cell">
                         {emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}
                         {emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-1">
+                      <td className="py-3 px-4 block sm:table-cell">
+                        <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                           <button
                             onClick={() => startEdit(emp)}
-                            className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                            className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors"
                             title="Editar"
                           >
                             <Pencil size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(emp)}
-                            className="p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                            className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 size={16} />
@@ -562,7 +562,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
                               href={emp.scanDocumentos}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                              className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors"
                               title="Ver PDF"
                             >
                               <FileText size={16} />
