@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
+import { longPressHandlers } from '../hooks/useLongPress';
 import jsPDF from 'jspdf';
 import {
   ClipboardCheck, Plus, X, Save, Trash2, Pencil, Calendar, User, Clock,
@@ -518,8 +519,10 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     const expandido = expandida === insp.idRegistro;
     return (
       <Fragment key={insp.idRegistro}>
-        <tr className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
-          <td className="px-4 py-3 block sm:table-cell"><input type="checkbox" checked={seleccionadas.has(insp.idRegistro)} onChange={() => toggleSeleccion(insp.idRegistro)} className="rounded" /></td>
+        <tr {...longPressHandlers(() => toggleSeleccion(insp.idRegistro))} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none">
+          {seleccionadas.size > 0 && (
+            <td className="px-4 py-3 block sm:table-cell"><input type="checkbox" checked={seleccionadas.has(insp.idRegistro)} onChange={() => toggleSeleccion(insp.idRegistro)} className="rounded" /></td>
+          )}
           <td className="px-4 py-3 text-muted-foreground whitespace-nowrap block sm:table-cell"><div className="flex items-center gap-1.5"><Calendar size={12} />{insp.fechaProgramada}</div></td>
           <td className="px-4 py-3 block sm:table-cell"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{insp.inspector}</div></td>
           <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Checklist: </span>{templateGroups.find(g => g.id === insp.idTemplateChecklist)?.nombre || '-'}</td>
@@ -805,7 +808,9 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               <table className="w-full text-sm block sm:table">
                 <thead className="hidden sm:table-header-group">
                   <tr className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="px-4 py-3"><input type="checkbox" checked={seleccionadas.size > 0 && seleccionadas.size === inspeccionesOrdenadas.length} onChange={toggleSeleccionarTodas} className="rounded" /></th>
+                    {seleccionadas.size > 0 && (
+                      <th className="px-4 py-3"><input type="checkbox" checked={seleccionadas.size > 0 && seleccionadas.size === inspeccionesOrdenadas.length} onChange={toggleSeleccionarTodas} className="rounded" /></th>
+                    )}
                     <th className="text-left px-4 py-3">Fecha</th>
                     <th className="text-left px-4 py-3">Inspector</th>
                     <th className="text-left px-4 py-3">Checklist</th>
@@ -868,7 +873,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                     <table className="w-full text-sm block sm:table">
                       <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
-                          <th className="px-4 py-3"></th>
+                          {seleccionadas.size > 0 && <th className="px-4 py-3"></th>}
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Inspector</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Checklist</th>
