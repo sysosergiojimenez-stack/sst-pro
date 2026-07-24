@@ -1102,9 +1102,11 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <table className="w-full text-sm block sm:table">
                   <thead className="hidden sm:table-header-group">
                     <tr className="bg-secondary/50 border-b border-border">
-                      <th className="px-4 py-3 w-8">
-                        <input type="checkbox" checked={remisionesFiltradas.length > 0 && remisionesSeleccionadas.size === remisionesFiltradas.length} onChange={toggleSeleccionarTodasRemisiones} className="rounded" />
-                      </th>
+                      {remisionesSeleccionadas.size > 0 && (
+                        <th className="px-4 py-3 w-8">
+                          <input type="checkbox" checked={remisionesFiltradas.length > 0 && remisionesSeleccionadas.size === remisionesFiltradas.length} onChange={toggleSeleccionarTodasRemisiones} className="rounded" />
+                        </th>
+                      )}
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Numeracion</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
@@ -1122,10 +1124,12 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const expandida = showRemisionDetail?.idRegistro === r.idRegistro;
                       return (
                         <Fragment key={r.idRegistro}>
-                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${expandida ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3 block sm:table-cell">
-                            <input type="checkbox" checked={remisionesSeleccionadas.has(r.idRegistro)} onChange={() => toggleSeleccionRemision(r.idRegistro)} className="rounded" />
-                          </td>
+                        <tr {...longPressHandlers(() => toggleSeleccionRemision(r.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
+                          {remisionesSeleccionadas.size > 0 && (
+                            <td className="px-4 py-3 block sm:table-cell">
+                              <input type="checkbox" checked={remisionesSeleccionadas.has(r.idRegistro)} onChange={() => toggleSeleccionRemision(r.idRegistro)} className="rounded" />
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{formatearFecha(r.fecha)}</td>
                           <td className="px-4 py-3 font-medium block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Numeracion: </span>{r.numeracion}</td>
                           <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{r.proveedor || '-'}</td>
@@ -1421,9 +1425,11 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <table className="w-full text-sm block sm:table">
                   <thead className="hidden sm:table-header-group">
                     <tr className="bg-secondary/50 border-b border-border">
-                      <th className="px-4 py-3 w-8">
-                        <input type="checkbox" checked={notasFiltradas.length > 0 && notasSeleccionadas.size === notasFiltradas.length} onChange={toggleSeleccionarTodasNotas} className="rounded" />
-                      </th>
+                      {notasSeleccionadas.size > 0 && (
+                        <th className="px-4 py-3 w-8">
+                          <input type="checkbox" checked={notasFiltradas.length > 0 && notasSeleccionadas.size === notasFiltradas.length} onChange={toggleSeleccionarTodasNotas} className="rounded" />
+                        </th>
+                      )}
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">N° Orden</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Quien Retira</th>
@@ -1443,10 +1449,12 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
-                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${expandida ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                            <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
-                          </td>
+                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} {...longPressHandlers(() => toggleSeleccionNota(n.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
+                          {notasSeleccionadas.size > 0 && (
+                            <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                              <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{formatearFecha(n.fecha)}</td>
                           <td className="px-4 py-3 font-medium block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Orden: </span>{n.orden || n.idRegistro}</td>
                           <td className="px-4 py-3 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Retira: </span>{nombreRetira}</td>
