@@ -124,7 +124,7 @@ export default function Proyectos({ onSelectProyecto }: ProyectosProps) {
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold">{editing ? 'Editar Proyecto' : 'Nuevo Proyecto'}</h2>
-            <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+            <button onClick={() => setShowForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -198,8 +198,8 @@ export default function Proyectos({ onSelectProyecto }: ProyectosProps) {
                   </div>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => startEdit(proyecto)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary"><Pencil size={16} /></button>
-                  <button onClick={() => handleDelete(proyecto)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400"><Trash2 size={16} /></button>
+                  <button onClick={() => startEdit(proyecto)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary"><Pencil size={16} /></button>
+                  <button onClick={() => handleDelete(proyecto)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400"><Trash2 size={16} /></button>
                 </div>
               </div>
               

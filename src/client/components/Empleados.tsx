@@ -273,14 +273,14 @@ export default function Empleados() {
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => { setEditingEmpleado(e); setShowForm(false); setShowGeminiForm(false); setDeletingEmpleado(null); }}
-                          className="p-2 rounded-lg hover:bg-primary/15 text-primary transition-colors"
+                          className="p-3 sm:p-2 rounded-lg hover:bg-primary/15 text-primary transition-colors"
                           title="Editar"
                         >
                           <Pencil size={15} />
                         </button>
                         <button 
                           onClick={() => { setDeletingEmpleado(e); setEditingEmpleado(null); setShowForm(false); setShowGeminiForm(false); }}
-                          className="p-2 rounded-lg hover:bg-red-500/15 text-red-400 transition-colors"
+                          className="p-3 sm:p-2 rounded-lg hover:bg-red-500/15 text-red-400 transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 size={15} />

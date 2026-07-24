@@ -374,7 +374,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           <td className="px-4 py-3">
             <div className="flex items-center justify-center gap-1">
               {!esRealizada && (
-                <button onClick={() => startRealizar(cap)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-emerald-400" title="Marcar como realizada">
+                <button onClick={() => startRealizar(cap)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-emerald-400" title="Marcar como realizada">
                   <CheckCircle2 size={16} />
                 </button>
               )}
@@ -390,11 +390,11 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                   } catch {}
                   setCargandoAsistencias(null);
                 }
-              }} className={`p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${exp ? 'text-primary bg-secondary' : ''}`} title="Ver detalle">
+              }} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${exp ? 'text-primary bg-secondary' : ''}`} title="Ver detalle">
                 <Eye size={16} />
               </button>
-              <button onClick={() => startEdit(cap)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-              <button onClick={() => handleDelete(cap)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+              <button onClick={() => startEdit(cap)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+              <button onClick={() => handleDelete(cap)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
             </div>
           </td>
         </tr>
@@ -492,7 +492,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         <div className="glass-card p-6 scale-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">{editingCharla ? 'Editar Charla' : 'Programar Nueva Charla'}</h3>
-            <button onClick={() => { setShowForm(false); setEditingCharla(null); }} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => { setShowForm(false); setEditingCharla(null); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
           <form onSubmit={handleSubmitForm} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
@@ -533,7 +533,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-auto scale-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold flex items-center gap-2"><CheckCircle2 size={20} className="text-emerald-400" />Marcar Charla como Realizada</h2>
-              <button onClick={() => setShowRealizarForm(null)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowRealizarForm(null)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">{showRealizarForm.titulo}</p>
             <form onSubmit={handleGuardarRealizada} className="space-y-4">
@@ -650,9 +650,9 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1))} className="p-2 rounded-lg hover:bg-secondary"><ChevronLeft size={18} /></button>
+              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1))} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><ChevronLeft size={18} /></button>
               <h3 className="font-semibold capitalize">{nombreMes}</h3>
-              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1))} className="p-2 rounded-lg hover:bg-secondary"><ChevronRight size={18} /></button>
+              <button onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1))} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><ChevronRight size={18} /></button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-2">
               {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(d => <div key={d} className="py-1">{d}</div>)}

@@ -10,7 +10,7 @@ const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
         <p className="text-2xl font-bold mt-1">{value}</p>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-      <div className={`p-2 rounded-lg ${color}`}>
+      <div className={`p-3 sm:p-2 rounded-lg ${color}`}>
         <Icon size={20} />
       </div>
     </div>

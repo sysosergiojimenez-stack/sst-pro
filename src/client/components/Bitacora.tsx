@@ -184,7 +184,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
             <h3 className="font-semibold flex items-center gap-2">
               {editingEntrada ? <><Pencil size={16} className="text-primary" /> Editar Entrada</> : <><Plus size={16} className="text-primary" /> Nueva Entrada de Bitacora</>}
             </h3>
-            <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+            <button onClick={() => setShowForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -335,8 +335,8 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => openEdit(entrada)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
-                            <button onClick={() => setDeletingId(entrada)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+                            <button onClick={() => openEdit(entrada)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
+                            <button onClick={() => setDeletingId(entrada)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
