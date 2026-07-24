@@ -518,21 +518,21 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     const expandido = expandida === insp.idRegistro;
     return (
       <Fragment key={insp.idRegistro}>
-        <tr className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-          <td className="px-4 py-3"><input type="checkbox" checked={seleccionadas.has(insp.idRegistro)} onChange={() => toggleSeleccion(insp.idRegistro)} className="rounded" /></td>
-          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap"><div className="flex items-center gap-1.5"><Calendar size={12} />{insp.fechaProgramada}</div></td>
-          <td className="px-4 py-3"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{insp.inspector}</div></td>
-          <td className="px-4 py-3 text-muted-foreground">{templateGroups.find(g => g.id === insp.idTemplateChecklist)?.nombre || '-'}</td>
-          <td className="px-4 py-3 text-muted-foreground">{insp.areaEquipo || '-'}</td>
-          <td className="px-4 py-3 text-center">
+        <tr className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+          <td className="px-4 py-3 block sm:table-cell"><input type="checkbox" checked={seleccionadas.has(insp.idRegistro)} onChange={() => toggleSeleccion(insp.idRegistro)} className="rounded" /></td>
+          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap block sm:table-cell"><div className="flex items-center gap-1.5"><Calendar size={12} />{insp.fechaProgramada}</div></td>
+          <td className="px-4 py-3 block sm:table-cell"><div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{insp.inspector}</div></td>
+          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Checklist: </span>{templateGroups.find(g => g.id === insp.idTemplateChecklist)?.nombre || '-'}</td>
+          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Area/Equipo: </span>{insp.areaEquipo || '-'}</td>
+          <td className="px-4 py-3 text-center block sm:table-cell">
             {insp.estado === 'Realizada' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium"><CheckCircle2 size={10} /> Realizada</span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium"><Clock size={10} /> Programada</span>
             )}
           </td>
-          <td className="px-4 py-3">
-            <div className="flex items-center justify-center gap-1">
+          <td className="px-4 py-3 block sm:table-cell">
+            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
               {insp.estado !== 'Realizada' ? (
                 <button onClick={() => abrirChecklist(insp)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Realizar Checklist"><PlayCircle size={16} /></button>
               ) : (
@@ -802,8 +802,8 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         ) : (
           <div className="glass-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
+              <table className="w-full text-sm block sm:table">
+                <thead className="hidden sm:table-header-group">
                   <tr className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="px-4 py-3"><input type="checkbox" checked={seleccionadas.size > 0 && seleccionadas.size === inspeccionesOrdenadas.length} onChange={toggleSeleccionarTodas} className="rounded" /></th>
                     <th className="text-left px-4 py-3">Fecha</th>
@@ -814,7 +814,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                     <th className="text-center px-4 py-3">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>{inspeccionesOrdenadas.map(renderFilaInspeccion)}</tbody>
+                <tbody className="block sm:table-row-group">{inspeccionesOrdenadas.map(renderFilaInspeccion)}</tbody>
               </table>
             </div>
           </div>
@@ -865,8 +865,8 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               ) : (
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
                           <th className="px-4 py-3"></th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
@@ -877,7 +877,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
                           <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody>{inspeccionesPorFecha(diaSeleccionado).map(renderFilaInspeccion)}</tbody>
+                      <tbody className="block sm:table-row-group">{inspeccionesPorFecha(diaSeleccionado).map(renderFilaInspeccion)}</tbody>
                     </table>
                   </div>
                 </div>
