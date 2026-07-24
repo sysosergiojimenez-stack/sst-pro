@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { useLongPress } from '../hooks/useLongPress';
+import { longPressHandlers } from '../hooks/useLongPress';
 import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints } from 'lucide-react';
 
 interface Producto {
@@ -974,7 +974,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const editando = showProductoEdit?.codigo === p.codigo;
                       return (
                         <Fragment key={p.codigo}>
-                        <tr {...useLongPress(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
+                        <tr {...longPressHandlers(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
                           {productosSeleccionados.size > 0 && (
                             <td className="px-4 py-3 block sm:table-cell">
                               <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
