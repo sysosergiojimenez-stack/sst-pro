@@ -946,8 +946,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {/* Header de la planilla */}
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
+                <table className="w-full text-sm block sm:table">
+                  <thead className="hidden sm:table-header-group">
                     <tr className="bg-secondary/50 border-b border-border">
                       <th className="px-4 py-3 w-8">
                         <input type="checkbox" checked={productosFiltrados.length > 0 && productosSeleccionados.size === productosFiltrados.length} onChange={toggleSeleccionarTodosProductos} className="rounded" />
@@ -962,7 +962,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="block sm:table-row-group">
                     {productosFiltrados.map((p, i) => {
                       const entradas = totalEntradasByProducto(p.codigo);
                       const salidas = totalSalidasByProducto(p.codigo);
@@ -971,17 +971,17 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const editando = showProductoEdit?.codigo === p.codigo;
                       return (
                         <Fragment key={p.codigo}>
-                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3">
+                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3 block sm:table-cell">
                             <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.codigo}</td>
-                          <td className="px-4 py-3 font-medium">{p.nombre}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{p.proveedor || '-'}</td>
-                          <td className="px-4 py-3 text-right font-mono text-emerald-400">{entradas}</td>
-                          <td className="px-4 py-3 text-right font-mono text-amber-400">{salidas}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold">{stock}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Codigo: </span>{p.codigo}</td>
+                          <td className="px-4 py-3 font-medium block sm:table-cell">{p.nombre}</td>
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{p.proveedor || '-'}</td>
+                          <td className="px-4 py-3 text-right font-mono text-emerald-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Entradas: </span>{entradas}</td>
+                          <td className="px-4 py-3 text-right font-mono text-amber-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Salidas: </span>{salidas}</td>
+                          <td className="px-4 py-3 text-right font-mono font-bold block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Stock: </span>{stock}</td>
+                          <td className="px-4 py-3 text-center block sm:table-cell">
                             {bajo ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
                                 <AlertCircle size={10} /> Bajo
@@ -996,8 +996,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-1">
+                          <td className="px-4 py-3 block sm:table-cell">
+                            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                               <button onClick={() => startEditProducto(p)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteProducto(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
@@ -1094,8 +1094,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
+                <table className="w-full text-sm block sm:table">
+                  <thead className="hidden sm:table-header-group">
                     <tr className="bg-secondary/50 border-b border-border">
                       <th className="px-4 py-3 w-8">
                         <input type="checkbox" checked={remisionesFiltradas.length > 0 && remisionesSeleccionadas.size === remisionesFiltradas.length} onChange={toggleSeleccionarTodasRemisiones} className="rounded" />
@@ -1107,7 +1107,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="block sm:table-row-group">
                     {[...remisionesFiltradas].sort((a, b) => {
                       const fechaA = a.fecha ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(0);
                       const fechaB = b.fecha ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(0);
@@ -1117,20 +1117,20 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const expandida = showRemisionDetail?.idRegistro === r.idRegistro;
                       return (
                         <Fragment key={r.idRegistro}>
-                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors ${expandida ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3">
+                        <tr className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${expandida ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3 block sm:table-cell">
                             <input type="checkbox" checked={remisionesSeleccionadas.has(r.idRegistro)} onChange={() => toggleSeleccionRemision(r.idRegistro)} className="rounded" />
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{formatearFecha(r.fecha)}</td>
-                          <td className="px-4 py-3 font-medium">{r.numeracion}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{r.proveedor || '-'}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{formatearFecha(r.fecha)}</td>
+                          <td className="px-4 py-3 font-medium block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Numeracion: </span>{r.numeracion}</td>
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{r.proveedor || '-'}</td>
+                          <td className="px-4 py-3 text-center block sm:table-cell">
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">
                               <Package size={10} /> {itemsCount}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-1">
+                          <td className="px-4 py-3 block sm:table-cell">
+                            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                               {r.scaneado && (
                                 <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
                                   <FileText size={16} />
@@ -1413,8 +1413,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
+                <table className="w-full text-sm block sm:table">
+                  <thead className="hidden sm:table-header-group">
                     <tr className="bg-secondary/50 border-b border-border">
                       <th className="px-4 py-3 w-8">
                         <input type="checkbox" checked={notasFiltradas.length > 0 && notasSeleccionadas.size === notasFiltradas.length} onChange={toggleSeleccionarTodasNotas} className="rounded" />
@@ -1426,7 +1426,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="block sm:table-row-group">
                     {[...notasFiltradas].sort((a, b) => {
                       const fechaA = a.fecha ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(0);
                       const fechaB = b.fecha ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(0);
@@ -1438,20 +1438,20 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
-                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer ${expandida ? 'bg-secondary/20' : ''}`}>
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 ${expandida ? 'bg-secondary/20' : ''}`}>
+                          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{formatearFecha(n.fecha)}</td>
-                          <td className="px-4 py-3 font-medium">{n.orden || n.idRegistro}</td>
-                          <td className="px-4 py-3">{nombreRetira}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{formatearFecha(n.fecha)}</td>
+                          <td className="px-4 py-3 font-medium block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Orden: </span>{n.orden || n.idRegistro}</td>
+                          <td className="px-4 py-3 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Retira: </span>{nombreRetira}</td>
+                          <td className="px-4 py-3 text-center block sm:table-cell">
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
                               <Package size={10} /> {itemsCount}
                             </span>
                           </td>
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1">
+                          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                               <button onClick={() => startEditNota(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
@@ -1715,8 +1715,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activos ({dotacionActivos.length})</h3>
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
                         <tr className="bg-secondary/50 border-b border-border">
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
                           <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
@@ -1727,18 +1727,18 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                           <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="block sm:table-row-group">
                         {dotacionActivos.map(emp => {
                           const d = calcularDotacion(emp);
                           return (
-                            <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                              <td className="px-4 py-3 text-muted-foreground">{emp.nroDocumento}</td>
-                              <td className="px-4 py-3 font-medium">{emp.nombres} {emp.apellidos}</td>
-                              <td className="px-4 py-3 text-muted-foreground">{formatearFecha(emp.fechaInicioContrato || '')}</td>
-                              <td className="px-4 py-3 text-muted-foreground">{emp.calce || '-'}</td>
-                              <td className="px-4 py-3 text-muted-foreground">{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
-                              <td className="px-4 py-3 text-muted-foreground">{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
-                              <td className="px-4 py-3 text-center">
+                            <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{emp.nroDocumento}</td>
+                              <td className="px-4 py-3 font-medium block sm:table-cell">{emp.nombres} {emp.apellidos}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Contrato: </span>{formatearFecha(emp.fechaInicioContrato || '')}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Calce: </span>{emp.calce || '-'}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ultima dotacion: </span>{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proxima dotacion: </span>{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-center block sm:table-cell">
                                 {d.alerta === 'Vencido' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
                                 ) : d.alerta === 'Proximo a vencer' ? (
@@ -1764,8 +1764,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inactivos ({dotacionInactivos.length})</h3>
                   <div className="bg-card border border-border rounded-xl overflow-hidden opacity-60">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
+                      <table className="w-full text-sm block sm:table">
+                        <thead className="hidden sm:table-header-group">
                           <tr className="bg-secondary/50 border-b border-border">
                             <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
                             <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
@@ -1776,18 +1776,18 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                             <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="block sm:table-row-group">
                           {dotacionInactivos.map(emp => {
                             const d = calcularDotacion(emp);
                             return (
-                              <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                                <td className="px-4 py-3 text-muted-foreground">{emp.nroDocumento}</td>
-                                <td className="px-4 py-3 font-medium">{emp.nombres} {emp.apellidos}</td>
-                                <td className="px-4 py-3 text-muted-foreground">{formatearFecha(emp.fechaInicioContrato || '')}</td>
-                                <td className="px-4 py-3 text-muted-foreground">{emp.calce || '-'}</td>
-                                <td className="px-4 py-3 text-muted-foreground">{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
-                                <td className="px-4 py-3 text-muted-foreground">{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
-                                <td className="px-4 py-3 text-center">
+                              <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{emp.nroDocumento}</td>
+                                <td className="px-4 py-3 font-medium block sm:table-cell">{emp.nombres} {emp.apellidos}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Contrato: </span>{formatearFecha(emp.fechaInicioContrato || '')}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Calce: </span>{emp.calce || '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ultima dotacion: </span>{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proxima dotacion: </span>{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-center block sm:table-cell">
                                   {d.alerta === 'Vencido' ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
                                   ) : d.alerta === 'Proximo a vencer' ? (
