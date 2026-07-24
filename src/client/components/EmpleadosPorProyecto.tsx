@@ -151,7 +151,26 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [trabajadorHoras, setTrabajadorHoras] = useState('');
   const [fechaDesdeHoras, setFechaDesdeHoras] = useState('');
   const [fechaHastaHoras, setFechaHastaHoras] = useState('');
-
+  const FERIADOS_KEY = 'sstpro_feriados';
+  const [feriados, setFeriados] = useState<string[]>(() => {
+    try {
+      const g = localStorage.getItem(FERIADOS_KEY);
+      return g ? JSON.parse(g) : [];
+    } catch { return []; }
+  });
+  const [nuevoFeriado, setNuevoFeriado] = useState('');
+  const agregarFeriado = () => {
+    if (!nuevoFeriado || feriados.includes(nuevoFeriado)) return;
+    const actualizados = [...feriados, nuevoFeriado].sort();
+    setFeriados(actualizados);
+    localStorage.setItem(FERIADOS_KEY, JSON.stringify(actualizados));
+    setNuevoFeriado('');
+  };
+  const quitarFeriado = (fecha: string) => {
+    const actualizados = feriados.filter(f => f !== fecha);
+    setFeriados(actualizados);
+    localStorage.setItem(FERIADOS_KEY, JSON.stringify(actualizados));
+  };
   const calcularHoras = (entrada: string, salida: string): number => {
     if (!entrada || !salida) return 0;
     const [he, me] = entrada.split(':').map(Number);
@@ -161,7 +180,13 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     if (minutos < 0) minutos += 24 * 60;
     return minutos / 60;
   };
-
+  const TOLERANCIA_MIN = 10;
+  const aMinutos = (hhmm: string): number | null => {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  };
   const generarInformeHoras = () => {
     if (!trabajadorHoras || !fechaDesdeHoras || !fechaHastaHoras) {
       alert('Selecciona un trabajador y el rango de fechas.');
@@ -173,48 +198,86 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     }
     const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
     if (!emp) return;
-
     const mapaMarcaciones = new Map(marcaciones.filter(m => m.nroDocumento === trabajadorHoras).map((m: any) => [m.fecha, m]));
-
     const filas: any[] = [];
-    let totalHoras = 0;
+    let totalTrabajadas = 0;
+    let totalExtras = 0;
+    let totalAusentes = 0;
     let diasConMarcacion = 0;
     let diasAusente = 0;
-
     const inicio = new Date(fechaDesdeHoras + 'T00:00:00');
     const fin = new Date(fechaHastaHoras + 'T00:00:00');
     for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
       const fechaISO = d.toISOString().split('T')[0];
-      const m: any = mapaMarcaciones.get(fechaISO);
+      const diaSemana = d.getDay();
       const fechaMostrar = d.toLocaleDateString('es-ES');
-      if (m) {
-        const horas = calcularHoras(m.horaEntrada, m.horaSalida);
-        totalHoras += horas;
-        diasConMarcacion++;
-        filas.push({
-          Fecha: fechaMostrar,
-          'Hora Entrada': m.horaEntrada || '-',
-          'Hora Salida': m.horaSalida || '-',
-          'Horas Trabajadas': horas > 0 ? horas.toFixed(2) : '-',
-          Estado: 'Presente',
-        });
+      const nombreDia = d.toLocaleDateString('es-ES', { weekday: 'long' });
+      const m: any = mapaMarcaciones.get(fechaISO);
+      const esFeriado = feriados.includes(fechaISO);
+      const esFinDeSemana = diaSemana === 0 || diaSemana === 6;
+      const esNoLaborable = esFinDeSemana || esFeriado;
+      const horaFinEsperada = diaSemana === 1 ? '18:00' : '17:30';
+      const inicioMin = aMinutos('07:00')!;
+      const finMin = aMinutos(horaFinEsperada)!;
+      let horasTrabajadas = 0;
+      let horasExtras = 0;
+      let horasAusentes = 0;
+      let estado = '';
+      if (esNoLaborable) {
+        if (m && m.horaEntrada && m.horaSalida) {
+          const eMin = aMinutos(m.horaEntrada);
+          const sMin = aMinutos(m.horaSalida);
+          if (eMin !== null && sMin !== null) {
+            let mins = sMin - eMin;
+            if (mins < 0) mins += 24 * 60;
+            horasExtras = mins / 60;
+            estado = esFeriado ? 'Trabajado - Feriado (Extra)' : 'Trabajado - Fin de semana (Extra)';
+          }
+        } else {
+          estado = esFeriado ? 'Feriado' : 'Fin de semana';
+        }
       } else {
-        diasAusente++;
-        filas.push({
-          Fecha: fechaMostrar,
-          'Hora Entrada': '-',
-          'Hora Salida': '-',
-          'Horas Trabajadas': '-',
-          Estado: 'Ausente',
-        });
+        if (!m || !m.horaEntrada || !m.horaSalida) {
+          horasAusentes = (finMin - inicioMin) / 60;
+          diasAusente++;
+          estado = !m ? 'Ausente (sin marcacion)' : 'Ausente (falta entrada o salida)';
+        } else {
+          const eMin = aMinutos(m.horaEntrada)!;
+          const sMin = aMinutos(m.horaSalida)!;
+          diasConMarcacion++;
+          const retrasoMin = Math.max(0, eMin - inicioMin);
+          const salidaTempranaMin = Math.max(0, finMin - sMin);
+          const extraAntesMin = Math.max(0, inicioMin - eMin);
+          const extraDespuesMin = Math.max(0, sMin - finMin);
+          const ausenteMin = (retrasoMin > TOLERANCIA_MIN ? retrasoMin : 0) + (salidaTempranaMin > TOLERANCIA_MIN ? salidaTempranaMin : 0);
+          const extraMin = extraAntesMin + extraDespuesMin;
+          const trabajadasMin = Math.max(0, Math.min(sMin, finMin) - Math.max(eMin, inicioMin));
+          horasTrabajadas = trabajadasMin / 60;
+          horasExtras = extraMin / 60;
+          horasAusentes = ausenteMin / 60;
+          estado = ausenteMin > 0 ? 'Presente con observaciones' : 'Presente';
+        }
       }
+      totalTrabajadas += horasTrabajadas;
+      totalExtras += horasExtras;
+      totalAusentes += horasAusentes;
+      filas.push({
+        Fecha: fechaMostrar,
+        Dia: nombreDia,
+        'Hora Entrada': m?.horaEntrada || '-',
+        'Hora Salida': m?.horaSalida || '-',
+        'Horas Trabajadas': horasTrabajadas > 0 ? horasTrabajadas.toFixed(2) : '-',
+        'Horas Extras': horasExtras > 0 ? horasExtras.toFixed(2) : '-',
+        'Horas Ausentes': horasAusentes > 0 ? horasAusentes.toFixed(2) : '-',
+        Estado: estado,
+      });
     }
-
-    filas.push({ Fecha: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
-    filas.push({ Fecha: 'Total dias con marcacion', 'Hora Entrada': diasConMarcacion, 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
-    filas.push({ Fecha: 'Total dias ausente', 'Hora Entrada': diasAusente, 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
-    filas.push({ Fecha: 'Total horas trabajadas', 'Hora Entrada': totalHoras.toFixed(2), 'Hora Salida': '', 'Horas Trabajadas': '', Estado: '' });
-
+    filas.push({ Fecha: '', Dia: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
+    filas.push({ Fecha: 'Total dias con marcacion', Dia: diasConMarcacion, 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
+    filas.push({ Fecha: 'Total dias ausente', Dia: diasAusente, 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
+    filas.push({ Fecha: 'Total Horas Trabajadas', Dia: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': totalTrabajadas.toFixed(2), 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
+    filas.push({ Fecha: 'Total Horas Extras', Dia: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': totalExtras.toFixed(2), 'Horas Ausentes': '', Estado: '' });
+    filas.push({ Fecha: 'Total Horas Ausentes', Dia: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': totalAusentes.toFixed(2), Estado: '' });
     const hoja = XLSX.utils.json_to_sheet(filas);
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, 'Control de Horas');
@@ -412,10 +475,30 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               <input type="date" value={fechaHastaHoras} onChange={(e) => setFechaHastaHoras(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
+          <div className="mb-4 bg-secondary/30 border border-border rounded-lg p-3">
+            <label className="block text-sm font-medium mb-2">Feriados (sabado, domingo y feriados trabajados se pagan 100% extra)</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              <input type="date" value={nuevoFeriado} onChange={(e) => setNuevoFeriado(e.target.value)} className="bg-card border border-border rounded-lg px-3 py-2 text-sm" />
+              <button onClick={agregarFeriado} type="button" className="bg-secondary border border-border px-3 py-2 rounded-lg text-sm hover:bg-secondary/80 transition-colors">Agregar Feriado</button>
+            </div>
+            {feriados.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {feriados.map(f => (
+                  <span key={f} className="inline-flex items-center gap-1 bg-card border border-border px-2 py-1 rounded-full text-xs">
+                    {new Date(f + 'T00:00:00').toLocaleDateString('es-ES')}
+                    <button onClick={() => quitarFeriado(f)} type="button" className="hover:text-red-400"><X size={12} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           <button onClick={generarInformeHoras} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
             <FileText size={18} /> Generar Excel
           </button>
-          <p className="text-xs text-muted-foreground mt-2">El informe incluye marcaciones, horas trabajadas por dia, dias sin marcacion (ausencias), y totales del periodo.</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Horario: lunes 07:00-18:00, martes a viernes 07:00-17:30. Tolerancia de {`{TOLERANCIA_MIN}`} minutos para llegada tardia/salida temprana.
+            El informe incluye horas trabajadas, horas extras (fuera de horario, fin de semana o feriado) y horas ausentes (llegada tardia, salida temprana o falta de marcacion) por dia, con totales del periodo.
+          </p>
         </div>
       )}
 
