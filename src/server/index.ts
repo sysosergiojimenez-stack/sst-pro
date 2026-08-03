@@ -109,6 +109,13 @@ function verifyToken(token: string): { id: string; correo: string; rol: string }
 
 const app = new Hono();
 const pendingEmployeeCreations = new Map<string, Promise<{ success: boolean; id: number; rowIndex: number; existing?: boolean }>>();
+const clientCandidates = [
+  path.resolve(process.cwd(), '../client'),
+  path.resolve(process.cwd(), 'dist/client'),
+  path.resolve(process.cwd(), 'src/client'),
+  path.resolve(__dirname, '../client'),
+];
+const clientRoot = clientCandidates.find((candidate) => fs.existsSync(path.join(candidate, 'index.html'))) || clientCandidates[0];
 
 // CORS
 app.use('/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'], allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], credentials: true }));
@@ -153,17 +160,22 @@ app.post('/api/empleados', async (c) => {
   try {
     const body = await c.req.json();
     const docKey = String(body?.nroDocumento ?? '').trim().toLowerCase();
+    const empresaKey = String(body?.empresa ?? '').trim().toLowerCase();
+    const dedupKey = `${docKey}|${empresaKey}`;
 
     console.log('POST /api/empleados - Body:', JSON.stringify(body, null, 2));
     console.log('POST /api/empleados - scanDocumentos:', body.scanDocumentos);
 
     if (docKey) {
-      const existing = (await getEmpleados()).find(
-        (empleado) => String(empleado.nroDocumento || '').trim().toLowerCase() === docKey
-      );
+      const existing = (await getEmpleados()).find((empleado) => {
+        const sameDoc = String(empleado.nroDocumento || '').trim().toLowerCase() === docKey;
+        const sameEmpresa = String(empleado.empresa || '').trim().toLowerCase() === empresaKey;
+        const activo = String(empleado.estado || 'Activo').trim().toLowerCase() === 'activo';
+        return sameDoc && sameEmpresa && activo;
+      });
 
       if (existing) {
-        console.log('Empleado ya existe por documento; ignorando duplicado:', docKey);
+        console.log('Empleado activo ya existe para este documento y empresa; ignorando duplicado:', docKey, empresaKey);
         return c.json({
           success: true,
           id: existing.rowIndex,
@@ -172,9 +184,9 @@ app.post('/api/empleados', async (c) => {
         });
       }
 
-      const pending = pendingEmployeeCreations.get(docKey);
+      const pending = pendingEmployeeCreations.get(dedupKey);
       if (pending) {
-        console.log('Creación pendiente para este documento, reutilizando solicitud:', docKey);
+        console.log('Creación pendiente para este documento y empresa, reutilizando solicitud:', docKey, empresaKey);
         return c.json(await pending);
       }
 
@@ -184,11 +196,11 @@ app.post('/api/empleados', async (c) => {
           console.log('Empleado creado en fila:', rowIndex);
           return { success: true, id: rowIndex, rowIndex };
         } finally {
-          pendingEmployeeCreations.delete(docKey);
+          pendingEmployeeCreations.delete(dedupKey);
         }
       })();
 
-      pendingEmployeeCreations.set(docKey, creationPromise);
+      pendingEmployeeCreations.set(dedupKey, creationPromise);
       return c.json(await creationPromise);
     }
 
@@ -1058,7 +1070,7 @@ app.delete('/api/usuarios/:rowIndex', async (c) => {
   }
 });
 
-app.use('/*', serveStatic({ root: './dist/client' }));
+app.use('/*', serveStatic({ root: clientRoot }));
 
 // ============================================
 // API REST - NOTAS DE SALIDA
@@ -2049,7 +2061,7 @@ app.post('/api/capacitaciones/asistencias-batch', async (c) => {
 
 // Fallback SPA
 app.get('*', (c) => {
-  const indexPath = path.join(process.cwd(), 'dist/client/index.html');
+  const indexPath = path.join(clientRoot, 'index.html');
   if (fs.existsSync(indexPath)) {
     const content = fs.readFileSync(indexPath, 'utf-8');
     return c.html(content);

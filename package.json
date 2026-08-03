@@ -6,8 +6,10 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
-    "build": "vite build && tsc -p tsconfig.build.json",
-    "start": "node dist/server/index.js"
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.build.json && node -e \"require('fs').writeFileSync('dist/server/package.json', JSON.stringify({type: 'commonjs', private: true}, null, 2))\"",
+    "build": "npm run build:client && npm run build:server",
+    "start": "cd dist/server && node index.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
