@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload } from 'lucide-react';
+import jsPDF from 'jspdf';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown } from 'lucide-react';
 
 interface Proyecto {
   rowIndex: number;
@@ -370,6 +371,102 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     .filter(e => (e.estado || 'Activo') === 'Inactivo')
     .sort(ordenarAlfabetico);
 
+  const descargarPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    let y = 20;
+
+    const checkPageBreak = (alturaNecesaria: number) => {
+      if (y + alturaNecesaria > 280) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Listado de Empleados', marginLeft, y);
+    y += 8;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Proyecto: ${proyecto.denominacion}`, marginLeft, y);
+    y += 6;
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} | Total: ${empleados.length} empleado(s)`, marginLeft, y);
+    y += 12;
+
+    const agrupados = empleados.reduce((acc, emp) => {
+      const key = emp.empresa?.trim() || 'Sin contratista';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(emp);
+      return acc;
+    }, {} as Record<string, Empleado[]>);
+
+    const contratistas = Object.keys(agrupados).sort((a, b) => a.localeCompare(b, 'es'));
+
+    for (const contratista of contratistas) {
+      const lista = agrupados[contratista].sort(ordenarAlfabetico);
+      checkPageBreak(30);
+
+      doc.setFillColor(240, 240, 240);
+      doc.rect(marginLeft, y - 5, contentWidth, 10, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${contratista} (${lista.length})`, marginLeft + 2, y);
+      y += 10;
+
+      const headers = ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Teléfono', 'Email', 'Estado'];
+      const colWidths = [25, 25, 25, 30, 25, 40, 20];
+      const startX = marginLeft;
+
+      doc.setFillColor(230, 230, 230);
+      doc.rect(startX, y - 5, contentWidth, 8, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      let x = startX + 2;
+      headers.forEach((h, i) => {
+        doc.text(h, x, y);
+        x += colWidths[i];
+      });
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+      for (const emp of lista) {
+        checkPageBreak(12);
+        doc.setFontSize(7.5);
+        const row = [
+          emp.nroDocumento || '-',
+          emp.nombres || '-',
+          emp.apellidos || '-',
+          emp.cargo || '-',
+          emp.telefonoCelular || '-',
+          emp.email || '-',
+          emp.estado || 'Activo',
+        ];
+        x = startX + 2;
+        row.forEach((cell, i) => {
+          const text = String(cell).length > 22 ? String(cell).slice(0, 22) + '...' : String(cell);
+          doc.text(text, x, y);
+          x += colWidths[i];
+        });
+        y += 6;
+      }
+
+      y += 6;
+    }
+
+    checkPageBreak(20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total general: ${empleados.length} empleado(s)`, marginLeft, y);
+
+    const fechaArchivo = new Date().toISOString().split('T')[0];
+    doc.save(`Empleados_${proyecto.denominacion.replace(/\s+/g, '_')}_${fechaArchivo}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -397,6 +494,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           </label>
           <button onClick={() => setShowControlHoras(!showControlHoras)} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
             <Fingerprint size={18} /> Control de Horas
+          </button>
+          <button onClick={descargarPDF} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
+            <FileDown size={18} /> Descargar PDF
           </button>
         </div>
       </div>
