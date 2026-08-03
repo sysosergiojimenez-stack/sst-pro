@@ -108,6 +108,7 @@ function verifyToken(token: string): { id: string; correo: string; rol: string }
 }
 
 const app = new Hono();
+const pendingEmployeeCreations = new Map<string, Promise<{ success: boolean; id: number; rowIndex: number; existing?: boolean }>>();
 
 // CORS
 app.use('/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'], allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], credentials: true }));
@@ -151,9 +152,46 @@ app.get('/api/empleados/:documento', async (c) => {
 app.post('/api/empleados', async (c) => {
   try {
     const body = await c.req.json();
+    const docKey = String(body?.nroDocumento ?? '').trim().toLowerCase();
+
     console.log('POST /api/empleados - Body:', JSON.stringify(body, null, 2));
     console.log('POST /api/empleados - scanDocumentos:', body.scanDocumentos);
-    
+
+    if (docKey) {
+      const existing = (await getEmpleados()).find(
+        (empleado) => String(empleado.nroDocumento || '').trim().toLowerCase() === docKey
+      );
+
+      if (existing) {
+        console.log('Empleado ya existe por documento; ignorando duplicado:', docKey);
+        return c.json({
+          success: true,
+          id: existing.rowIndex,
+          rowIndex: existing.rowIndex,
+          existing: true,
+        });
+      }
+
+      const pending = pendingEmployeeCreations.get(docKey);
+      if (pending) {
+        console.log('Creación pendiente para este documento, reutilizando solicitud:', docKey);
+        return c.json(await pending);
+      }
+
+      const creationPromise = (async () => {
+        try {
+          const rowIndex = await appendEmpleado(body);
+          console.log('Empleado creado en fila:', rowIndex);
+          return { success: true, id: rowIndex, rowIndex };
+        } finally {
+          pendingEmployeeCreations.delete(docKey);
+        }
+      })();
+
+      pendingEmployeeCreations.set(docKey, creationPromise);
+      return c.json(await creationPromise);
+    }
+
     const rowIndex = await appendEmpleado(body);
     console.log('Empleado creado en fila:', rowIndex);
     return c.json({ success: true, id: rowIndex, rowIndex });

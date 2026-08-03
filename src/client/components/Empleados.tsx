@@ -480,9 +480,13 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
   const [nuevaEmpresa, setNuevaEmpresa] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const isSavingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingRef.current) return;
+
+    isSavingRef.current = true;
     setIsSaving(true); setError('');
     try {
       const response = await fetch('/api/empleados', {
@@ -493,7 +497,7 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       onSuccess();
     } catch (err: any) { setError(err.message); }
-    finally { setIsSaving(false); }
+    finally { isSavingRef.current = false; setIsSaving(false); }
   };
 
   return (
@@ -617,7 +621,7 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
       </div>
 
       <button type="submit" disabled={isSaving} className="btn-primary w-full flex items-center justify-center gap-2">
-        {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><CheckCircle2 size={18} />Guardar Empleado</>}
+        {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Guardar Empleado</>}
       </button>
     </form>
   );
@@ -631,6 +635,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSavingRef = useRef(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -659,8 +664,11 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
   };
 
   const handleConfirm = async () => {
-    if (!datosExtraidos) return;
+    if (!datosExtraidos || isSavingRef.current) return;
+
+    isSavingRef.current = true;
     setIsSaving(true);
+    setError('');
     try {
       const response = await fetch('/api/empleados', {
         method: 'POST',
@@ -681,7 +689,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       onSuccess();
     } catch (err: any) { setError(err.message); }
-    finally { setIsSaving(false); }
+    finally { isSavingRef.current = false; setIsSaving(false); }
   };
 
   return (
@@ -739,7 +747,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
             </div>
           </div>
           <button onClick={handleConfirm} disabled={isSaving} className="w-full btn-primary flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 shadow-purple-500/20">
-            {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><CheckCircle2 size={18} />Confirmar y Guardar</>}
+            {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Confirmar y Guardar</>}
           </button>
         </div>
       )}
