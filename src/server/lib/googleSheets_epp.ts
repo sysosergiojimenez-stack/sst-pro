@@ -61,6 +61,11 @@ export async function getProductoByCodigo(codigo: string): Promise<Producto | nu
   return all.find(p => p.codigo === codigo) || null;
 }
 
+export async function getProductoByRowIndex(rowIndex: number): Promise<Producto | null> {
+  const all = await getAllProductos();
+  return all.find(p => p.rowIndex === rowIndex) || null;
+}
+
 export async function appendProducto(producto: Omit<Producto, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -619,4 +624,316 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
       e.proyecto
     ]) },
   });
+}
+
+// ============================================
+// Solicitudes de Suministro
+// ============================================
+
+const SHEET_SOLICITUDES_SUMINISTRO = 'SOLICITUDES_SUMINISTRO';
+
+export interface ItemSolicitud {
+  item: string;
+  producto: string;
+  unidad: string;
+  cantidad: string;
+  cuenta: string;
+  proveedor: string;
+}
+
+export interface SolicitudSuministro {
+  rowIndex: number;
+  idRegistro: string;
+  fechaHora: string;
+  userEmail: string;
+  proyecto: string;
+  numero: string;
+  fecha: string;
+  supervisor: string;
+  actividad: string;
+  ubicacion: string;
+  proveedor: string;
+  fechaLimiteEntrega: string;
+  observaciones: string;
+  items: ItemSolicitud[];
+  estado: string;
+}
+
+function rowToSolicitud(row: any[], index: number): SolicitudSuministro {
+  let items: ItemSolicitud[] = [];
+  try {
+    const parsed = JSON.parse(row[12] || '[]');
+    items = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    items = [];
+  }
+  return {
+    rowIndex: index + 2,
+    idRegistro: row[0] || '',
+    fechaHora: row[1] || '',
+    userEmail: row[2] || '',
+    proyecto: row[3] || '',
+    numero: row[4] || '',
+    fecha: row[5] || '',
+    supervisor: row[6] || '',
+    actividad: row[7] || '',
+    ubicacion: row[8] || '',
+    proveedor: row[9] || '',
+    fechaLimiteEntrega: row[10] || '',
+    observaciones: row[11] || '',
+    items,
+    estado: row[13] || 'Pendiente',
+  };
+}
+
+export async function getAllSolicitudesSuministro(): Promise<SolicitudSuministro[]> {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_SOLICITUDES_SUMINISTRO}!A2:N`,
+  });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => rowToSolicitud(row, index));
+}
+
+export async function getSolicitudesSuministroByProyecto(proyecto: string): Promise<SolicitudSuministro[]> {
+  const all = await getAllSolicitudesSuministro();
+  return all.filter(s => s.proyecto === proyecto);
+}
+
+export async function getSolicitudSuministroById(idRegistro: string): Promise<SolicitudSuministro | null> {
+  const all = await getAllSolicitudesSuministro();
+  return all.find(s => s.idRegistro === idRegistro) || null;
+}
+
+export async function getNextNumeroSolicitud(): Promise<string> {
+  const all = await getAllSolicitudesSuministro();
+  const max = all.reduce((acc, s) => {
+    const n = parseInt(s.numero, 10);
+    return isNaN(n) ? acc : Math.max(acc, n);
+  }, 0);
+  return String(max + 1).padStart(6, '0');
+}
+
+export async function appendSolicitudSuministro(solicitud: Omit<SolicitudSuministro, 'rowIndex'>): Promise<void> {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_SOLICITUDES_SUMINISTRO}!A1:N1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [[
+      solicitud.idRegistro,
+      solicitud.fechaHora,
+      solicitud.userEmail,
+      solicitud.proyecto,
+      solicitud.numero,
+      solicitud.fecha,
+      solicitud.supervisor,
+      solicitud.actividad,
+      solicitud.ubicacion,
+      solicitud.proveedor,
+      solicitud.fechaLimiteEntrega,
+      solicitud.observaciones,
+      JSON.stringify(solicitud.items || []),
+      solicitud.estado || 'Pendiente',
+    ]] },
+  });
+}
+
+export async function updateSolicitudSuministro(
+  rowIndex: number,
+  solicitud: Partial<Omit<SolicitudSuministro, 'rowIndex'>>
+): Promise<void> {
+  const updates: { range: string; values: string[][] }[] = [];
+  const fields: Record<string, string> = {
+    numero: 'E',
+    fecha: 'F',
+    supervisor: 'G',
+    actividad: 'H',
+    ubicacion: 'I',
+    proveedor: 'J',
+    fechaLimiteEntrega: 'K',
+    observaciones: 'L',
+    estado: 'N',
+  };
+
+  for (const [key, col] of Object.entries(fields)) {
+    if ((solicitud as any)[key] !== undefined) {
+      updates.push({
+        range: `${SHEET_SOLICITUDES_SUMINISTRO}!${col}${rowIndex}`,
+        values: [[(solicitud as any)[key]]],
+      });
+    }
+  }
+
+  if (solicitud.items !== undefined) {
+    updates.push({
+      range: `${SHEET_SOLICITUDES_SUMINISTRO}!M${rowIndex}`,
+      values: [[JSON.stringify(solicitud.items || [])]],
+    });
+  }
+
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log('Solicitud de suministro actualizada en fila:', rowIndex);
+}
+
+export async function deleteSolicitudSuministro(rowIndex: number): Promise<void> {
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_SOLICITUDES_SUMINISTRO}!A${rowIndex}:N${rowIndex}`,
+  });
+  console.log('Solicitud de suministro eliminada en fila:', rowIndex);
+}
+
+// ============================================
+// Ajustes de Stock
+// ============================================
+
+const SHEET_AJUSTES_STOCK = 'AJUSTES_STOCK';
+
+export interface AjusteStock {
+  rowIndex: number;
+  idRegistro: string;
+  fechaHora: string;
+  userEmail: string;
+  proyecto: string;
+  codigoProducto: string;
+  cantidad: string;
+  tipo: 'positivo' | 'negativo';
+  motivo: string;
+}
+
+function rowToAjusteStock(row: any[], index: number): AjusteStock {
+  return {
+    rowIndex: index + 2,
+    idRegistro: row[0] || '',
+    fechaHora: row[1] || '',
+    userEmail: row[2] || '',
+    proyecto: row[3] || '',
+    codigoProducto: row[4] || '',
+    cantidad: row[5] || '',
+    tipo: row[6] === 'negativo' ? 'negativo' : 'positivo',
+    motivo: row[7] || '',
+  };
+}
+
+export async function getAllAjustesStock(): Promise<AjusteStock[]> {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_AJUSTES_STOCK}!A2:H`,
+  });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => rowToAjusteStock(row, index));
+}
+
+export async function getAjustesStockByProyecto(proyecto: string): Promise<AjusteStock[]> {
+  const all = await getAllAjustesStock();
+  return all.filter(a => a.proyecto === proyecto);
+}
+
+export async function appendAjusteStock(ajuste: Omit<AjusteStock, 'rowIndex'>): Promise<void> {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_AJUSTES_STOCK}!A1:H1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [[
+      ajuste.idRegistro,
+      ajuste.fechaHora,
+      ajuste.userEmail,
+      ajuste.proyecto,
+      ajuste.codigoProducto,
+      ajuste.cantidad,
+      ajuste.tipo,
+      ajuste.motivo,
+    ]] },
+  });
+}
+
+export async function updateAjusteStock(
+  rowIndex: number,
+  ajuste: Partial<Omit<AjusteStock, 'rowIndex'>>
+): Promise<void> {
+  const updates: { range: string; values: string[][] }[] = [];
+  const fields: Record<string, string> = {
+    codigoProducto: 'E',
+    cantidad: 'F',
+    tipo: 'G',
+    motivo: 'H',
+  };
+
+  for (const [key, col] of Object.entries(fields)) {
+    if ((ajuste as any)[key] !== undefined) {
+      updates.push({
+        range: `${SHEET_AJUSTES_STOCK}!${col}${rowIndex}`,
+        values: [[(ajuste as any)[key]]],
+      });
+    }
+  }
+
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log('Ajuste de stock actualizado en fila:', rowIndex);
+}
+
+export async function deleteAjusteStock(rowIndex: number): Promise<void> {
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_AJUSTES_STOCK}!A${rowIndex}:H${rowIndex}`,
+  });
+  console.log('Ajuste de stock eliminado en fila:', rowIndex);
+}
+
+export async function updateEntradasCodigo(oldCodigo: string, newCodigo: string): Promise<void> {
+  const entradas = await getAllEntradas();
+  const updates = entradas
+    .filter(e => e.codigo === oldCodigo)
+    .map(e => ({
+      range: `${SHEET_ENTRADAS}!E${e.rowIndex}`,
+      values: [[newCodigo]]
+    }));
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log(`Actualizado codigo de ${updates.length} entradas de ${oldCodigo} a ${newCodigo}`);
+}
+
+export async function updateSalidasRefItem(oldRefItem: string, newRefItem: string): Promise<void> {
+  const salidas = await getAllSalidas();
+  const updates = salidas
+    .filter(s => s.refItem === oldRefItem)
+    .map(s => ({
+      range: `${SHEET_SALIDAS}!E${s.rowIndex}`,
+      values: [[newRefItem]]
+    }));
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log(`Actualizado refItem de ${updates.length} salidas de ${oldRefItem} a ${newRefItem}`);
+}
+
+export async function updateAjustesCodigoProducto(oldCodigo: string, newCodigo: string): Promise<void> {
+  const ajustes = await getAllAjustesStock();
+  const updates = ajustes
+    .filter(a => a.codigoProducto === oldCodigo)
+    .map(a => ({
+      range: `${SHEET_AJUSTES_STOCK}!E${a.rowIndex}`,
+      values: [[newCodigo]]
+    }));
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+  console.log(`Actualizado codigoProducto de ${updates.length} ajustes de ${oldCodigo} a ${newCodigo}`);
 }

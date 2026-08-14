@@ -36,6 +36,10 @@ import {
   appendBitacora, updateBitacora, deleteBitacora
 } from './lib/googleSheets_bitacora';
 import {
+  getAllTareas, getTareasByProyecto, getTareasByBitacora,
+  appendTarea, updateTarea, deleteTarea
+} from './lib/googleSheets_bitacora_tareas.js';
+import {
   getAllInspecciones, getInspeccionesByProyecto,
   appendInspeccion, updateInspeccion, deleteInspeccion,
   getAllInspeccionItems, getItemsByInspeccion,
@@ -55,12 +59,15 @@ import {
   deleteIncidente 
 } from './lib/googleSheets_incidentes';
 import {
-  getAllProductos, getProductosByProyecto, getProductoByCodigo, appendProducto, updateProducto, deleteProducto,
+  getAllProductos, getProductosByProyecto, getProductoByCodigo, getProductoByRowIndex, appendProducto, updateProducto, deleteProducto,
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, getRemisionByNumeracion, appendRemision, updateRemision, deleteRemision,
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
   getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida,
-  getAllMarcacionesBiometricas, importarMarcacionesBiometricas
+  getAllMarcacionesBiometricas, importarMarcacionesBiometricas,
+  getAllSolicitudesSuministro, getSolicitudesSuministroByProyecto, getSolicitudSuministroById, getNextNumeroSolicitud, appendSolicitudSuministro, updateSolicitudSuministro, deleteSolicitudSuministro,
+  getAllAjustesStock, getAjustesStockByProyecto, appendAjusteStock, updateAjusteStock, deleteAjusteStock,
+  updateEntradasCodigo, updateSalidasRefItem, updateAjustesCodigoProducto
 } from './lib/googleSheets_epp';
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
@@ -1246,6 +1253,150 @@ app.delete('/api/epp/notas-salida/:rowIndex', async (c) => {
 });
 
 // ============================================
+// API REST - SOLICITUDES DE SUMINISTRO
+// ============================================
+
+// GET - Listar solicitudes de suministro
+app.get('/api/epp/solicitudes-suministro', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getSolicitudesSuministroByProyecto(proyecto) : await getAllSolicitudesSuministro();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/epp/solicitudes-suministro:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear solicitud de suministro
+app.post('/api/epp/solicitudes-suministro', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `SOL-${Date.now()}`;
+    const numero = body.numero || await getNextNumeroSolicitud();
+    await appendSolicitudSuministro({
+      idRegistro,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      numero,
+      fecha: body.fecha || '',
+      supervisor: body.supervisor || '',
+      actividad: body.actividad || '',
+      ubicacion: body.ubicacion || '',
+      proveedor: body.proveedor || '',
+      fechaLimiteEntrega: body.fechaLimiteEntrega || '',
+      observaciones: body.observaciones || '',
+      items: body.items || [],
+      estado: body.estado || 'Pendiente',
+    });
+    return c.json({ success: true, message: 'Solicitud de suministro registrada', idRegistro, numero });
+  } catch (error: any) {
+    console.error('Error POST /api/epp/solicitudes-suministro:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar solicitud de suministro
+app.put('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await updateSolicitudSuministro(rowIndex, body);
+    return c.json({ success: true, message: 'Solicitud de suministro actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/epp/solicitudes-suministro:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar solicitud de suministro
+app.delete('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteSolicitudSuministro(rowIndex);
+    return c.json({ success: true, message: 'Solicitud de suministro eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/epp/solicitudes-suministro:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - AJUSTES DE STOCK
+// ============================================
+
+// GET - Listar ajustes de stock
+app.get('/api/epp/ajustes-stock', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getAjustesStockByProyecto(proyecto) : await getAllAjustesStock();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/epp/ajustes-stock:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear ajuste de stock
+app.post('/api/epp/ajustes-stock', async (c) => {
+  try {
+    const body = await c.req.json();
+    await appendAjusteStock({
+      idRegistro: body.idRegistro || `AJS-${Date.now()}`,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      codigoProducto: body.codigoProducto || '',
+      cantidad: body.cantidad || '',
+      tipo: body.tipo || 'positivo',
+      motivo: body.motivo || '',
+    });
+    return c.json({ success: true, message: 'Ajuste de stock registrado' });
+  } catch (error: any) {
+    console.error('Error POST /api/epp/ajustes-stock:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar ajuste de stock
+app.put('/api/epp/ajustes-stock/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await updateAjusteStock(rowIndex, body);
+    return c.json({ success: true, message: 'Ajuste de stock actualizado' });
+  } catch (error: any) {
+    console.error('Error PUT /api/epp/ajustes-stock:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar ajuste de stock
+app.delete('/api/epp/ajustes-stock/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteAjusteStock(rowIndex);
+    return c.json({ success: true, message: 'Ajuste de stock eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/epp/ajustes-stock:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
 // API REST - SALIDAS
 // ============================================
 
@@ -1376,7 +1527,7 @@ app.delete('/api/epp/salidas/:rowIndex', async (c) => {
   }
 });
 
-// PUT - Actualizar producto (stock minimo)
+// PUT - Actualizar producto (codigo, nombre, proveedor, clasificacion, stock minimo)
 app.put('/api/epp/productos/:rowIndex', async (c) => {
   try {
     const rowIndex = parseInt(c.req.param('rowIndex'));
@@ -1384,7 +1535,15 @@ app.put('/api/epp/productos/:rowIndex', async (c) => {
     if (isNaN(rowIndex) || rowIndex <= 0) {
       return c.json({ error: 'rowIndex invalido' }, 400);
     }
+    const oldProducto = await getProductoByRowIndex(rowIndex);
     await updateProducto(rowIndex, body);
+    if (oldProducto && body.codigo && body.codigo !== oldProducto.codigo) {
+      await Promise.all([
+        updateEntradasCodigo(oldProducto.codigo, body.codigo),
+        updateSalidasRefItem(oldProducto.codigo, body.codigo),
+        updateAjustesCodigoProducto(oldProducto.codigo, body.codigo),
+      ]);
+    }
     return c.json({ success: true, message: 'Producto actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/productos:', error.message);
@@ -1528,6 +1687,82 @@ app.post('/api/bitacora/fotos', async (c) => {
     return c.json({ success: true, urls });
   } catch (error: any) {
     console.error('Error POST /api/bitacora/fotos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - TAREAS DE BITACORA
+// ============================================
+
+app.get('/api/bitacora/tareas', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const idBitacora = c.req.query('idBitacora');
+    let data;
+    if (idBitacora) {
+      data = await getTareasByBitacora(idBitacora);
+    } else if (proyecto) {
+      data = await getTareasByProyecto(proyecto);
+    } else {
+      data = await getAllTareas();
+    }
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/bitacora/tareas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/bitacora/tareas', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `TAR-${Date.now()}`;
+    await appendTarea({
+      idRegistro,
+      fechaHora: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      idBitacora: body.idBitacora || '',
+      descripcion: body.descripcion || '',
+      estado: body.estado || 'pendiente',
+      fotosAntes: body.fotosAntes || '',
+      fotosDespues: body.fotosDespues || '',
+      fechaCompletado: body.fechaCompletado || '',
+      completadosPor: body.completadosPor || '',
+    });
+    return c.json({ success: true, message: 'Tarea creada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/bitacora/tareas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/api/bitacora/tareas/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    const body = await c.req.json();
+    await updateTarea(rowIndex, body);
+    return c.json({ success: true, message: 'Tarea actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/bitacora/tareas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/bitacora/tareas/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteTarea(rowIndex);
+    return c.json({ success: true, message: 'Tarea eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/bitacora/tareas:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });

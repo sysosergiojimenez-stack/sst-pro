@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './lib/trpc';
-import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff, Calculator } from 'lucide-react';
+import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff, Plus, Calculator } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
@@ -33,6 +33,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [nuevoProyectoTrigger, setNuevoProyectoTrigger] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'dark' | 'light';
@@ -182,6 +183,36 @@ export default function App() {
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                 {sidebarExpanded && <span className="text-sm font-medium animate-fade-in">{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>}
               </button>
+
+              {/* User info & logout */}
+              <div className={`pt-2 border-t border-border/50 ${sidebarExpanded ? '' : 'lg:flex lg:justify-center'}`}>
+                {sidebarExpanded ? (
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                      <UserCircle className="text-white" size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-tight truncate">{user.nombres} {user.apellidos}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize truncate">{user.rol}</p>
+                    </div>
+                    <button
+                      onClick={logout}
+                      className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400 flex-shrink-0"
+                      title="Cerrar Sesión"
+                    >
+                      <LogOut size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={logout}
+                    className="w-full flex items-center justify-center px-2 py-2.5 rounded-xl hover:bg-secondary/80 transition-colors text-muted-foreground hover:text-red-400 lg:justify-center lg:px-2"
+                    title={`${user.nombres} ${user.apellidos} - Cerrar Sesión`}
+                  >
+                    <LogOut size={18} />
+                  </button>
+                )}
+              </div>
             </div>
           </aside>
 
@@ -197,56 +228,47 @@ export default function App() {
                   <Menu size={20} />
                 </button>
 
-                <div className="flex items-center gap-2 min-w-0">
-                  {selectedProyecto ? (
-                    <>
-                      <button 
-                        onClick={handleBackToProyectos}
-                        className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
-                      >
-                        <ChevronLeft size={18} />
-                      </button>
-                      <div className="h-6 w-px bg-border flex-shrink-0" />
-                      <div className="flex items-center gap-2 min-w-0">
-                        {selectedProyecto.logo ? (
-                          <img src={selectedProyecto.logo} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                            <Building2 size={16} className="text-white" />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <h2 className="text-sm lg:text-base font-semibold truncate">{selectedProyecto.denominacion}</h2>
-                          {selectedProyecto.ubicacion && (
-                            <p className="text-[10px] lg:text-xs text-muted-foreground truncate">{selectedProyecto.ubicacion}</p>
-                          )}
+                {selectedProyecto ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={handleBackToProyectos}
+                      className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <div className="h-6 w-px bg-border flex-shrink-0" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      {selectedProyecto.logo ? (
+                        <img src={selectedProyecto.logo} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                          <Building2 size={16} className="text-white" />
                         </div>
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="text-sm lg:text-base font-semibold truncate">{selectedProyecto.denominacion}</h2>
+                        {selectedProyecto.ubicacion && (
+                          <p className="text-[10px] lg:text-xs text-muted-foreground truncate">{selectedProyecto.ubicacion}</p>
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm lg:text-lg font-semibold">{view === 'proyectos' ? 'Proyectos' : view === 'admin' ? 'Usuarios' : 'Calculadora ZLP800'}</h2>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm lg:text-lg font-semibold">{view === 'proyectos' ? 'Proyectos' : view === 'admin' ? 'Usuarios' : 'Calculadora ZLP800'}</h2>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium leading-tight">{user.nombres} {user.apellidos}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">{user.rol}</p>
-                </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
-                  <UserCircle className="text-white" size={18} />
-                </div>
+              {!selectedProyecto && view === 'proyectos' && (
                 <button
-                  onClick={logout}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400 flex-shrink-0"
-                  title="Cerrar Sesión"
+                  onClick={() => setNuevoProyectoTrigger(prev => prev + 1)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-lg shadow-blue-500/25 transition-colors"
                 >
-                  <LogOut size={18} />
+                  <Plus size={18} />
+                  <span className="hidden sm:inline">Nuevo Proyecto</span>
                 </button>
-              </div>
+              )}
             </header>
 
             {/* Content */}
@@ -256,7 +278,7 @@ export default function App() {
                   <ProyectoDashboard proyecto={selectedProyecto} />
                 ) : (
                   <>
-                    {view === 'proyectos' && <Proyectos onSelectProyecto={handleSelectProyecto} />}
+                    {view === 'proyectos' && <Proyectos onSelectProyecto={handleSelectProyecto} nuevoProyectoTrigger={nuevoProyectoTrigger} />}
                     {view === 'admin' && canAccess('admin-usuarios') && <AdminUsuarios />}
                     {view === 'calculadora' && (
                       <iframe

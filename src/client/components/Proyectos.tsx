@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, MapPin, Plus, Pencil, Trash2, X, Save, ImageIcon, Search, Filter } from 'lucide-react';
+import { Building2, MapPin, Plus, Pencil, Trash2, X, Save, ImageIcon, Search, Filter, AlertTriangle } from 'lucide-react';
 
 interface Proyecto {
   rowIndex: number;
@@ -13,9 +13,10 @@ interface Proyecto {
 
 interface ProyectosProps {
   onSelectProyecto: (proyecto: Proyecto) => void;
+  nuevoProyectoTrigger?: number;
 }
 
-export default function Proyectos({ onSelectProyecto }: ProyectosProps) {
+export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }: ProyectosProps) {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [proyectosFiltrados, setProyectosFiltrados] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,14 @@ export default function Proyectos({ onSelectProyecto }: ProyectosProps) {
   };
 
   useEffect(() => { fetchProyectos(); }, []);
+
+  useEffect(() => {
+    if (nuevoProyectoTrigger > 0) {
+      setEditing(null);
+      setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '' });
+      setShowForm(true);
+    }
+  }, [nuevoProyectoTrigger]);
 
   useEffect(() => {
     if (searchTerm) {
@@ -87,20 +96,6 @@ export default function Proyectos({ onSelectProyecto }: ProyectosProps) {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-muted-foreground mt-1">{proyectos.length} proyectos registrados</p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setEditing(null); setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '' }); }}
-          className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30"
-        >
-          <Plus size={18} /> <span className="relative z-10">Nuevo Proyecto</span>
-        </button>
-      </div>
-
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />

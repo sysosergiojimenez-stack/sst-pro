@@ -240,17 +240,60 @@ NO incluyas explicaciones, SOLO el JSON.`;
 export interface Empleado {
   rowIndex: number;
   nroDocumento: string;
+  fechaHora?: string;
+  userEmail?: string;
+  obra: string;
+  tipoDocumento?: string;
   nombres: string;
   apellidos: string;
-  cargo: string;
-  obra: string;
-  empresa: string;
+  ciudadNacimiento?: string;
+  fechaNacimiento?: string;
+  sexo?: string;
+  estadoCivil?: string;
+  nombrePadre?: string;
+  ocupacionPadre?: string;
+  nombreMadre?: string;
+  ocupacionMadre?: string;
+  nombreConyuge?: string;
+  ocupacionConyuge?: string;
+  fechaNacConyuge?: string;
+  direccion?: string;
+  nro?: string;
+  dpto?: string;
+  piso?: string;
+  barrio?: string;
+  ciudad?: string;
+  departamentoTerritorial?: string;
+  puntoReferencia?: string;
   telefonoCelular: string;
+  telefonoEmergencia?: string;
   email: string;
+  gradoInstruccion?: string;
+  instruccionConcluida?: string;
+  carreraUniversitaria?: string;
+  tipoSangre?: string;
+  hijo1?: string;
+  fechaNacHijo1?: string;
+  hijo2?: string;
+  fechaNacHijo2?: string;
+  hijo3?: string;
+  fechaNacHijo3?: string;
+  hijo4?: string;
+  fechaNacHijo4?: string;
+  hijo5?: string;
+  fechaNacHijo5?: string;
+  empresa: string;
+  cargo: string;
+  unidad?: string;
+  honorarios?: string;
+  moneda?: string;
+  regimen?: string;
+  actividades?: string;
+  fechaInicioContrato?: string;
+  fechaTerminoContrato?: string;
+  calce?: string;
   scanDocumentos?: string;
   estado?: string;
-  fechaInicioContrato?: string;
-  calce?: string;
 }
 
 export async function getEmpleados(): Promise<Empleado[]> {
@@ -263,16 +306,59 @@ export async function getEmpleados(): Promise<Empleado[]> {
     return rows.map((row, index) => ({
       rowIndex: index + 2,
       nroDocumento: row[0] || '',
+      fechaHora: row[1] || '',
+      userEmail: row[2] || '',
+      obra: row[3] || '',
+      tipoDocumento: row[4] || '',
       nombres: row[5] || '',
       apellidos: row[6] || '',
-      cargo: row[44] || '',
-      obra: row[3] || '',
-      empresa: row[43] || '',
+      ciudadNacimiento: row[7] || '',
+      fechaNacimiento: row[8] || '',
+      sexo: row[9] || '',
+      estadoCivil: row[10] || '',
+      nombrePadre: row[11] || '',
+      ocupacionPadre: row[12] || '',
+      nombreMadre: row[13] || '',
+      ocupacionMadre: row[14] || '',
+      nombreConyuge: row[15] || '',
+      ocupacionConyuge: row[16] || '',
+      fechaNacConyuge: row[17] || '',
+      direccion: row[18] || '',
+      nro: row[19] || '',
+      dpto: row[20] || '',
+      piso: row[21] || '',
+      barrio: row[22] || '',
+      ciudad: row[23] || '',
+      departamentoTerritorial: row[24] || '',
+      puntoReferencia: row[25] || '',
       telefonoCelular: row[26] || '',
+      telefonoEmergencia: row[27] || '',
       email: row[28] || '',
-      scanDocumentos: row[53] || '',
+      gradoInstruccion: row[29] || '',
+      instruccionConcluida: row[30] || '',
+      carreraUniversitaria: row[31] || '',
+      tipoSangre: row[32] || '',
+      hijo1: row[33] || '',
+      fechaNacHijo1: row[34] || '',
+      hijo2: row[35] || '',
+      fechaNacHijo2: row[36] || '',
+      hijo3: row[37] || '',
+      fechaNacHijo3: row[38] || '',
+      hijo4: row[39] || '',
+      fechaNacHijo4: row[40] || '',
+      hijo5: row[41] || '',
+      fechaNacHijo5: row[42] || '',
+      empresa: row[43] || '',
+      cargo: row[44] || '',
+      unidad: row[45] || '',
+      honorarios: row[46] || '',
+      moneda: row[47] || '',
+      regimen: row[48] || '',
+      actividades: row[49] || '',
       fechaInicioContrato: row[50] || '',
+      fechaTerminoContrato: row[51] || '',
       calce: row[52] || '',
+      scanDocumentos: row[53] || '',
       estado: row[54] || 'Activo',
     }));
   } catch (error) {
@@ -299,16 +385,59 @@ export async function getEmpleadoByRowIndex(rowIndex: number): Promise<Empleado 
     return {
       rowIndex: rowIndex,
       nroDocumento: row[0] || '',
+      fechaHora: row[1] || '',
+      userEmail: row[2] || '',
+      obra: row[3] || '',
+      tipoDocumento: row[4] || '',
       nombres: row[5] || '',
       apellidos: row[6] || '',
-      cargo: row[44] || '',
-      obra: row[3] || '',
-      empresa: row[43] || '',
+      ciudadNacimiento: row[7] || '',
+      fechaNacimiento: row[8] || '',
+      sexo: row[9] || '',
+      estadoCivil: row[10] || '',
+      nombrePadre: row[11] || '',
+      ocupacionPadre: row[12] || '',
+      nombreMadre: row[13] || '',
+      ocupacionMadre: row[14] || '',
+      nombreConyuge: row[15] || '',
+      ocupacionConyuge: row[16] || '',
+      fechaNacConyuge: row[17] || '',
+      direccion: row[18] || '',
+      nro: row[19] || '',
+      dpto: row[20] || '',
+      piso: row[21] || '',
+      barrio: row[22] || '',
+      ciudad: row[23] || '',
+      departamentoTerritorial: row[24] || '',
+      puntoReferencia: row[25] || '',
       telefonoCelular: row[26] || '',
+      telefonoEmergencia: row[27] || '',
       email: row[28] || '',
-      scanDocumentos: row[53] || '',
+      gradoInstruccion: row[29] || '',
+      instruccionConcluida: row[30] || '',
+      carreraUniversitaria: row[31] || '',
+      tipoSangre: row[32] || '',
+      hijo1: row[33] || '',
+      fechaNacHijo1: row[34] || '',
+      hijo2: row[35] || '',
+      fechaNacHijo2: row[36] || '',
+      hijo3: row[37] || '',
+      fechaNacHijo3: row[38] || '',
+      hijo4: row[39] || '',
+      fechaNacHijo4: row[40] || '',
+      hijo5: row[41] || '',
+      fechaNacHijo5: row[42] || '',
+      empresa: row[43] || '',
+      cargo: row[44] || '',
+      unidad: row[45] || '',
+      honorarios: row[46] || '',
+      moneda: row[47] || '',
+      regimen: row[48] || '',
+      actividades: row[49] || '',
       fechaInicioContrato: row[50] || '',
+      fechaTerminoContrato: row[51] || '',
       calce: row[52] || '',
+      scanDocumentos: row[53] || '',
       estado: row[54] || 'Activo',
     };
   } catch (error) {
@@ -339,14 +468,61 @@ export async function appendEmpleado(
   empleado: Omit<Empleado, 'rowIndex'>
 ): Promise<number> {
   try {
+    const now = new Date().toISOString();
     const values = [[
-      empleado.nroDocumento, '', '', empleado.obra, '',
-      empleado.nombres, empleado.apellidos,
-      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-      empleado.telefonoCelular, '', empleado.email,
-      '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-      empleado.empresa, empleado.cargo,
-      '', '', '', '', '', '', '', '',
+      empleado.nroDocumento,
+      now,
+      empleado.userEmail || '',
+      empleado.obra,
+      empleado.tipoDocumento || '',
+      empleado.nombres,
+      empleado.apellidos,
+      empleado.ciudadNacimiento || '',
+      empleado.fechaNacimiento || '',
+      empleado.sexo || '',
+      empleado.estadoCivil || '',
+      empleado.nombrePadre || '',
+      empleado.ocupacionPadre || '',
+      empleado.nombreMadre || '',
+      empleado.ocupacionMadre || '',
+      empleado.nombreConyuge || '',
+      empleado.ocupacionConyuge || '',
+      empleado.fechaNacConyuge || '',
+      empleado.direccion || '',
+      empleado.nro || '',
+      empleado.dpto || '',
+      empleado.piso || '',
+      empleado.barrio || '',
+      empleado.ciudad || '',
+      empleado.departamentoTerritorial || '',
+      empleado.puntoReferencia || '',
+      empleado.telefonoCelular,
+      empleado.telefonoEmergencia || '',
+      empleado.email,
+      empleado.gradoInstruccion || '',
+      empleado.instruccionConcluida || '',
+      empleado.carreraUniversitaria || '',
+      empleado.tipoSangre || '',
+      empleado.hijo1 || '',
+      empleado.fechaNacHijo1 || '',
+      empleado.hijo2 || '',
+      empleado.fechaNacHijo2 || '',
+      empleado.hijo3 || '',
+      empleado.fechaNacHijo3 || '',
+      empleado.hijo4 || '',
+      empleado.fechaNacHijo4 || '',
+      empleado.hijo5 || '',
+      empleado.fechaNacHijo5 || '',
+      empleado.empresa,
+      empleado.cargo,
+      empleado.unidad || '',
+      empleado.honorarios || '',
+      empleado.moneda || '',
+      empleado.regimen || '',
+      empleado.actividades || '',
+      empleado.fechaInicioContrato || '',
+      empleado.fechaTerminoContrato || '',
+      empleado.calce || '',
       empleado.scanDocumentos || '',
       empleado.estado || 'Activo',
     ]];
@@ -376,37 +552,65 @@ export async function updateEmpleado(
     if (!current) {
       throw new Error('Empleado no encontrado en fila ' + rowIndex);
     }
-    const updates: { range: string; values: string[][] }[] = [];
-    if (empleado.nroDocumento !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!A${rowIndex}`, values: [[empleado.nroDocumento]] });
-    }
-    if (empleado.obra !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!D${rowIndex}`, values: [[empleado.obra]] });
-    }
-    if (empleado.nombres !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!F${rowIndex}`, values: [[empleado.nombres]] });
-    }
-    if (empleado.apellidos !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!G${rowIndex}`, values: [[empleado.apellidos]] });
-    }
-    if (empleado.telefonoCelular !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!AA${rowIndex}`, values: [[empleado.telefonoCelular]] });
-    }
-    if (empleado.email !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!AC${rowIndex}`, values: [[empleado.email]] });
-    }
-    if (empleado.empresa !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!AR${rowIndex}`, values: [[empleado.empresa]] });
-    }
-    if (empleado.cargo !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!AS${rowIndex}`, values: [[empleado.cargo]] });
-    }
-    if (empleado.scanDocumentos !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!BB${rowIndex}`, values: [[empleado.scanDocumentos]] });
-    }
-    if (empleado.estado !== undefined) {
-      updates.push({ range: `NOMINA DE PERSONAL!BC${rowIndex}`, values: [[empleado.estado]] });
-    }
+    const map: Record<string, string | undefined> = {
+      [`NOMINA DE PERSONAL!A${rowIndex}`]: empleado.nroDocumento,
+      [`NOMINA DE PERSONAL!C${rowIndex}`]: empleado.userEmail,
+      [`NOMINA DE PERSONAL!D${rowIndex}`]: empleado.obra,
+      [`NOMINA DE PERSONAL!E${rowIndex}`]: empleado.tipoDocumento,
+      [`NOMINA DE PERSONAL!F${rowIndex}`]: empleado.nombres,
+      [`NOMINA DE PERSONAL!G${rowIndex}`]: empleado.apellidos,
+      [`NOMINA DE PERSONAL!H${rowIndex}`]: empleado.ciudadNacimiento,
+      [`NOMINA DE PERSONAL!I${rowIndex}`]: empleado.fechaNacimiento,
+      [`NOMINA DE PERSONAL!J${rowIndex}`]: empleado.sexo,
+      [`NOMINA DE PERSONAL!K${rowIndex}`]: empleado.estadoCivil,
+      [`NOMINA DE PERSONAL!L${rowIndex}`]: empleado.nombrePadre,
+      [`NOMINA DE PERSONAL!M${rowIndex}`]: empleado.ocupacionPadre,
+      [`NOMINA DE PERSONAL!N${rowIndex}`]: empleado.nombreMadre,
+      [`NOMINA DE PERSONAL!O${rowIndex}`]: empleado.ocupacionMadre,
+      [`NOMINA DE PERSONAL!P${rowIndex}`]: empleado.nombreConyuge,
+      [`NOMINA DE PERSONAL!Q${rowIndex}`]: empleado.ocupacionConyuge,
+      [`NOMINA DE PERSONAL!R${rowIndex}`]: empleado.fechaNacConyuge,
+      [`NOMINA DE PERSONAL!S${rowIndex}`]: empleado.direccion,
+      [`NOMINA DE PERSONAL!T${rowIndex}`]: empleado.nro,
+      [`NOMINA DE PERSONAL!U${rowIndex}`]: empleado.dpto,
+      [`NOMINA DE PERSONAL!V${rowIndex}`]: empleado.piso,
+      [`NOMINA DE PERSONAL!W${rowIndex}`]: empleado.barrio,
+      [`NOMINA DE PERSONAL!X${rowIndex}`]: empleado.ciudad,
+      [`NOMINA DE PERSONAL!Y${rowIndex}`]: empleado.departamentoTerritorial,
+      [`NOMINA DE PERSONAL!Z${rowIndex}`]: empleado.puntoReferencia,
+      [`NOMINA DE PERSONAL!AA${rowIndex}`]: empleado.telefonoCelular,
+      [`NOMINA DE PERSONAL!AB${rowIndex}`]: empleado.telefonoEmergencia,
+      [`NOMINA DE PERSONAL!AC${rowIndex}`]: empleado.email,
+      [`NOMINA DE PERSONAL!AD${rowIndex}`]: empleado.gradoInstruccion,
+      [`NOMINA DE PERSONAL!AE${rowIndex}`]: empleado.instruccionConcluida,
+      [`NOMINA DE PERSONAL!AF${rowIndex}`]: empleado.carreraUniversitaria,
+      [`NOMINA DE PERSONAL!AG${rowIndex}`]: empleado.tipoSangre,
+      [`NOMINA DE PERSONAL!AH${rowIndex}`]: empleado.hijo1,
+      [`NOMINA DE PERSONAL!AI${rowIndex}`]: empleado.fechaNacHijo1,
+      [`NOMINA DE PERSONAL!AJ${rowIndex}`]: empleado.hijo2,
+      [`NOMINA DE PERSONAL!AK${rowIndex}`]: empleado.fechaNacHijo2,
+      [`NOMINA DE PERSONAL!AL${rowIndex}`]: empleado.hijo3,
+      [`NOMINA DE PERSONAL!AM${rowIndex}`]: empleado.fechaNacHijo3,
+      [`NOMINA DE PERSONAL!AN${rowIndex}`]: empleado.hijo4,
+      [`NOMINA DE PERSONAL!AO${rowIndex}`]: empleado.fechaNacHijo4,
+      [`NOMINA DE PERSONAL!AP${rowIndex}`]: empleado.hijo5,
+      [`NOMINA DE PERSONAL!AQ${rowIndex}`]: empleado.fechaNacHijo5,
+      [`NOMINA DE PERSONAL!AR${rowIndex}`]: empleado.empresa,
+      [`NOMINA DE PERSONAL!AS${rowIndex}`]: empleado.cargo,
+      [`NOMINA DE PERSONAL!AT${rowIndex}`]: empleado.unidad,
+      [`NOMINA DE PERSONAL!AU${rowIndex}`]: empleado.honorarios,
+      [`NOMINA DE PERSONAL!AV${rowIndex}`]: empleado.moneda,
+      [`NOMINA DE PERSONAL!AW${rowIndex}`]: empleado.regimen,
+      [`NOMINA DE PERSONAL!AX${rowIndex}`]: empleado.actividades,
+      [`NOMINA DE PERSONAL!AY${rowIndex}`]: empleado.fechaInicioContrato,
+      [`NOMINA DE PERSONAL!AZ${rowIndex}`]: empleado.fechaTerminoContrato,
+      [`NOMINA DE PERSONAL!BA${rowIndex}`]: empleado.calce,
+      [`NOMINA DE PERSONAL!BB${rowIndex}`]: empleado.scanDocumentos,
+      [`NOMINA DE PERSONAL!BC${rowIndex}`]: empleado.estado,
+    };
+    const updates = Object.entries(map)
+      .filter(([_, value]) => value !== undefined)
+      .map(([range, value]) => ({ range, values: [[value]] }));
     if (updates.length === 0) {
       console.log('No hay campos para actualizar');
       return;

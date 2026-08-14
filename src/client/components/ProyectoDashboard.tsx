@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, Calculator, ShieldAlert } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
 import Bitacora from './Bitacora';
 import Inspecciones from './Inspecciones';
+import CalculadoraPlataformas from './CalculadoraPlataformas';
 import MedidasDisciplinarias from './MedidasDisciplinarias';
 
 interface Proyecto {
@@ -22,7 +23,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'calculadora' | 'disciplinarias';
 
 interface StatsProyecto {
   empleados: number;
@@ -38,6 +39,7 @@ interface StatsProyecto {
 
 export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) {
   const [moduloActivo, setModuloActivo] = useState<Modulo>('overview');
+  const [popped, setPopped] = useState(false);
   const [stats, setStats] = useState<StatsProyecto>({
     empleados: 0, empleadosActivos: 0, empleadosInactivos: 0,
     incidentesAbiertos: 0, incidentesCerrados: 0,
@@ -45,6 +47,29 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     capacitacionesPendientes: 0, capacitacionesRealizadas: 0
   });
   const [loading, setLoading] = useState(true);
+
+  // Manejar botón "atrás" del celular/navegador para volver del módulo al overview
+  useEffect(() => {
+    const handlePopState = () => {
+      setPopped(true);
+      setModuloActivo(prev => (prev === 'overview' ? prev : 'overview'));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Registrar entrada en el historial al abrir un módulo
+  useEffect(() => {
+    if (moduloActivo === 'overview') {
+      if (popped) setPopped(false);
+      return;
+    }
+    if (popped) {
+      setPopped(false);
+      return;
+    }
+    history.pushState({ modulo: moduloActivo }, '');
+  }, [moduloActivo, popped]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -121,7 +146,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -135,7 +160,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -149,7 +174,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -163,7 +188,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -177,7 +202,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -191,11 +216,25 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
           <Inspecciones proyecto={proyecto.denominacion} />
+      </div>
+    );
+  }
+
+  if (moduloActivo === 'calculadora') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <CalculadoraPlataformas proyecto={proyecto.denominacion} />
       </div>
     );
   }
@@ -205,7 +244,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       <div className="animate-fade-in">
         <button
           onClick={() => setModuloActivo('overview')}
-          className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
@@ -217,22 +256,6 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
   // OVERVIEW
   return (
     <div className="space-y-6 animate-fade-in-up max-w-7xl mx-auto">
-      {/* Header del proyecto */}
-      <div className="bg-card border border-border rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
-          <Building2 size={32} className="text-white" />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">{proyecto.denominacion}</h1>
-          <p className="text-sm text-muted-foreground">{proyecto.ubicacion || 'Sin ubicación registrada'}</p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <span className="badge badge-success"><CheckCircle2 size={10} />Activo</span>
-            <span className="badge badge-info"><ShieldCheck size={10} />SG-SST</span>
-            <span className="badge badge-muted">ID: {proyecto.idRegistro}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Módulos del Proyecto con datos reales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
@@ -375,6 +398,21 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               </div>
               <h4 className="font-semibold text-base">Bitacora</h4>
               <p className="text-sm text-muted-foreground mt-1">Registro de trabajos realizados con evidencia fotografica</p>
+            </button>
+
+            {/* Calculadora Plataformas Suspendidas */}
+            <button
+              onClick={() => setModuloActivo('calculadora')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
+                  <Calculator size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Calculadora Plataformas Suspendidas</h4>
+              <p className="text-sm text-muted-foreground mt-1">Cálculo de contrapesos y estabilidad para andamios colgantes ZLP800</p>
             </button>
 
             {/* Medidas Disciplinarias */}

@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
+import jsPDF from 'jspdf';
 import { longPressHandlers } from '../hooks/useLongPress';
 import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints } from 'lucide-react';
 
@@ -59,6 +60,45 @@ interface Salida {
   trabajadorRetira: string;
 }
 
+interface ItemSolicitud {
+  item: string;
+  producto: string;
+  unidad: string;
+  cantidad: string;
+  cuenta: string;
+  proveedor: string;
+}
+
+interface SolicitudSuministro {
+  rowIndex: number;
+  idRegistro: string;
+  fechaHora: string;
+  userEmail: string;
+  proyecto: string;
+  numero: string;
+  fecha: string;
+  supervisor: string;
+  actividad: string;
+  ubicacion: string;
+  proveedor: string;
+  fechaLimiteEntrega: string;
+  observaciones: string;
+  items: ItemSolicitud[];
+  estado: string;
+}
+
+interface AjusteStock {
+  rowIndex: number;
+  idRegistro: string;
+  fechaHora: string;
+  userEmail: string;
+  proyecto: string;
+  codigoProducto: string;
+  cantidad: string;
+  tipo: 'positivo' | 'negativo';
+  motivo: string;
+}
+
 interface Empleado {
   nroDocumento: string;
   nombres: string;
@@ -76,7 +116,7 @@ interface EPPProps {
 
 const clasificaciones = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
 
-type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion';
+type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'solicitudes';
 
 export default function EPP({ proyecto }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
@@ -85,6 +125,8 @@ export default function EPP({ proyecto }: EPPProps) {
   const [entradas, setEntradas] = useState<Entrada[]>([]);
   const [notasSalida, setNotasSalida] = useState<NotaSalida[]>([]);
   const [salidas, setSalidas] = useState<Salida[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudSuministro[]>([]);
+  const [ajustes, setAjustes] = useState<AjusteStock[]>([]);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -97,6 +139,7 @@ export default function EPP({ proyecto }: EPPProps) {
   const [showNotaSalidaForm, setShowNotaSalidaForm] = useState(false);
   const [showSalidaForm, setShowSalidaForm] = useState(false);
   const [showReporteModal, setShowReporteModal] = useState(false);
+  const [showSolicitudForm, setShowSolicitudForm] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
@@ -104,6 +147,13 @@ export default function EPP({ proyecto }: EPPProps) {
   const [productoForm, setProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
   const [remisionForm, setRemisionForm] = useState({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
   const [notaSalidaForm, setNotaSalidaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
+  const emptySolicitudForm = { fecha: '', supervisor: '', actividad: '', ubicacion: '', proveedor: '', fechaLimiteEntrega: '', observaciones: '', items: [{ item: '1', producto: '', unidad: '', cantidad: '', cuenta: '', proveedor: '' }] };
+  const [solicitudForm, setSolicitudForm] = useState(emptySolicitudForm);
+  const [editingSolicitud, setEditingSolicitud] = useState<SolicitudSuministro | null>(null);
+  const [solicitudExpandida, setSolicitudExpandida] = useState<SolicitudSuministro | null>(null);
+  const emptyAjusteForm = { codigoProducto: '', cantidad: '', tipo: 'positivo' as 'positivo' | 'negativo', motivo: '' };
+  const [ajusteForm, setAjusteForm] = useState(emptyAjusteForm);
+  const [ajusteProductoSeleccionado, setAjusteProductoSeleccionado] = useState<Producto | null>(null);
   const [busquedaQuienRetira, setBusquedaQuienRetira] = useState('');
   const [mostrarSugerenciasQuienRetira, setMostrarSugerenciasQuienRetira] = useState(false);
   const [indiceResaltadoQuienRetira, setIndiceResaltadoQuienRetira] = useState(0);
@@ -111,7 +161,7 @@ export default function EPP({ proyecto }: EPPProps) {
   const [salidaForm, setSalidaForm] = useState({ refItem: '', cantidad: '', trabajadorRetira: '' });
   const [showProductoEdit, setShowProductoEdit] = useState<Producto | null>(null);
   const [productosSeleccionados, setProductosSeleccionados] = useState<Set<string>>(new Set());
-  const [editingProductoForm, setEditingProductoForm] = useState({ nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+  const [editingProductoForm, setEditingProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
   const [busquedaProducto, setBusquedaProducto] = useState('');
   const [mostrarSugerenciasProducto, setMostrarSugerenciasProducto] = useState(false);
   const [selectedNota, setSelectedNota] = useState<NotaSalida | null>(null);
@@ -149,6 +199,14 @@ export default function EPP({ proyecto }: EPPProps) {
       const remRes = await fetch(`/api/epp/remisiones?proyecto=${encodeURIComponent(proyecto)}`);
       const remData = await remRes.json();
       if (remData.success) setRemisiones(remData.data);
+
+      const solRes = await fetch(`/api/epp/solicitudes-suministro?proyecto=${encodeURIComponent(proyecto)}`);
+      const solData = await solRes.json();
+      if (solData.success) setSolicitudes(solData.data);
+
+      const ajsRes = await fetch(`/api/epp/ajustes-stock?proyecto=${encodeURIComponent(proyecto)}`);
+      const ajsData = await ajsRes.json();
+      if (ajsData.success) setAjustes(ajsData.data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -262,8 +320,16 @@ export default function EPP({ proyecto }: EPPProps) {
     .filter(s => s.refItem === codigo)
     .reduce((sum, s) => sum + parseInt(s.cantidad || '0'), 0);
 
-  // Stock disponible = entradas - salidas
-  const stockDisponible = (codigo: string) => totalEntradasByProducto(codigo) - totalSalidasByProducto(codigo);
+  // Ajustes de stock por producto
+  const totalAjustesByProducto = (codigo: string) => ajustes
+    .filter(a => a.codigoProducto === codigo)
+    .reduce((sum, a) => {
+      const cantidad = parseInt(a.cantidad || '0');
+      return a.tipo === 'negativo' ? sum - cantidad : sum + cantidad;
+    }, 0);
+
+  // Stock disponible = entradas - salidas + ajustes
+  const stockDisponible = (codigo: string) => totalEntradasByProducto(codigo) - totalSalidasByProducto(codigo) + totalAjustesByProducto(codigo);
 
   // Verificar si stock está por debajo del mínimo
   const isStockBajo = (producto: Producto) => {
@@ -492,6 +558,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     if (showProductoEdit?.codigo === producto.codigo) { setShowProductoEdit(null); return; }
     setShowProductoEdit(producto);
     setEditingProductoForm({
+      codigo: producto.codigo,
       nombre: producto.nombre,
       proveedor: producto.proveedor,
       clasificacion: producto.clasificacion,
@@ -509,7 +576,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowProductoEdit(null);
-      setEditingProductoForm({ nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+      setEditingProductoForm({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
@@ -519,6 +586,41 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     try {
       const response = await fetch(`/api/epp/productos/${producto.rowIndex}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const startAjusteStock = (producto: Producto) => {
+    if (ajusteProductoSeleccionado?.codigo === producto.codigo) {
+      setAjusteProductoSeleccionado(null);
+      return;
+    }
+    setAjusteProductoSeleccionado(producto);
+    setAjusteForm({ ...emptyAjusteForm, codigoProducto: producto.codigo });
+    setShowProductoEdit(null);
+  };
+
+  const closeAjusteForm = () => {
+    setAjusteProductoSeleccionado(null);
+    setAjusteForm(emptyAjusteForm);
+  };
+
+  const handleSubmitAjuste = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ajusteProductoSeleccionado) return;
+    try {
+      const response = await fetch('/api/epp/ajustes-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...ajusteForm,
+          proyecto,
+          userEmail: 'sistema',
+          idRegistro: `AJS-${Date.now()}`,
+        }),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      closeAjusteForm();
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
@@ -832,18 +934,404 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     p.proveedor.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
+  const productosConStock = productosFiltrados.filter(p => stockDisponible(p.codigo) > 0);
+  const productosAgotados = productosFiltrados.filter(p => stockDisponible(p.codigo) === 0);
+
   const clasificacionesSugeridas = [...new Set([...clasificaciones, ...productos.map(p => p.clasificacion).filter(Boolean)])]
     .sort((a, b) => a.localeCompare(b, 'es'));
 
-  const remisionesFiltradas = remisiones.filter(r =>
-    r.proveedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.numeracion.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const termBusqueda = searchTerm.toLowerCase();
 
-  const notasFiltradas = notasSalida.filter(n =>
-    n.orden.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    n.quienRetira.toLowerCase().includes(searchTerm.toLowerCase())
+  const remisionesFiltradas = remisiones.filter(r => {
+    if (r.proveedor.toLowerCase().includes(termBusqueda) || r.numeracion.toLowerCase().includes(termBusqueda)) return true;
+    const items = entradasProyecto.filter(e => e.refRemision === r.idRegistro);
+    return items.some(e =>
+      e.codigo.toLowerCase().includes(termBusqueda) ||
+      e.item.toLowerCase().includes(termBusqueda) ||
+      productos.find(p => p.codigo === e.codigo)?.nombre.toLowerCase().includes(termBusqueda)
+    );
+  });
+
+  const notasFiltradas = notasSalida.filter(n => {
+    if (n.orden.toLowerCase().includes(termBusqueda) || n.quienRetira.toLowerCase().includes(termBusqueda)) return true;
+    const items = salidas.filter(s => s.refNotaSalida === n.idRegistro);
+    return items.some(s => {
+      const prod = productos.find(p => p.codigo === s.refItem);
+      return s.refItem.toLowerCase().includes(termBusqueda) || prod?.nombre.toLowerCase().includes(termBusqueda);
+    });
+  }).sort((a, b) => b.rowIndex - a.rowIndex);
+
+  const solicitudesFiltradas = solicitudes.filter(s =>
+    s.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.supervisor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.actividad.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => b.rowIndex - a.rowIndex);
+
+  const startNewSolicitud = () => {
+    setEditingSolicitud(null);
+    setSolicitudForm(emptySolicitudForm);
+    setShowSolicitudForm(true);
+  };
+
+  const startEditSolicitud = (s: SolicitudSuministro) => {
+    setEditingSolicitud(s);
+    setSolicitudForm({
+      fecha: s.fecha,
+      supervisor: s.supervisor,
+      actividad: s.actividad,
+      ubicacion: s.ubicacion,
+      proveedor: s.proveedor,
+      fechaLimiteEntrega: s.fechaLimiteEntrega,
+      observaciones: s.observaciones,
+      items: s.items.length > 0 ? s.items.map((it, i) => ({ ...it, item: it.item || String(i + 1) })) : [{ item: '1', producto: '', unidad: '', cantidad: '', cuenta: '', proveedor: '' }],
+    });
+    setShowSolicitudForm(true);
+    setSolicitudExpandida(null);
+  };
+
+  const closeSolicitudForm = () => {
+    setShowSolicitudForm(false);
+    setEditingSolicitud(null);
+    setSolicitudForm(emptySolicitudForm);
+  };
+
+  const handleAddItem = () => {
+    setSolicitudForm(prev => ({
+      ...prev,
+      items: [...prev.items, { item: String(prev.items.length + 1), producto: '', unidad: '', cantidad: '', cuenta: '', proveedor: '' }],
+    }));
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setSolicitudForm(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index).map((it, i) => ({ ...it, item: String(i + 1) })),
+    }));
+  };
+
+  const handleItemChange = (index: number, field: keyof ItemSolicitud, value: string) => {
+    setSolicitudForm(prev => ({
+      ...prev,
+      items: prev.items.map((it, i) => i === index ? { ...it, [field]: value } : it),
+    }));
+  };
+
+  const handleSubmitSolicitud = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const body = {
+        ...solicitudForm,
+        proyecto,
+        userEmail: 'sistema',
+        idRegistro: editingSolicitud ? editingSolicitud.idRegistro : `SOL-${Date.now()}`,
+      };
+      const url = editingSolicitud ? `/api/epp/solicitudes-suministro/${editingSolicitud.rowIndex}` : '/api/epp/solicitudes-suministro';
+      const method = editingSolicitud ? 'PUT' : 'POST';
+      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      closeSolicitudForm();
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const handleDeleteSolicitud = async (s: SolicitudSuministro) => {
+    if (!confirm(`Eliminar solicitud Nº ${s.numero}?`)) return;
+    try {
+      const response = await fetch(`/api/epp/solicitudes-suministro/${s.rowIndex}`, { method: 'DELETE' });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const handleToggleEstadoSolicitud = async (s: SolicitudSuministro) => {
+    const estados = ['Pendiente', 'Entregada', 'Cancelada'];
+    const idx = estados.indexOf(s.estado || 'Pendiente');
+    const nuevoEstado = estados[(idx + 1) % estados.length];
+    try {
+      const response = await fetch(`/api/epp/solicitudes-suministro/${s.rowIndex}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const badgeEstadoSolicitud = (estado: string) => {
+    const map: Record<string, string> = {
+      Pendiente: 'bg-amber-500/10 text-amber-500',
+      Entregada: 'bg-green-500/10 text-green-500',
+      Cancelada: 'bg-red-500/10 text-red-500',
+    };
+    return map[estado] || 'bg-muted text-muted-foreground';
+  };
+
+  const descargarPDFSolicitud = (s: SolicitudSuministro) => {
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageW = 210;
+    const m = 10;
+    const w = pageW - m * 2;
+
+    const cols = [8, 109, 8, 8, 22, 25];
+    const headers = ['Ítem', 'Producto', 'Un.', 'Cant.', 'Cuenta', 'Proveedor'];
+    const x0 = m;
+
+    const renderCopy = (startY: number) => {
+      let y = startY;
+
+      // Encabezado empresa (derecha)
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ALTAZENTA NORTE SA', pageW - m - 2, y + 5, { align: 'right' });
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RUC: 80150280-2', pageW - m - 2, y + 9, { align: 'right' });
+
+      // Titulo
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SOLICITUD DE SUMINISTRO', m, y + 6);
+
+      y += 14;
+
+      // Nro y Fecha
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Nº ${s.numero || '-'}`, pageW - m - 2, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Fecha: ${s.fecha ? formatearFecha(s.fecha) : '-'}`, pageW - m - 2, y + 4, { align: 'right' });
+
+      y += 10;
+
+      // Campos cabecera
+      const campo = (label: string, value: string) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(`${label}:`, m, y);
+        const labelW = doc.getTextWidth(`${label}:`);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value || '-', m + labelW + 2, y);
+        doc.setLineWidth(0.1);
+        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
+        y += 6;
+      };
+
+      campo('Supervisor', s.supervisor);
+      campo('Actividad', s.actividad);
+      campo('Ubicación', s.ubicacion);
+      campo('Proveedor', s.proveedor);
+      campo('Fecha límite de entrega', s.fechaLimiteEntrega ? formatearFecha(s.fechaLimiteEntrega) : '');
+
+      y += 3;
+
+      // Tabla de items
+      doc.setFillColor(230, 230, 230);
+      doc.setLineWidth(0.1);
+      doc.rect(x0, y, w, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      let x = x0;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 1, y + 4);
+        x += cols[i];
+      });
+      doc.rect(x0, y, w, 6);
+      x = x0;
+      cols.forEach((cw, i) => {
+        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+        x += cw;
+      });
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      const items = s.items.length > 0 ? s.items : [{ item: '', producto: '', unidad: '', cantidad: '', cuenta: '', proveedor: '' }];
+      items.forEach((it) => {
+        const prod = productos.find(p => p.nombre.trim().toLowerCase() === (it.producto || '').trim().toLowerCase());
+        const productoText = prod ? `${prod.codigo} - ${prod.nombre}` : (it.producto || '');
+        const productoLines = doc.splitTextToSize(productoText, cols[1] - 2);
+        const rowH = 3 + productoLines.length * 2.2;
+        x = x0;
+        const vals: (string | string[])[] = [it.item || '', productoLines, it.unidad || '', it.cantidad || '', it.cuenta || '', it.proveedor || ''];
+        vals.forEach((val, i) => {
+          const text = Array.isArray(val) ? val : [String(val)];
+          doc.text(text, x + 1, y + 3);
+          x += cols[i];
+        });
+        doc.rect(x0, y, w, rowH);
+        x = x0;
+        cols.forEach((cw, i) => {
+          if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
+          x += cw;
+        });
+        y += rowH;
+      });
+
+      y += 4;
+
+      // Observaciones
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('Observaciones:', m, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setLineWidth(0.1);
+      doc.rect(m, y, w, 14);
+      const obsLines = doc.splitTextToSize(s.observaciones || '-', w - 4);
+      doc.text(obsLines, m + 2, y + 4);
+      y += 18;
+
+      // Firmas
+      const firmaW = (w - 20) / 3;
+      const firmas = ['SUPERVISOR', 'GERENTE', 'ADMINISTRACIÓN'];
+      let fx = m;
+      doc.setLineWidth(0.1);
+      firmas.forEach((f) => {
+        doc.line(fx, y + 10, fx + firmaW, y + 10);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(f, fx + firmaW / 2, y + 14, { align: 'center' });
+        fx += firmaW + 10;
+      });
+      y += 16;
+
+      return y;
+    };
+
+    let y1 = renderCopy(m);
+    doc.setLineWidth(0.2);
+    doc.rect(m, m, w, y1 - m);
+
+    // Separador entre copias
+    doc.setLineWidth(0.1);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(m, y1 + 3, pageW - m, y1 + 3);
+    doc.setDrawColor(0, 0, 0);
+
+    const estimatedH = y1 - m;
+    let y2Start = y1 + 6;
+    if (y2Start + estimatedH > 287) {
+      doc.addPage();
+      y2Start = m;
+    }
+    let y2 = renderCopy(y2Start);
+    doc.setLineWidth(0.2);
+    doc.rect(m, y2Start, w, y2 - y2Start);
+
+    doc.save(`Solicitud_Suministro_${s.numero || s.idRegistro}.pdf`);
+  };
+
+  const renderFilaProducto = (p: Producto) => {
+    const entradas = totalEntradasByProducto(p.codigo);
+    const salidas = totalSalidasByProducto(p.codigo);
+    const stock = stockDisponible(p.codigo);
+    const bajo = isStockBajo(p);
+    const editando = showProductoEdit?.codigo === p.codigo;
+    const ajustando = ajusteProductoSeleccionado?.codigo === p.codigo;
+    return (
+      <Fragment key={p.codigo}>
+      <tr {...longPressHandlers(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando || ajustando ? 'bg-secondary/20' : ''}`}>
+        {productosSeleccionados.size > 0 && (
+          <td className="px-4 py-3 block sm:table-cell">
+            <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
+          </td>
+        )}
+        <td className="px-4 py-3 font-mono text-xs text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Codigo: </span>{p.codigo}</td>
+        <td className="px-4 py-3 font-medium block sm:table-cell">{p.nombre}</td>
+        <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{p.proveedor || '-'}</td>
+        <td className="px-4 py-3 text-right font-mono text-emerald-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Entradas: </span>{entradas}</td>
+        <td className="px-4 py-3 text-right font-mono text-amber-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Salidas: </span>{salidas}</td>
+        <td className="px-4 py-3 text-right font-mono font-bold block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Stock: </span>{stock}</td>
+        <td className="px-4 py-3 text-center block sm:table-cell">
+          {bajo ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+              <AlertCircle size={10} /> Bajo
+            </span>
+          ) : stock > 0 ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
+              <CheckCircle2 size={10} /> OK
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">
+              <AlertTriangle size={10} /> Agotado
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3 block sm:table-cell">
+          <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+            <button onClick={() => startAjusteStock(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-blue-400" title="Ajustar stock"><Boxes size={16} /></button>
+            <button onClick={() => startEditProducto(p)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
+            <button onClick={() => handleDeleteProducto(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
+          </div>
+        </td>
+      </tr>
+      {editando && (
+        <tr className="bg-secondary/10 border-b border-border/50">
+          <td colSpan={8} className="px-6 py-4">
+            <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo *</label>
+                <input type="text" value={editingProductoForm.codigo} onChange={(e) => setEditingProductoForm({...editingProductoForm, codigo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Nombre</label>
+                <input type="text" value={editingProductoForm.nombre} onChange={(e) => setEditingProductoForm({...editingProductoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label>
+                <input type="text" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
+                <input type="text" list="clasificaciones-datalist" value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Stock Minimo</label>
+                <input type="number" value={editingProductoForm.stockMinimo} onChange={(e) => setEditingProductoForm({...editingProductoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div className="flex items-end gap-2 md:col-span-4">
+                <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                <button type="button" onClick={() => setShowProductoEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      )}
+      {ajustando && (
+        <tr className="bg-blue-500/5 border-b border-border/50">
+          <td colSpan={productosSeleccionados.size > 0 ? 10 : 9} className="px-6 py-4">
+            <form onSubmit={handleSubmitAjuste} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Producto</label>
+                <p className="font-medium text-sm py-2">{p.nombre} <span className="text-muted-foreground">({p.codigo})</span></p>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Tipo de ajuste</label>
+                <select value={ajusteForm.tipo} onChange={(e) => setAjusteForm({...ajusteForm, tipo: e.target.value as 'positivo' | 'negativo'})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50">
+                  <option value="positivo">Incrementar stock</option>
+                  <option value="negativo">Disminuir stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Cantidad *</label>
+                <input type="number" min="0" step="any" value={ajusteForm.cantidad} onChange={(e) => setAjusteForm({...ajusteForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Motivo</label>
+                <input type="text" value={ajusteForm.motivo} onChange={(e) => setAjusteForm({...ajusteForm, motivo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div className="flex items-end gap-2 md:col-span-4">
+                <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Ajuste</button>
+                <button type="button" onClick={closeAjusteForm} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      )}
+      </Fragment>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -884,6 +1372,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           { id: 'remisiones' as VistaEPP, label: 'Remisiones', icon: Truck },
           { id: 'entregas' as VistaEPP, label: 'Notas de Salida', icon: ArrowDownCircle },
           { id: 'dotacion' as VistaEPP, label: 'Dotacion de Calzados', icon: Footprints },
+          { id: 'solicitudes' as VistaEPP, label: 'Solicitud de Suministro', icon: FileSpreadsheet },
         ].map(tab => (
           <button key={tab.id} onClick={() => setVista(tab.id)}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${vista === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -966,83 +1455,15 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                     </tr>
                   </thead>
                   <tbody className="block sm:table-row-group">
-                    {productosFiltrados.map((p, i) => {
-                      const entradas = totalEntradasByProducto(p.codigo);
-                      const salidas = totalSalidasByProducto(p.codigo);
-                      const stock = stockDisponible(p.codigo);
-                      const bajo = isStockBajo(p);
-                      const editando = showProductoEdit?.codigo === p.codigo;
-                      return (
-                        <Fragment key={p.codigo}>
-                        <tr {...longPressHandlers(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando ? 'bg-secondary/20' : ''}`}>
-                          {productosSeleccionados.size > 0 && (
-                            <td className="px-4 py-3 block sm:table-cell">
-                              <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
-                            </td>
-                          )}
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Codigo: </span>{p.codigo}</td>
-                          <td className="px-4 py-3 font-medium block sm:table-cell">{p.nombre}</td>
-                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{p.proveedor || '-'}</td>
-                          <td className="px-4 py-3 text-right font-mono text-emerald-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Entradas: </span>{entradas}</td>
-                          <td className="px-4 py-3 text-right font-mono text-amber-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Salidas: </span>{salidas}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Stock: </span>{stock}</td>
-                          <td className="px-4 py-3 text-center block sm:table-cell">
-                            {bajo ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
-                                <AlertCircle size={10} /> Bajo
-                              </span>
-                            ) : stock > 0 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
-                                <CheckCircle2 size={10} /> OK
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">
-                                <AlertTriangle size={10} /> Agotado
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 block sm:table-cell">
-                            <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
-                              <button onClick={() => startEditProducto(p)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
-                              <button onClick={() => handleDeleteProducto(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                        {editando && (
-                          <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={8} className="px-6 py-4">
-                              <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div>
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo</label>
-                                  <p className="font-medium text-sm py-2">{p.codigo}</p>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Nombre</label>
-                                  <input type="text" value={editingProductoForm.nombre} onChange={(e) => setEditingProductoForm({...editingProductoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label>
-                                  <input type="text" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
-                                  <input type="text" list="clasificaciones-datalist" value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Stock Minimo</label>
-                                  <input type="number" value={editingProductoForm.stockMinimo} onChange={(e) => setEditingProductoForm({...editingProductoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div className="flex items-end gap-2 md:col-span-4">
-                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
-                                  <button type="button" onClick={() => setShowProductoEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
-                                </div>
-                              </form>
-                            </td>
-                          </tr>
-                        )}
-                        </Fragment>
-                      );
-                    })}
+                    {productosConStock.map(renderFilaProducto)}
+                    {productosAgotados.length > 0 && (
+                      <tr className="bg-secondary/80">
+                        <td colSpan={productosSeleccionados.size > 0 ? 9 : 8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Agotados ({productosAgotados.length})
+                        </td>
+                      </tr>
+                    )}
+                    {productosAgotados.map(renderFilaProducto)}
                   </tbody>
                 </table>
               </div>
@@ -1824,6 +2245,176 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           )}
         </div>
       )}
+
+      {vista === 'solicitudes' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">Solicitudes de Suministro</h2>
+            <button onClick={startNewSolicitud} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors text-sm">
+              <Plus size={18} /> Nueva Solicitud
+            </button>
+          </div>
+
+          {showSolicitudForm && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">{editingSolicitud ? `Editar Solicitud Nº ${editingSolicitud.numero}` : 'Nueva Solicitud de Suministro'}</h3>
+                <button onClick={closeSolicitudForm} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleSubmitSolicitud} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-medium mb-1">Fecha *</label><input type="date" value={solicitudForm.fecha} onChange={(e) => setSolicitudForm({...solicitudForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
+                  <div><label className="block text-sm font-medium mb-1">Fecha límite de entrega</label><input type="date" value={solicitudForm.fechaLimiteEntrega} onChange={(e) => setSolicitudForm({...solicitudForm, fechaLimiteEntrega: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Supervisor</label><input type="text" value={solicitudForm.supervisor} onChange={(e) => setSolicitudForm({...solicitudForm, supervisor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Actividad</label><input type="text" value={solicitudForm.actividad} onChange={(e) => setSolicitudForm({...solicitudForm, actividad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Ubicación</label><input type="text" value={solicitudForm.ubicacion} onChange={(e) => setSolicitudForm({...solicitudForm, ubicacion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Proveedor general</label><input type="text" value={solicitudForm.proveedor} onChange={(e) => setSolicitudForm({...solicitudForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Observaciones</label><textarea value={solicitudForm.observaciones} onChange={(e) => setSolicitudForm({...solicitudForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" rows={2} /></div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Ítems solicitados</h4>
+                    <button type="button" onClick={handleAddItem} className="text-sm text-primary hover:underline flex items-center gap-1"><Plus size={14} /> Agregar ítem</button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Ítem</th>
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Producto *</th>
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Unidad</th>
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Cantidad *</th>
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Cuenta</th>
+                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Proveedor</th>
+                          <th className="text-center py-2 px-2 text-xs font-medium text-muted-foreground"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {solicitudForm.items.map((it, idx) => (
+                          <tr key={idx} className="border-b border-border/50">
+                            <td className="py-2 px-2 text-muted-foreground">{it.item}</td>
+                            <td className="py-2 px-2"><input type="text" list="productos-epp-datalist" value={it.producto} onChange={(e) => handleItemChange(idx, 'producto', e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm" required /></td>
+                            <td className="py-2 px-2"><input type="text" value={it.unidad} onChange={(e) => handleItemChange(idx, 'unidad', e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm" /></td>
+                            <td className="py-2 px-2"><input type="number" min="0" step="any" value={it.cantidad} onChange={(e) => handleItemChange(idx, 'cantidad', e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm" required /></td>
+                            <td className="py-2 px-2"><input type="text" value={it.cuenta} onChange={(e) => handleItemChange(idx, 'cuenta', e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm" /></td>
+                            <td className="py-2 px-2"><input type="text" value={it.proveedor} onChange={(e) => handleItemChange(idx, 'proveedor', e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm" /></td>
+                            <td className="py-2 px-2 text-center"><button type="button" onClick={() => handleRemoveItem(idx)} className="text-muted-foreground hover:text-red-400" title="Eliminar ítem"><Trash2 size={16} /></button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"><Save size={18} /> {editingSolicitud ? 'Guardar Cambios' : 'Crear Solicitud'}</button>
+                  <button type="button" onClick={closeSolicitudForm} className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {solicitudesFiltradas.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <FileSpreadsheet size={48} className="mx-auto mb-4 opacity-50" />
+              <p>No hay solicitudes de suministro</p>
+              <p className="text-sm mt-1">Crea la primera solicitando materiales o EPP</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm block sm:table">
+                  <thead className="hidden sm:table-header-group">
+                    <tr className="bg-secondary/50 border-b border-border">
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nº</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supervisor</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Actividad</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Ubicación</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha límite</th>
+                      <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Estado</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="block sm:table-row-group">
+                    {solicitudesFiltradas.map((s) => (
+                      <Fragment key={s.idRegistro}>
+                        <tr onClick={() => setSolicitudExpandida(solicitudExpandida?.idRegistro === s.idRegistro ? null : s)} className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                          <td className="px-4 py-3 font-mono text-xs font-medium block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Nº: </span>{s.numero}</td>
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha: </span>{formatearFecha(s.fecha)}</td>
+                          <td className="px-4 py-3 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Supervisor: </span>{s.supervisor || '-'}</td>
+                          <td className="px-4 py-3 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Actividad: </span>{s.actividad || '-'}</td>
+                          <td className="px-4 py-3 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ubicación: </span>{s.ubicacion || '-'}</td>
+                          <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha límite: </span>{formatearFecha(s.fechaLimiteEntrega)}</td>
+                          <td className="px-4 py-3 text-center block sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleToggleEstadoSolicitud(s)} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${badgeEstadoSolicitud(s.estado)}`}>{s.estado || 'Pendiente'}</button>
+                          </td>
+                          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                              <button onClick={() => descargarPDFSolicitud(s)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Descargar PDF"><FileText size={16} /></button>
+                              <button onClick={() => startEditSolicitud(s)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
+                              <button onClick={() => handleDeleteSolicitud(s)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                        {solicitudExpandida?.idRegistro === s.idRegistro && (
+                          <tr className="bg-secondary/10 border-b border-border/50">
+                            <td colSpan={8} className="px-4 py-4 sm:px-6 sm:py-6">
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Observaciones</h4>
+                                  <p className="text-sm whitespace-pre-wrap">{s.observaciones || '-'}</p>
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ítems solicitados</h4>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-sm border border-border/50 rounded-lg">
+                                      <thead className="bg-secondary/50">
+                                        <tr>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Ítem</th>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Producto</th>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Unidad</th>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Cantidad</th>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Cuenta</th>
+                                          <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Proveedor</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {s.items.length === 0 && (
+                                          <tr><td colSpan={6} className="px-3 py-2 text-muted-foreground text-center">Sin ítems</td></tr>
+                                        )}
+                                        {s.items.map((it, i) => (
+                                          <tr key={i} className="border-t border-border/50">
+                                            <td className="px-3 py-2 text-muted-foreground">{it.item || i + 1}</td>
+                                            <td className="px-3 py-2">{it.producto || '-'}</td>
+                                            <td className="px-3 py-2">{it.unidad || '-'}</td>
+                                            <td className="px-3 py-2">{it.cantidad || '-'}</td>
+                                            <td className="px-3 py-2">{it.cuenta || '-'}</td>
+                                            <td className="px-3 py-2">{it.proveedor || '-'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <datalist id="productos-epp-datalist">
+        {productos.map(p => <option key={p.codigo} value={p.nombre} />)}
+      </datalist>
 
       {/* MODALES */}
 

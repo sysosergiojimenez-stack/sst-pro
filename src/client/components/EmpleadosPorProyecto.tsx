@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown } from 'lucide-react';
 
 interface Proyecto {
   rowIndex: number;
@@ -16,19 +16,336 @@ interface Proyecto {
 interface Empleado {
   rowIndex: number;
   nroDocumento: string;
+  fechaHora?: string;
+  userEmail?: string;
+  obra: string;
+  tipoDocumento?: string;
   nombres: string;
   apellidos: string;
-  cargo: string;
-  obra: string;
-  empresa: string;
+  ciudadNacimiento?: string;
+  fechaNacimiento?: string;
+  sexo?: string;
+  estadoCivil?: string;
+  nombrePadre?: string;
+  ocupacionPadre?: string;
+  nombreMadre?: string;
+  ocupacionMadre?: string;
+  nombreConyuge?: string;
+  ocupacionConyuge?: string;
+  fechaNacConyuge?: string;
+  direccion?: string;
+  nro?: string;
+  dpto?: string;
+  piso?: string;
+  barrio?: string;
+  ciudad?: string;
+  departamentoTerritorial?: string;
+  puntoReferencia?: string;
   telefonoCelular: string;
+  telefonoEmergencia?: string;
   email: string;
+  gradoInstruccion?: string;
+  instruccionConcluida?: string;
+  carreraUniversitaria?: string;
+  tipoSangre?: string;
+  hijo1?: string;
+  fechaNacHijo1?: string;
+  hijo2?: string;
+  fechaNacHijo2?: string;
+  hijo3?: string;
+  fechaNacHijo3?: string;
+  hijo4?: string;
+  fechaNacHijo4?: string;
+  hijo5?: string;
+  fechaNacHijo5?: string;
+  empresa: string;
+  cargo: string;
+  unidad?: string;
+  honorarios?: string;
+  moneda?: string;
+  regimen?: string;
+  actividades?: string;
+  fechaInicioContrato?: string;
+  fechaTerminoContrato?: string;
+  calce?: string;
   scanDocumentos?: string;
   estado?: string;
 }
 
 interface EmpleadosPorProyectoProps {
   proyecto: Proyecto;
+}
+
+type EmpleadoFormData = {
+  nroDocumento: string;
+  tipoDocumento: string;
+  nombres: string;
+  apellidos: string;
+  ciudadNacimiento: string;
+  fechaNacimiento: string;
+  sexo: string;
+  estadoCivil: string;
+  nombrePadre: string;
+  ocupacionPadre: string;
+  nombreMadre: string;
+  ocupacionMadre: string;
+  nombreConyuge: string;
+  ocupacionConyuge: string;
+  fechaNacConyuge: string;
+  direccion: string;
+  nro: string;
+  dpto: string;
+  piso: string;
+  barrio: string;
+  ciudad: string;
+  departamentoTerritorial: string;
+  puntoReferencia: string;
+  telefonoCelular: string;
+  telefonoEmergencia: string;
+  email: string;
+  gradoInstruccion: string;
+  instruccionConcluida: string;
+  carreraUniversitaria: string;
+  tipoSangre: string;
+  hijo1: string;
+  fechaNacHijo1: string;
+  hijo2: string;
+  fechaNacHijo2: string;
+  hijo3: string;
+  fechaNacHijo3: string;
+  hijo4: string;
+  fechaNacHijo4: string;
+  hijo5: string;
+  fechaNacHijo5: string;
+  empresa: string;
+  cargo: string;
+  unidad: string;
+  honorarios: string;
+  moneda: string;
+  regimen: string;
+  actividades: string;
+  fechaInicioContrato: string;
+  fechaTerminoContrato: string;
+  calce: string;
+};
+
+const emptyForm: EmpleadoFormData = {
+  nroDocumento: '',
+  tipoDocumento: '',
+  nombres: '',
+  apellidos: '',
+  ciudadNacimiento: '',
+  fechaNacimiento: '',
+  sexo: '',
+  estadoCivil: '',
+  nombrePadre: '',
+  ocupacionPadre: '',
+  nombreMadre: '',
+  ocupacionMadre: '',
+  nombreConyuge: '',
+  ocupacionConyuge: '',
+  fechaNacConyuge: '',
+  direccion: '',
+  nro: '',
+  dpto: '',
+  piso: '',
+  barrio: '',
+  ciudad: '',
+  departamentoTerritorial: '',
+  puntoReferencia: '',
+  telefonoCelular: '',
+  telefonoEmergencia: '',
+  email: '',
+  gradoInstruccion: '',
+  instruccionConcluida: '',
+  carreraUniversitaria: '',
+  tipoSangre: '',
+  hijo1: '',
+  fechaNacHijo1: '',
+  hijo2: '',
+  fechaNacHijo2: '',
+  hijo3: '',
+  fechaNacHijo3: '',
+  hijo4: '',
+  fechaNacHijo4: '',
+  hijo5: '',
+  fechaNacHijo5: '',
+  empresa: '',
+  cargo: '',
+  unidad: '',
+  honorarios: '',
+  moneda: '',
+  regimen: '',
+  actividades: '',
+  fechaInicioContrato: '',
+  fechaTerminoContrato: '',
+  calce: '',
+};
+
+function empleadoToForm(emp: Empleado): EmpleadoFormData {
+  return {
+    nroDocumento: emp.nroDocumento || '',
+    tipoDocumento: emp.tipoDocumento || '',
+    nombres: emp.nombres || '',
+    apellidos: emp.apellidos || '',
+    ciudadNacimiento: emp.ciudadNacimiento || '',
+    fechaNacimiento: emp.fechaNacimiento || '',
+    sexo: emp.sexo || '',
+    estadoCivil: emp.estadoCivil || '',
+    nombrePadre: emp.nombrePadre || '',
+    ocupacionPadre: emp.ocupacionPadre || '',
+    nombreMadre: emp.nombreMadre || '',
+    ocupacionMadre: emp.ocupacionMadre || '',
+    nombreConyuge: emp.nombreConyuge || '',
+    ocupacionConyuge: emp.ocupacionConyuge || '',
+    fechaNacConyuge: emp.fechaNacConyuge || '',
+    direccion: emp.direccion || '',
+    nro: emp.nro || '',
+    dpto: emp.dpto || '',
+    piso: emp.piso || '',
+    barrio: emp.barrio || '',
+    ciudad: emp.ciudad || '',
+    departamentoTerritorial: emp.departamentoTerritorial || '',
+    puntoReferencia: emp.puntoReferencia || '',
+    telefonoCelular: emp.telefonoCelular || '',
+    telefonoEmergencia: emp.telefonoEmergencia || '',
+    email: emp.email || '',
+    gradoInstruccion: emp.gradoInstruccion || '',
+    instruccionConcluida: emp.instruccionConcluida || '',
+    carreraUniversitaria: emp.carreraUniversitaria || '',
+    tipoSangre: emp.tipoSangre || '',
+    hijo1: emp.hijo1 || '',
+    fechaNacHijo1: emp.fechaNacHijo1 || '',
+    hijo2: emp.hijo2 || '',
+    fechaNacHijo2: emp.fechaNacHijo2 || '',
+    hijo3: emp.hijo3 || '',
+    fechaNacHijo3: emp.fechaNacHijo3 || '',
+    hijo4: emp.hijo4 || '',
+    fechaNacHijo4: emp.fechaNacHijo4 || '',
+    hijo5: emp.hijo5 || '',
+    fechaNacHijo5: emp.fechaNacHijo5 || '',
+    empresa: emp.empresa || '',
+    cargo: emp.cargo || '',
+    unidad: emp.unidad || '',
+    honorarios: emp.honorarios || '',
+    moneda: emp.moneda || '',
+    regimen: emp.regimen || '',
+    actividades: emp.actividades || '',
+    fechaInicioContrato: emp.fechaInicioContrato || '',
+    fechaTerminoContrato: emp.fechaTerminoContrato || '',
+    calce: emp.calce || '',
+  };
+}
+
+interface FormularioEmpleadoProps {
+  form: EmpleadoFormData;
+  setForm: React.Dispatch<React.SetStateAction<EmpleadoFormData>>;
+  handleSubmit: (e: React.FormEvent) => void;
+  inline?: boolean;
+  disabledNroDocumento?: boolean;
+  onCancel?: () => void;
+  isEditing?: boolean;
+}
+
+function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disabledNroDocumento = false, onCancel, isEditing = false }: FormularioEmpleadoProps) {
+  return (
+    <form onSubmit={handleSubmit} className={`space-y-6 ${inline ? '' : 'max-h-[75vh] overflow-y-auto pr-1'}`}>
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Datos principales</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="block text-sm font-medium mb-1">Nro. Documento *</label><input type="text" value={form.nroDocumento} onChange={(e) => setForm({...form, nroDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required disabled={disabledNroDocumento} /></div>
+          <div><label className="block text-sm font-medium mb-1">Tipo Documento</label><input type="text" value={form.tipoDocumento} onChange={(e) => setForm({...form, tipoDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Nombres *</label><input type="text" value={form.nombres} onChange={(e) => setForm({...form, nombres: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
+          <div><label className="block text-sm font-medium mb-1">Apellidos *</label><input type="text" value={form.apellidos} onChange={(e) => setForm({...form, apellidos: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
+          <div><label className="block text-sm font-medium mb-1">Fecha Nacimiento</label><input type="date" value={form.fechaNacimiento} onChange={(e) => setForm({...form, fechaNacimiento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ciudad Nacimiento</label><input type="text" value={form.ciudadNacimiento} onChange={(e) => setForm({...form, ciudadNacimiento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Sexo</label><select value={form.sexo} onChange={(e) => setForm({...form, sexo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm"><option value=""></option><option value="M">M</option><option value="F">F</option></select></div>
+          <div><label className="block text-sm font-medium mb-1">Estado Civil</label><input type="text" value={form.estadoCivil} onChange={(e) => setForm({...form, estadoCivil: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Tipo Sangre</label><input type="text" value={form.tipoSangre} onChange={(e) => setForm({...form, tipoSangre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Familia</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="block text-sm font-medium mb-1">Nombre Padre</label><input type="text" value={form.nombrePadre} onChange={(e) => setForm({...form, nombrePadre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ocupación Padre</label><input type="text" value={form.ocupacionPadre} onChange={(e) => setForm({...form, ocupacionPadre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Nombre Madre</label><input type="text" value={form.nombreMadre} onChange={(e) => setForm({...form, nombreMadre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ocupación Madre</label><input type="text" value={form.ocupacionMadre} onChange={(e) => setForm({...form, ocupacionMadre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Nombre Cónyuge</label><input type="text" value={form.nombreConyuge} onChange={(e) => setForm({...form, nombreConyuge: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ocupación Cónyuge</label><input type="text" value={form.ocupacionConyuge} onChange={(e) => setForm({...form, ocupacionConyuge: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Fecha Nac. Cónyuge</label><input type="date" value={form.fechaNacConyuge} onChange={(e) => setForm({...form, fechaNacConyuge: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Domicilio</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Dirección</label><input type="text" value={form.direccion} onChange={(e) => setForm({...form, direccion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Nro</label><input type="text" value={form.nro} onChange={(e) => setForm({...form, nro: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Dpto</label><input type="text" value={form.dpto} onChange={(e) => setForm({...form, dpto: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Piso</label><input type="text" value={form.piso} onChange={(e) => setForm({...form, piso: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Barrio</label><input type="text" value={form.barrio} onChange={(e) => setForm({...form, barrio: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ciudad</label><input type="text" value={form.ciudad} onChange={(e) => setForm({...form, ciudad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Departamento Territorial</label><input type="text" value={form.departamentoTerritorial} onChange={(e) => setForm({...form, departamentoTerritorial: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Punto Referencia</label><input type="text" value={form.puntoReferencia} onChange={(e) => setForm({...form, puntoReferencia: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contacto</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="block text-sm font-medium mb-1">Teléfono Celular</label><input type="text" value={form.telefonoCelular} onChange={(e) => setForm({...form, telefonoCelular: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Teléfono Emergencia</label><input type="text" value={form.telefonoEmergencia} onChange={(e) => setForm({...form, telefonoEmergencia: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Formación</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="block text-sm font-medium mb-1">Grado Instrucción</label><input type="text" value={form.gradoInstruccion} onChange={(e) => setForm({...form, gradoInstruccion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Instrucción Concluida</label><input type="text" value={form.instruccionConcluida} onChange={(e) => setForm({...form, instruccionConcluida: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Carrera Universitaria</label><input type="text" value={form.carreraUniversitaria} onChange={(e) => setForm({...form, carreraUniversitaria: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Hijos</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1,2,3,4,5].map((n) => (
+            <div key={n} className="grid grid-cols-2 gap-2 sm:col-span-2">
+              <div><label className="block text-sm font-medium mb-1">Hijo {n}</label><input type="text" value={(form as any)[`hijo${n}`]} onChange={(e) => setForm({...form, [`hijo${n}`]: e.target.value} as any)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+              <div><label className="block text-sm font-medium mb-1">Fecha Nac. Hijo {n}</label><input type="date" value={(form as any)[`fechaNacHijo${n}`]} onChange={(e) => setForm({...form, [`fechaNacHijo${n}`]: e.target.value} as any)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Laboral</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="block text-sm font-medium mb-1">Empresa</label><input type="text" value={form.empresa} onChange={(e) => setForm({...form, empresa: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Cargo</label><input type="text" value={form.cargo} onChange={(e) => setForm({...form, cargo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Unidad</label><input type="text" value={form.unidad} onChange={(e) => setForm({...form, unidad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Honorarios</label><input type="text" value={form.honorarios} onChange={(e) => setForm({...form, honorarios: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Moneda</label><input type="text" value={form.moneda} onChange={(e) => setForm({...form, moneda: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Régimen</label><input type="text" value={form.regimen} onChange={(e) => setForm({...form, regimen: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Actividades</label><textarea value={form.actividades} onChange={(e) => setForm({...form, actividades: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" rows={2} /></div>
+          <div><label className="block text-sm font-medium mb-1">Fecha Inicio Contrato</label><input type="date" value={form.fechaInicioContrato} onChange={(e) => setForm({...form, fechaInicioContrato: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Fecha Término Contrato</label><input type="date" value={form.fechaTerminoContrato} onChange={(e) => setForm({...form, fechaTerminoContrato: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Calce</label><input type="text" value={form.calce} onChange={(e) => setForm({...form, calce: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"><Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Crear Empleado'}</button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80">Cancelar</button>
+        )}
+      </div>
+    </form>
+  );
 }
 
 export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoProps) {
@@ -41,12 +358,16 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [showForm, setShowForm] = useState(false);
   const [showGeminiForm, setShowGeminiForm] = useState(false);
   const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
-  const [form, setForm] = useState({ nroDocumento: '', nombres: '', apellidos: '', cargo: '', empresa: '', telefonoCelular: '', email: '' });
+  const [filaExpandida, setFilaExpandida] = useState<Empleado | null>(null);
+  const [form, setForm] = useState<EmpleadoFormData>(emptyForm);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [showPdfFilters, setShowPdfFilters] = useState(false);
   const [pdfFilters, setPdfFilters] = useState({ empresa: '', estado: '', cargo: '' });
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showBiometricoMenu, setShowBiometricoMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchData(); }, [proyecto.denominacion]);
 
@@ -55,7 +376,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     
     // Filter by empresa
     if (empresaFiltro) {
-      filtrados = filtrados.filter(e => e.empresa === empresaFiltro);
+      filtrados = filtrados.filter(e => (e.empresa || '').trim().toLowerCase() === empresaFiltro.trim().toLowerCase());
     }
     
     // Filter by search term
@@ -73,7 +394,23 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     setEmpleadosFiltrados(filtrados);
   }, [empresaFiltro, searchTerm, empleados]);
 
-  const [marcaciones, setMarcaciones] = useState<Array<{ nroDocumento: string; fecha: string }>>([]);
+  // Cerrar menús desplegables al hacer click fuera
+  useEffect(() => {
+    if (!showAddMenu && !showBiometricoMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showAddMenu && !target.closest('[data-add-menu]')) {
+        setShowAddMenu(false);
+      }
+      if (showBiometricoMenu && !target.closest('[data-biometrico-menu]')) {
+        setShowBiometricoMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAddMenu, showBiometricoMenu]);
+
+  const [marcaciones, setMarcaciones] = useState<Array<{ nroDocumento: string; fecha: string; horaEntrada: string; horaSalida: string }>>([]);
   const [importandoMarcaciones, setImportandoMarcaciones] = useState(false);
 
   const fetchData = async () => {
@@ -289,21 +626,25 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
 
   const ultimaMarcacion = (nroDocumento: string): string => {
     const delEmpleado = marcaciones.filter(m => m.nroDocumento === nroDocumento);
-    if (delEmpleado.length === 0) return '';
-    return delEmpleado.reduce((max, m) => (m.fecha > max ? m.fecha : max), delEmpleado[0].fecha);
+    if (delEmpleado.length === 0) return '-';
+    const ultima = delEmpleado.reduce((max, m) => (m.fecha > max.fecha ? m : max), delEmpleado[0]);
+    const hora = ultima.horaSalida || ultima.horaEntrada || '';
+    const fechaFmt = ultima.fecha ? new Date(ultima.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '-';
+    return hora ? `${fechaFmt} ${hora}` : fechaFmt;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingEmpleado ? `/api/empleados/${editingEmpleado.rowIndex}` : '/api/empleados';
-      const method = editingEmpleado ? 'PUT' : 'POST';
-      const body = editingEmpleado 
-        ? { ...form, obra: proyecto.denominacion, rowIndex: editingEmpleado.rowIndex }
+      const empleadoEditando = editingEmpleado || filaExpandida;
+      const url = empleadoEditando ? `/api/empleados/${empleadoEditando.rowIndex}` : '/api/empleados';
+      const method = empleadoEditando ? 'PUT' : 'POST';
+      const body = empleadoEditando 
+        ? { ...form, obra: proyecto.denominacion, rowIndex: empleadoEditando.rowIndex }
         : { ...form, obra: proyecto.denominacion };
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setShowForm(false); setEditingEmpleado(null); setForm({ nroDocumento: '', nombres: '', apellidos: '', cargo: '', empresa: '', telefonoCelular: '', email: '' });
+      setShowForm(false); setEditingEmpleado(null); setFilaExpandida(null); setForm(emptyForm);
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
@@ -318,8 +659,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   };
 
   const handleToggleEstado = async (empleado: Empleado) => {
-    const estadoActual = empleado.estado || 'Activo';
-    const nuevoEstado = estadoActual === 'Inactivo' ? 'Activo' : 'Inactivo';
+    const estadoActual = (empleado.estado || 'Activo').trim().toLowerCase();
+    const nuevoEstado = estadoActual === 'inactivo' ? 'Activo' : 'Inactivo';
     if (!confirm(`Marcar a "${empleado.nombres} ${empleado.apellidos}" como ${nuevoEstado}?`)) return;
     try {
       const response = await fetch(`/api/empleados/${empleado.rowIndex}`, {
@@ -329,12 +670,6 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
-  };
-
-  const startEdit = (empleado: Empleado) => {
-    setEditingEmpleado(empleado);
-    setForm({ nroDocumento: empleado.nroDocumento, nombres: empleado.nombres, apellidos: empleado.apellidos, cargo: empleado.cargo, empresa: empleado.empresa, telefonoCelular: empleado.telefonoCelular, email: empleado.email });
-    setShowForm(true);
   };
 
   const handleGeminiSubmit = async (e: React.FormEvent) => {
@@ -366,11 +701,11 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     a.nombres.localeCompare(b.nombres, 'es') || a.apellidos.localeCompare(b.apellidos, 'es');
 
   const activosOrdenados = [...empleadosFiltrados]
-    .filter(e => (e.estado || 'Activo') !== 'Inactivo')
+    .filter(e => (e.estado || 'Activo').trim().toLowerCase() !== 'inactivo')
     .sort(ordenarAlfabetico);
 
   const inactivosOrdenados = [...empleadosFiltrados]
-    .filter(e => (e.estado || 'Activo') === 'Inactivo')
+    .filter(e => (e.estado || 'Activo').trim().toLowerCase() === 'inactivo')
     .sort(ordenarAlfabetico);
 
   const descargarPDF = () => {
@@ -389,9 +724,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     };
 
     let filtrados = [...empleados];
-    if (pdfFilters.empresa) filtrados = filtrados.filter(e => e.empresa === pdfFilters.empresa);
-    if (pdfFilters.estado) filtrados = filtrados.filter(e => (e.estado || 'Activo') === pdfFilters.estado);
-    if (pdfFilters.cargo.trim()) filtrados = filtrados.filter(e => e.cargo.toLowerCase().includes(pdfFilters.cargo.toLowerCase()));
+    if (pdfFilters.empresa) filtrados = filtrados.filter(e => (e.empresa || '').trim().toLowerCase() === pdfFilters.empresa.trim().toLowerCase());
+    if (pdfFilters.estado) filtrados = filtrados.filter(e => (e.estado || 'Activo').trim().toLowerCase() === pdfFilters.estado.trim().toLowerCase());
+    if (pdfFilters.cargo.trim()) filtrados = filtrados.filter(e => (e.cargo || '').toLowerCase().includes(pdfFilters.cargo.toLowerCase()));
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
@@ -426,8 +761,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
 
     const contratistas = Object.keys(agrupados).sort((a, b) => a.localeCompare(b, 'es'));
 
-    const headers = ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Teléfono', 'Email', 'Estado'];
-    const colWidths = [30, 35, 35, 40, 30, 60, 25];
+    const headers = ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Unidad', 'Fecha Inicio Contrato', 'Última Marcación'];
+    const colWidths = [30, 35, 35, 40, 30, 35, 40];
     const startX = marginLeft;
 
     for (const contratista of contratistas) {
@@ -461,13 +796,13 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           emp.nombres || '-',
           emp.apellidos || '-',
           emp.cargo || '-',
-          emp.telefonoCelular || '-',
-          emp.email || '-',
-          emp.estado || 'Activo',
+          emp.unidad || '-',
+          emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-',
+          ultimaMarcacion(emp.nroDocumento),
         ];
         x = startX + 2;
         row.forEach((cell, i) => {
-          const maxLen = i === 5 ? 35 : 18;
+          const maxLen = i === 3 ? 22 : 18;
           const text = String(cell).length > maxLen ? String(cell).slice(0, maxLen) + '...' : String(cell);
           doc.text(text, x, y);
           x += colWidths[i];
@@ -497,26 +832,64 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           </h2>
           <p className="text-muted-foreground text-sm mt-1">{empleados.length} empleados registrados</p>
         </div>
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
-          <button onClick={() => { setShowForm(true); setEditingEmpleado(null); setForm({ nroDocumento: '', nombres: '', apellidos: '', cargo: '', empresa: '', telefonoCelular: '', email: '' }); }} className="bg-primary text-primary-foreground px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors text-sm">
-            <Plus size={18} /> Agregar Manual
-          </button>
-          <button onClick={() => { setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
-            <Brain size={18} /> Agregar con IA
-          </button>
-          <label className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors cursor-pointer text-sm">
-            {importandoMarcaciones ? (
-              <><Fingerprint size={18} className="animate-pulse" /> Importando...</>
-            ) : (
-              <><Upload size={18} /> Importar Marcaciones</>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <div className="relative" data-add-menu>
+            <button
+              onClick={() => setShowAddMenu(prev => !prev)}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+              title="Agregar Empleado"
+            >
+              <Plus size={18} /> <span className="hidden sm:inline">Agregar Empleado</span>
+            </button>
+            {showAddMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-xl z-20 overflow-hidden animate-fade-in">
+                <button
+                  onClick={() => { setShowAddMenu(false); setShowForm(true); setEditingEmpleado(null); setFilaExpandida(null); setForm(emptyForm); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-secondary flex items-center gap-2 transition-colors"
+                >
+                  <Pencil size={16} /> Manual
+                </button>
+                <button
+                  onClick={() => { setShowAddMenu(false); setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-secondary flex items-center gap-2 transition-colors"
+                >
+                  <Brain size={16} /> Con IA
+                </button>
+              </div>
             )}
-            <input type="file" accept=".xls,.xlsx" onChange={handleImportarMarcaciones} disabled={importandoMarcaciones} className="hidden" />
-          </label>
-          <button onClick={() => setShowControlHoras(!showControlHoras)} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
-            <Fingerprint size={18} /> Control de Horas
-          </button>
-          <button onClick={() => setShowPdfFilters(true)} className="bg-secondary border border-border px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
-            <FileDown size={18} /> Descargar PDF
+          </div>
+          <div className="relative" data-biometrico-menu>
+            <button
+              onClick={() => setShowBiometricoMenu(prev => !prev)}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+              title="Reloj Biométrico"
+            >
+              <Fingerprint size={18} /> <span className="hidden sm:inline">Reloj Biométrico</span> <ChevronDown size={14} className="hidden sm:inline" />
+            </button>
+            {showBiometricoMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-20 overflow-hidden animate-fade-in">
+                <button
+                  onClick={() => { setShowBiometricoMenu(false); fileInputRef.current?.click(); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-secondary flex items-center gap-2 transition-colors"
+                >
+                  <Upload size={16} /> Importar Marcaciones
+                </button>
+                <button
+                  onClick={() => { setShowBiometricoMenu(false); setShowControlHoras(prev => !prev); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-secondary flex items-center gap-2 transition-colors"
+                >
+                  <Fingerprint size={16} /> Control de Horas
+                </button>
+              </div>
+            )}
+          </div>
+          <input type="file" ref={fileInputRef} accept=".xls,.xlsx" onChange={handleImportarMarcaciones} disabled={importandoMarcaciones} className="hidden" />
+          <button
+            onClick={() => setShowPdfFilters(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+            title="Descargar PDF"
+          >
+            <FileDown size={18} /> <span className="hidden sm:inline">Descargar PDF</span>
           </button>
         </div>
       </div>
@@ -616,25 +989,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             <h3 className="text-lg font-semibold">{editingEmpleado ? 'Editar Empleado' : 'Nuevo Empleado'}</h3>
             <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium mb-1">Nro. Documento *</label><input type="text" value={form.nroDocumento} onChange={(e) => setForm({...form, nroDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required disabled={!!editingEmpleado} /></div>
-              <div><label className="block text-sm font-medium mb-1">Nombres *</label><input type="text" value={form.nombres} onChange={(e) => setForm({...form, nombres: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium mb-1">Apellidos *</label><input type="text" value={form.apellidos} onChange={(e) => setForm({...form, apellidos: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
-              <div><label className="block text-sm font-medium mb-1">Cargo</label><input type="text" value={form.cargo} onChange={(e) => setForm({...form, cargo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium mb-1">Empresa</label><input type="text" value={form.empresa} onChange={(e) => setForm({...form, empresa: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-              <div><label className="block text-sm font-medium mb-1">Telefono</label><input type="text" value={form.telefonoCelular} onChange={(e) => setForm({...form, telefonoCelular: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-            </div>
-            <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-            <div className="flex gap-2">
-              <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"><Save size={18} /> {editingEmpleado ? 'Guardar Cambios' : 'Crear Empleado'}</button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80">Cancelar</button>
-            </div>
-          </form>
+          <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} isEditing={!!editingEmpleado} disabledNroDocumento={!!editingEmpleado} onCancel={() => setShowForm(false)} />
         </div>
       )}
 
@@ -765,9 +1120,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Apellidos</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Cargo</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Empresa</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Contacto</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ult. Marcacion</th>
-                <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Estado</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Unidad</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Fecha Inicio Contrato</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Última Marcación</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
@@ -779,26 +1134,47 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <tr><td colSpan={9} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
               )}
               {activosOrdenados.map((emp) => (
-                <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0">
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
-                  <td className="py-3 px-4 text-sm block sm:table-cell">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ult. Marcacion: </span>{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
-                  <td className="py-3 px-4 text-center block sm:table-cell">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">Activo</span>
-                  </td>
-                  <td className="py-3 px-4 block sm:table-cell">
-                    <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
-                      <button onClick={() => startEdit(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
-                      <button onClick={() => handleToggleEstado(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
-                      <button onClick={() => handleDelete(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
-                      {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
-                    </div>
-                  </td>
-                </tr>
+                <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
+                  <tr
+                    onClick={() => {
+                      if (filaExpandida?.rowIndex === emp.rowIndex) {
+                        setFilaExpandida(null);
+                      } else {
+                        setShowForm(false);
+                        setEditingEmpleado(null);
+                        setFilaExpandida(emp);
+                        setForm(empleadoToForm(emp));
+                      }
+                    }}
+                    className="border-b border-border hover:bg-secondary/50 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0 cursor-pointer"
+                  >
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">{emp.unidad || '-'}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>{emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell">
+                      <span className="text-muted-foreground/60 sm:hidden">Última Marcación: </span>{ultimaMarcacion(emp.nroDocumento)}
+                    </td>
+                    <td className="py-3 px-4 block sm:table-cell">
+                      <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                        <button onClick={(e) => { e.stopPropagation(); handleToggleEstado(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                        {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
+                      </div>
+                    </td>
+                  </tr>
+                  {filaExpandida?.rowIndex === emp.rowIndex && (
+                    <tr className="border-b border-border bg-card">
+                      <td colSpan={9} className="p-4 sm:p-6">
+                        <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
+                        <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} inline isEditing disabledNroDocumento onCancel={() => setFilaExpandida(null)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
               {inactivosOrdenados.length > 0 && (
                 <>
@@ -806,26 +1182,47 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                     <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
                   </tr>
                   {inactivosOrdenados.map((emp) => (
-                    <tr key={`${emp.rowIndex}-${emp.nroDocumento}`} className="border-b border-border hover:bg-secondary/50 opacity-60 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0">
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
-                      <td className="py-3 px-4 text-sm block sm:table-cell">{emp.telefonoCelular && <div>{emp.telefonoCelular}</div>}{emp.email && <div className="text-xs text-muted-foreground">{emp.email}</div>}</td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ult. Marcacion: </span>{ultimaMarcacion(emp.nroDocumento) ? new Date(ultimaMarcacion(emp.nroDocumento) + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
-                      <td className="py-3 px-4 text-center block sm:table-cell">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs">Inactivo</span>
-                      </td>
-                      <td className="py-3 px-4 block sm:table-cell">
-                        <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
-                          <button onClick={() => startEdit(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Pencil size={16} /></button>
-                          <button onClick={() => handleToggleEstado(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
-                          <button onClick={() => handleDelete(emp)} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
-                          {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
-                        </div>
-                      </td>
-                    </tr>
+                    <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
+                      <tr
+                        onClick={() => {
+                          if (filaExpandida?.rowIndex === emp.rowIndex) {
+                            setFilaExpandida(null);
+                          } else {
+                            setShowForm(false);
+                            setEditingEmpleado(null);
+                            setFilaExpandida(emp);
+                            setForm(empleadoToForm(emp));
+                          }
+                        }}
+                        className="border-b border-border hover:bg-secondary/50 opacity-60 block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border-x border-t sm:border-x-0 sm:border-t-0 border-border p-2 sm:p-0 cursor-pointer"
+                      >
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nroDocumento}</td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.nombres}</td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.apellidos}</td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">{emp.unidad || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>{emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell">
+                          <span className="text-muted-foreground/60 sm:hidden">Última Marcación: </span>{ultimaMarcacion(emp.nroDocumento)}
+                        </td>
+                        <td className="py-3 px-4 block sm:table-cell">
+                          <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                            <button onClick={(e) => { e.stopPropagation(); handleToggleEstado(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
+                            {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
+                          </div>
+                        </td>
+                      </tr>
+                      {filaExpandida?.rowIndex === emp.rowIndex && (
+                        <tr className="border-b border-border bg-card">
+                          <td colSpan={9} className="p-4 sm:p-6">
+                            <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
+                            <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} inline isEditing disabledNroDocumento onCancel={() => setFilaExpandida(null)} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </>
               )}
