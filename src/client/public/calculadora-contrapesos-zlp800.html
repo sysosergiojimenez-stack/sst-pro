@@ -317,27 +317,81 @@
 
   .print-header{ display:none; }
 
+  @page{ margin:10mm; }
+
   @media print{
     .no-print{ display:none !important; }
-    body{ background:#fff; }
+    body{ background:#fff; font-size:12.5px; }
+
     .head{
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
+      padding:16px 18px 14px;
     }
     .print-header{
       display:block;
       max-width:1080px;
       margin:0 auto;
-      padding:10px 20px;
-      font-size:12px;
+      padding:8px 18px;
+      font-size:11.5px;
       color:var(--muted);
       border-bottom:1px solid var(--line);
     }
-    .panel, .status, .stat, .subcalc{
+
+    /* CSS Grid no pagina bien en Chrome al imprimir (bug conocido de Chromium):
+       se pasa a flexbox, que sí corta cada columna de forma prolija entre hojas. */
+    .wrap{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+      padding:16px 18px 30px;
+    }
+    .panel{
+      flex:1 1 0;
+      min-width:0;
+      margin-bottom:0;
+      padding:14px 16px 16px;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+    .panel h2{ margin-bottom:10px; padding-bottom:6px; }
+
+    .field{ margin-bottom:8px; }
+    .divider{ margin:10px 0; }
+    .subcalc{ margin:-2px 0 10px; padding:8px 10px 10px; }
+    .fixed-note{ margin-bottom:10px; padding:8px 10px; }
+    .readout{ margin-bottom:10px; }
+
+    .status, .stat, .subcalc{
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
       break-inside:avoid;
+      margin-bottom:8px;
+      padding:9px 11px;
     }
+
+    .balance-wrap{ margin-top:2px; }
+
+    .table-ref thead{ display:table-header-group; }
+    .table-ref tr{ break-inside:avoid; }
+    .table-ref th{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .table-ref tr.match td{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+    .foot-note{
+      break-inside:avoid;
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px solid var(--line);
+    }
+
+    /* Ocultar las flechas del input numerico: en impresion quedan pegadas
+       al ultimo digito y generan una corrupcion visual en el PDF. */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button{
+      -webkit-appearance:none;
+      margin:0;
+    }
+    input[type=number]{ -moz-appearance:textfield; }
   }
 </style>
 </head>
