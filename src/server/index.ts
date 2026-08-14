@@ -65,6 +65,10 @@ import {
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
 } from './lib/googleSheets_usuarios';
+import {
+  getAllAmonestaciones, getAmonestacionesByProyecto, getAmonestacionById,
+  appendAmonestacion, updateAmonestacion, deleteAmonestacion
+} from './lib/googleSheets_amonestaciones';
 import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
@@ -663,6 +667,104 @@ app.delete('/api/incidentes/:rowIndex', async (c) => {
     return c.json({ success: true, message: 'Incidente eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/incidentes:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - AMONESTACIONES / MEDIDAS DISCIPLINARIAS (SST-FOR-12)
+// ============================================
+
+// GET - Listar amonestaciones
+app.get('/api/amonestaciones', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getAmonestacionesByProyecto(proyecto) : await getAllAmonestaciones();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/amonestaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Obtener una amonestacion por ID
+app.get('/api/amonestaciones/:id', async (c) => {
+  try {
+    const idRegistro = c.req.param('id');
+    const amonestacion = await getAmonestacionById(idRegistro);
+    if (!amonestacion) {
+      return c.json({ error: 'Amonestacion no encontrada' }, 404);
+    }
+    return c.json({ success: true, data: amonestacion });
+  } catch (error: any) {
+    console.error('Error GET /api/amonestaciones/:id:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear amonestacion
+app.post('/api/amonestaciones', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `AMO-${Date.now()}`;
+
+    await appendAmonestacion({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      nombreApellido: body.nombreApellido || '',
+      cedula: body.cedula || '',
+      empresa: body.empresa || '',
+      cargo: body.cargo || '',
+      fechaFalta: body.fechaFalta || '',
+      fechaNotificacion: body.fechaNotificacion || '',
+      descripcionFalta: body.descripcionFalta || '',
+      disposicionReglamento: body.disposicionReglamento || '',
+      clasificacion: body.clasificacion || '',
+      antecedentes: body.antecedentes || '',
+      sancion: body.sancion || '',
+      diasSuspension: body.diasSuspension || '',
+      estado: body.estado || 'Pendiente de Firma',
+      empleadoDocumento: body.empleadoDocumento || '',
+    });
+
+    return c.json({ success: true, message: 'Amonestacion registrada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/amonestaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar amonestacion
+app.put('/api/amonestaciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+
+    await updateAmonestacion(rowIndex, body);
+    return c.json({ success: true, message: 'Amonestacion actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/amonestaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar amonestacion
+app.delete('/api/amonestaciones/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteAmonestacion(rowIndex);
+    return c.json({ success: true, message: 'Amonestacion eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/amonestaciones:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
