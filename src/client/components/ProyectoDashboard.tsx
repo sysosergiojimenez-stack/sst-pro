@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, Calculator, ShieldAlert } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
 import Bitacora from './Bitacora';
 import Inspecciones from './Inspecciones';
-import CalculadoraPlataformas from './CalculadoraPlataformas';
 import MedidasDisciplinarias from './MedidasDisciplinarias';
 
 interface Proyecto {
@@ -23,7 +22,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'calculadora' | 'disciplinarias';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias';
 
 interface StatsProyecto {
   empleados: number;
@@ -225,20 +224,6 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     );
   }
 
-  if (moduloActivo === 'calculadora') {
-    return (
-      <div className="animate-fade-in">
-        <button
-          onClick={() => setModuloActivo('overview')}
-          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
-        >
-          <ArrowLeft size={16} /> Volver al Proyecto
-        </button>
-        <CalculadoraPlataformas proyecto={proyecto.denominacion} />
-      </div>
-    );
-  }
-
   if (moduloActivo === 'disciplinarias') {
     return (
       <div className="animate-fade-in">
@@ -398,21 +383,6 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               </div>
               <h4 className="font-semibold text-base">Bitacora</h4>
               <p className="text-sm text-muted-foreground mt-1">Registro de trabajos realizados con evidencia fotografica</p>
-            </button>
-
-            {/* Calculadora Plataformas Suspendidas */}
-            <button
-              onClick={() => setModuloActivo('calculadora')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
-                  <Calculator size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Calculadora Plataformas Suspendidas</h4>
-              <p className="text-sm text-muted-foreground mt-1">Cálculo de contrapesos y estabilidad para andamios colgantes ZLP800</p>
             </button>
 
             {/* Medidas Disciplinarias */}
