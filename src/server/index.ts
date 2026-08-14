@@ -76,6 +76,12 @@ import {
   getAllAmonestaciones, getAmonestacionesByProyecto, getAmonestacionById,
   appendAmonestacion, updateAmonestacion, deleteAmonestacion
 } from './lib/googleSheets_amonestaciones';
+import {
+  getAllIndicadoresMensual, getIndicadoresMensualByProyecto,
+  appendIndicadorMensual, updateIndicadorMensual, deleteIndicadorMensual,
+  getAllIndicadoresMetas, updateIndicadorMeta
+} from './lib/googleSheets_indicadores';
+import { INDICADORES_DEF, calcularDashboard } from './lib/indicadoresCalc';
 import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
@@ -772,6 +778,165 @@ app.delete('/api/amonestaciones/:rowIndex', async (c) => {
     return c.json({ success: true, message: 'Amonestacion eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/amonestaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - INDICADORES DE SST (SST-IND-01)
+// ============================================
+
+// GET - Listar carga mensual (IndicadoresMensual)
+app.get('/api/indicadores/mensual', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? await getIndicadoresMensualByProyecto(proyecto) : await getAllIndicadoresMensual();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/indicadores/mensual:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear carga mensual
+app.post('/api/indicadores/mensual', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `IND-M-${Date.now()}`;
+
+    await appendIndicadorMensual({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      mes: body.mes || '',
+      horasHombre: Number(body.horasHombre) || 0,
+      accidentesConBaja: Number(body.accidentesConBaja) || 0,
+      diasPerdidos: Number(body.diasPerdidos) || 0,
+      capacitacionesPlanificadas: Number(body.capacitacionesPlanificadas) || 0,
+      capacitacionesRealizadas: Number(body.capacitacionesRealizadas) || 0,
+      inspeccionesPlanificadas: Number(body.inspeccionesPlanificadas) || 0,
+      inspeccionesRealizadas: Number(body.inspeccionesRealizadas) || 0,
+      hallazgosAbiertos: Number(body.hallazgosAbiertos) || 0,
+      hallazgosCerradosEnPlazo: Number(body.hallazgosCerradosEnPlazo) || 0,
+      reportesCuasiAccidentes: Number(body.reportesCuasiAccidentes) || 0,
+      cipaActiva: body.cipaActiva || 'NO',
+      requisitosLegalesCumplidos: Number(body.requisitosLegalesCumplidos) || 0,
+      requisitosLegalesAplicables: Number(body.requisitosLegalesAplicables) || 0,
+    });
+
+    return c.json({ success: true, message: 'Carga mensual registrada', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/indicadores/mensual:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar carga mensual
+app.put('/api/indicadores/mensual/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const body = await c.req.json();
+
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+
+    await updateIndicadorMensual(rowIndex, body);
+    return c.json({ success: true, message: 'Carga mensual actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/indicadores/mensual:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar carga mensual
+app.delete('/api/indicadores/mensual/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    await deleteIndicadorMensual(rowIndex);
+    return c.json({ success: true, message: 'Carga mensual eliminada' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/indicadores/mensual:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Listar metas (IndicadoresMetas), con la metadata fija de cada indicador
+app.get('/api/indicadores/metas', async (c) => {
+  try {
+    const filas = await getAllIndicadoresMetas();
+    const data = Object.values(INDICADORES_DEF).map(def => {
+      const fila = filas.find(m => m.codigo === def.codigo);
+      const metaValor = fila && fila.meta !== '' ? Number(fila.meta) : null;
+      return {
+        ...def,
+        meta: metaValor !== null && !Number.isNaN(metaValor) ? metaValor : null,
+        actualizadoPor: fila?.actualizadoPor || '',
+        actualizadoEn: fila?.actualizadoEn || '',
+      };
+    });
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/indicadores/metas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar la meta de un indicador
+app.put('/api/indicadores/metas/:codigo', async (c) => {
+  try {
+    const codigo = c.req.param('codigo');
+    const body = await c.req.json();
+    if (!INDICADORES_DEF[codigo]) {
+      return c.json({ error: 'Codigo de indicador invalido' }, 400);
+    }
+    await updateIndicadorMeta(codigo, body.meta === null || body.meta === undefined ? '' : String(body.meta), body.actualizadoPor || 'sistema');
+    return c.json({ success: true, message: 'Meta actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/indicadores/metas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Dashboard consolidado: agrega la carga mensual filtrada y calcula los 8 indicadores
+app.get('/api/indicadores/dashboard', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const desde = c.req.query('desde');
+    const hasta = c.req.query('hasta');
+
+    let registros = proyecto ? await getIndicadoresMensualByProyecto(proyecto) : await getAllIndicadoresMensual();
+    if (desde) registros = registros.filter(r => r.mes >= desde);
+    if (hasta) registros = registros.filter(r => r.mes <= hasta);
+
+    const filasMetas = await getAllIndicadoresMetas();
+    const metasPorCodigo: Record<string, number | null> = {};
+    for (const codigo of Object.keys(INDICADORES_DEF)) {
+      const fila = filasMetas.find(m => m.codigo === codigo);
+      const valor = fila && fila.meta !== '' ? Number(fila.meta) : null;
+      metasPorCodigo[codigo] = valor !== null && !Number.isNaN(valor) ? valor : null;
+    }
+
+    const resultados = calcularDashboard(registros, metasPorCodigo);
+    const obras = [...new Set(registros.map(r => r.proyecto).filter(Boolean))];
+    const meses = [...new Set(registros.map(r => r.mes).filter(Boolean))].sort();
+
+    return c.json({
+      success: true,
+      data: {
+        resultados,
+        filtros: { proyecto: proyecto || null, desde: desde || null, hasta: hasta || null },
+        totalRegistros: registros.length,
+        obras,
+        periodo: meses.length ? { desde: meses[0], hasta: meses[meses.length - 1] } : null,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error GET /api/indicadores/dashboard:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
