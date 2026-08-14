@@ -257,6 +257,88 @@
     color:var(--muted);
     line-height:1.6;
   }
+
+  /* Identificacion del andamio + exportar PDF */
+  .head-id-row{
+    display:flex;
+    gap:14px;
+    align-items:flex-end;
+    margin-top:18px;
+    flex-wrap:wrap;
+  }
+  .head-id-field{
+    flex:1;
+    min-width:220px;
+  }
+  .head-id-field label{
+    display:block;
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--gold-light);
+    font-weight:600;
+    margin-bottom:5px;
+  }
+  .head-id-field .req{ color:#F3A6A6; }
+  .head-id-field input{
+    width:100%;
+    padding:9px 11px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,0.28);
+    background:rgba(255,255,255,0.08);
+    color:#fff;
+    font-size:14px;
+  }
+  .head-id-field input::placeholder{ color:rgba(255,255,255,0.5); }
+  .head-id-field input:focus{
+    outline:none;
+    border-color:var(--gold);
+    background:rgba(255,255,255,0.14);
+  }
+  .head-id-field input.invalid{
+    border-color:#F3A6A6;
+    box-shadow:0 0 0 3px rgba(243,166,166,0.25);
+  }
+  .btn-pdf{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 18px;
+    border-radius:8px;
+    border:1px solid var(--gold);
+    background:var(--gold);
+    color:var(--navy-dark);
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn-pdf:hover{ filter:brightness(1.08); }
+
+  .print-header{ display:none; }
+
+  @media print{
+    .no-print{ display:none !important; }
+    body{ background:#fff; }
+    .head{
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+    .print-header{
+      display:block;
+      max-width:1080px;
+      margin:0 auto;
+      padding:10px 20px;
+      font-size:12px;
+      color:var(--muted);
+      border-bottom:1px solid var(--line);
+    }
+    .panel, .status, .stat, .subcalc{
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+      break-inside:avoid;
+    }
+  }
 </style>
 </head>
 <body>
@@ -265,7 +347,17 @@
   <div class="eyebrow">SST-PRO-08 · Andamio Colgante Eléctrico JASO ZLP800</div>
   <h1>Calculadora de Contrapesos y Estabilidad</h1>
   <p>Cálculo en vivo según la fórmula del fabricante (n = G·b / F·a) y la tabla de cargas permitidas del manual, para verificar cada instalación antes de autorizarla.</p>
+
+  <div class="head-id-row no-print">
+    <div class="head-id-field">
+      <label for="identificacionAndamio">Identificación del andamio <span class="req">*</span></label>
+      <input type="text" id="identificacionAndamio" placeholder="Ej: AND-01 · Fachada Norte" autocomplete="off">
+    </div>
+    <button type="button" class="btn-pdf" onclick="exportarPDF()">⭳ Exportar PDF</button>
+  </div>
 </div>
+
+<div class="print-header" id="printHeader"></div>
 
 <div class="wrap">
 
@@ -602,6 +694,33 @@ function calcular(){
 
   drawBalance(contrapesoReal>0 ? contrapesoReal*b : G*b, F*a);
 }
+
+function actualizarPrintHeader(){
+  const id = $('identificacionAndamio').value.trim();
+  const hoy = new Date().toLocaleDateString('es-PY');
+  $('printHeader').textContent = `Identificación del andamio: ${id || '—'}  ·  Fecha de emisión: ${hoy}`;
+}
+
+function exportarPDF(){
+  const input = $('identificacionAndamio');
+  const id = input.value.trim();
+  if (!id){
+    input.classList.add('invalid');
+    input.placeholder = 'Obligatorio para exportar el PDF';
+    input.focus();
+    return;
+  }
+  input.classList.remove('invalid');
+  actualizarPrintHeader();
+  const tituloOriginal = document.title;
+  document.title = `SST-PRO-08_Contrapesos_${id.replace(/\s+/g, '_')}`;
+  window.print();
+  setTimeout(() => { document.title = tituloOriginal; }, 500);
+}
+
+$('identificacionAndamio').addEventListener('input', () => {
+  $('identificacionAndamio').classList.remove('invalid');
+});
 
 document.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { actualizarTramos(); actualizarCable(); actualizarTensores(); calcular(); }));
 actualizarTramos();
