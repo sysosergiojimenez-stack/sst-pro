@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Contrapesos y Estabilidad — ZLP800</title>
+<style>
+  :root{
+    --navy:#1F3864;
+    --navy-dark:#142647;
+    --gold:#B08D57;
+    --gold-light:#D9C4A0;
+    --paper:#F7F5F1;
+    --panel:#FFFFFF;
+    --ink:#1B1D22;
+    --muted:#5B6270;
+    --line:#E1DED6;
+    --ok:#1E7A44;
+    --ok-bg:#E7F4EC;
+    --warn:#B4530A;
+    --warn-bg:#FCEEE0;
+    --bad:#A32020;
+    --bad-bg:#FBE9E9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .head{
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%);
+    color:#fff;
+    padding:28px 32px 24px;
+    border-bottom:4px solid var(--gold);
+  }
+  .head .eyebrow{
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--gold-light);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .head h1{
+    margin:0;
+    font-size:clamp(20px,3vw,28px);
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .head p{
+    margin:6px 0 0;
+    color:#C9D2E3;
+    font-size:14px;
+    max-width:680px;
+  }
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:28px 20px 60px;
+    display:grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap:24px;
+  }
+  @media (max-width: 860px){
+    .wrap{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:22px 22px 24px;
+  }
+  .panel h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--navy);
+    margin:0 0 16px;
+    padding-bottom:10px;
+    border-bottom:2px solid var(--gold);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .field{
+    margin-bottom:14px;
+  }
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:13px;
+    color:var(--navy);
+    font-weight:600;
+    margin-bottom:5px;
+  }
+  .field label .unit{
+    color:var(--muted);
+    font-weight:400;
+    font-size:12px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid #C9C4B8;
+    border-radius:6px;
+    font-size:15px;
+    font-variant-numeric: tabular-nums;
+    background:#fff;
+    color:var(--ink);
+  }
+  .field input:focus, .field select:focus{
+    outline:none;
+    border-color:var(--navy);
+    box-shadow:0 0 0 3px rgba(31,56,100,0.12);
+  }
+  .field .hint{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:4px;
+  }
+  .grid2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px 16px;
+  }
+  .divider{
+    height:1px;
+    background:var(--line);
+    margin:18px 0;
+  }
+  .subcalc{
+    background:#F1EEE6;
+    border:1px solid var(--gold-light);
+    border-radius:8px;
+    padding:12px 14px 14px;
+    margin:-4px 0 16px;
+  }
+  .subcalc-title{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#6B5A3A;
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  .subcalc-result{
+    font-size:13px;
+    color:var(--navy);
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--gold-light);
+    border-radius:6px;
+    padding:8px 10px;
+    margin-top:2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .fixed-note{
+    background:#F1EEE6;
+    border:1px dashed var(--gold);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:12.5px;
+    color:#6B5A3A;
+    margin-bottom:16px;
+    line-height:1.45;
+  }
+  .fixed-note b{color:var(--navy);}
+
+  /* Results side */
+  .readout{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .stat{
+    background:#FAF9F6;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .stat .k{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--muted);
+    margin-bottom:4px;
+  }
+  .stat .v{
+    font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace;
+    font-size:19px;
+    font-weight:700;
+    color:var(--navy);
+  }
+  .stat .v .u{
+    font-size:12px;
+    font-weight:500;
+    color:var(--muted);
+    margin-left:2px;
+  }
+  .status{
+    border-radius:8px;
+    padding:13px 15px;
+    font-size:13.5px;
+    line-height:1.5;
+    margin-bottom:12px;
+    border:1px solid transparent;
+  }
+  .status.ok{ background:var(--ok-bg); color:var(--ok); border-color:#BFE3CC;}
+  .status.bad{ background:var(--bad-bg); color:var(--bad); border-color:#F2C6C6;}
+  .status.warn{ background:var(--warn-bg); color:var(--warn); border-color:#F3D6B8;}
+  .status.neutral{ background:#F0F1F3; color:var(--muted); border-color:var(--line);}
+  .status strong{display:block; font-size:13px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.03em;}
+
+  /* Balance diagram */
+  .balance-wrap{
+    margin-top:6px;
+    text-align:center;
+  }
+  .balance-caption{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+
+  .table-ref{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+    margin-top:4px;
+  }
+  .table-ref th, .table-ref td{
+    border:1px solid var(--line);
+    padding:5px 7px;
+    text-align:center;
+  }
+  .table-ref th{
+    background:var(--navy);
+    color:#fff;
+    font-weight:600;
+    font-size:11px;
+  }
+  .table-ref tr.match td{
+    background:#FCF3E3;
+    font-weight:700;
+    color:var(--navy);
+  }
+  .foot-note{
+    max-width:1080px;
+    margin:0 auto 40px;
+    padding:0 20px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="eyebrow">SST-PRO-08 · Andamio Colgante Eléctrico JASO ZLP800</div>
+  <h1>Calculadora de Contrapesos y Estabilidad</h1>
+  <p>Cálculo en vivo según la fórmula del fabricante (n = G·b / F·a) y la tabla de cargas permitidas del manual, para verificar cada instalación antes de autorizarla.</p>
+</div>
+
+<div class="wrap">
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <h2>Datos de la instalación</h2>
+
+    <div class="fixed-note">
+      <b>Factor de seguridad fijo: n ≥ 2</b> — conforme al manual del fabricante (Shenxi/JASO ZLP800). La norma EN 1808 exige n ≥ 3 para plataformas suspendidas con contrapesos; verificar la certificación real del equipo si corresponde ese estándar.
+    </div>
+
+    <div class="field">
+      <label>Carga de trabajo prevista <span class="unit">kg</span></label>
+      <input type="number" id="cargaTrabajo" value="400" min="0" step="10">
+      <div class="hint">Personas + herramientas + materiales que subirán a la plataforma</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Contrapeso real a colocar <span class="unit">kg (opcional)</span></label>
+      <input type="number" id="contrapesoReal" value="1000" min="0" step="10">
+      <div class="hint">Dejar en 0 para ver solo el mínimo requerido</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Cantidad de tramos de plataforma <span class="unit">unid.</span></label>
+      <input type="number" id="cantidadTramos" value="3" min="0" step="1">
+      <div class="hint" id="tramosCalcResult">= 600 kg (tramos × 200 kg/tramo, peso promedio)</div>
+    </div>
+
+    <div class="field">
+      <label>Sistema de suspensión <span class="unit">kg</span></label>
+      <input type="number" id="pesoMecanismo" value="310" min="0" step="1">
+      <div class="hint">Fijo, según manual del fabricante (Tabla 1)</div>
+    </div>
+
+    <div class="field">
+      <label>Altura máxima de trabajo <span class="unit">m</span></label>
+      <input type="number" id="alturaTrabajo" value="50" min="1" step="1">
+      <div class="hint">Para el cálculo del cable y para cruzar contra la tabla de cargas del fabricante</div>
+    </div>
+
+    <div class="field">
+      <label>Cables de suspensión <span class="unit">kg</span></label>
+      <input type="number" id="pesoCables" value="0" min="0" step="0.5" readonly style="background:#F1EEE6;">
+      <div class="hint" id="cableAutoHint">Calculado: altura × 4 cables (carga + seguridad, en los 2 motores) × 0,39 kg/m</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Pesos tensores (martillos) <span class="unit">kg</span></label>
+      <input type="number" id="pesoTensores" value="0" min="0" step="0.5">
+      <div class="hint" id="tensoresAutoHint">Calculado abajo, o ingresar manualmente</div>
+    </div>
+
+    <div class="subcalc">
+      <div class="subcalc-title">Pesos tensores (martillos) — cálculo auxiliar</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Peso unitario <span class="unit">kg</span></label>
+          <input type="number" id="pesoUnitarioTensor" value="" min="0" step="0.5" placeholder="ver ficha técnica">
+          <div class="hint">Cuelgan del extremo inferior de cada cable, para tensarlo y evitar el bamboleo con viento (manual, secc. 4.6.3 / 4.7.10)</div>
+        </div>
+        <div class="field">
+          <label>Cantidad de tensores <span class="unit">unid.</span></label>
+          <input type="number" id="cantidadTensores" value="4" min="0" step="1">
+          <div class="hint">Estándar: 4 (uno por extremo de cable — carga y seguridad, en los 2 motores)</div>
+        </div>
+      </div>
+      <div class="subcalc-result" id="tensoresCalcResult">Peso total de tensores: — kg (peso unitario × cantidad)</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid2">
+      <div class="field">
+        <label>Extensión frontal — a <span class="unit">m</span></label>
+        <input type="number" id="extension" value="1.3" min="0.1" step="0.1">
+        <div class="hint">Rango fabricante: 1,3 a 1,7 m</div>
+      </div>
+      <div class="field">
+        <label>Distancia entre bases — b <span class="unit">m</span></label>
+        <input type="number" id="distanciaBases" value="4.6" min="0.1" step="0.1">
+        <div class="hint">4,6 m (a=1,3–1,5) · 4,4 m (a=1,7)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div class="panel">
+    <h2>Resultado del cálculo</h2>
+
+    <div class="readout">
+      <div class="stat">
+        <div class="k">F · Peso total</div>
+        <div class="v" id="outF">—<span class="u">kg</span></div>
+      </div>
+      <div class="stat">
+        <div class="k">G mínimo requerido</div>
+        <div class="v" id="outG">—<span class="u">kg</span></div>
+      </div>
+    </div>
+
+    <div id="statusG" class="status neutral">
+      <strong>Contrapeso</strong>
+      Ingresá el contrapeso real para verificar si alcanza el mínimo.
+    </div>
+
+    <div id="statusN" class="status neutral">
+      <strong>Coeficiente n logrado</strong>
+      —
+    </div>
+
+    <div id="statusCargaMax" class="status neutral">
+      <strong>Carga máxima admisible (según estabilidad, con tu contrapeso real)</strong>
+      —
+    </div>
+
+    <div id="statusCarga" class="status neutral">
+      <strong>Referencia — tabla del fabricante (configuración estándar)</strong>
+      —
+    </div>
+
+    <div class="balance-wrap">
+      <svg id="balanceSvg" width="100%" viewBox="0 0 400 190" style="max-width:400px;">
+      </svg>
+      <div class="balance-caption">Balance de momentos: contrapeso (G·b) a la izquierda, carga (F·a) a la derecha del punto de apoyo.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2 style="margin-top:0;">Tabla del fabricante (Cuadro 2)</h2>
+    <table class="table-ref" id="refTable">
+      <thead>
+        <tr><th>Altura</th><th>Extensión</th><th>Dist. bases</th><th>Carga perm.</th></tr>
+      </thead>
+      <tbody id="refTableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="foot-note">
+  Herramienta de apoyo al cálculo — no reemplaza la validación del área técnica / ingeniería de obra. Toda instalación debe registrarse en el Formulario SST-FOR-16 antes de autorizarse, conforme al Procedimiento SST-PRO-08.
+</div>
+
+<script>
+const tabla = [
+  {altura:50,  ext:1.3, base:4.6, carga:800},
+  {altura:50,  ext:1.5, base:4.6, carga:800},
+  {altura:50,  ext:1.7, base:4.4, carga:560},
+  {altura:100, ext:1.3, base:4.6, carga:800},
+  {altura:100, ext:1.5, base:4.6, carga:720},
+  {altura:100, ext:1.7, base:4.4, carga:480},
+  {altura:120, ext:1.3, base:4.6, carga:800},
+  {altura:120, ext:1.5, base:4.6, carga:690},
+  {altura:120, ext:1.7, base:4.4, carga:450},
+  {altura:150, ext:1.3, base:4.6, carga:800},
+  {altura:150, ext:1.5, base:4.6, carga:640},
+  {altura:150, ext:1.7, base:4.4, carga:400},
+];
+
+const $ = id => document.getElementById(id);
+const fmt = n => Number.isFinite(n) ? n.toLocaleString('es-PY', {maximumFractionDigits:1}) : '—';
+
+function nearest(arr, val){
+  return arr.reduce((a,b) => Math.abs(b-val) < Math.abs(a-val) ? b : a);
+}
+
+function renderTable(matchAltura, matchExt){
+  const body = $('refTableBody');
+  body.innerHTML = '';
+  tabla.forEach(row => {
+    const tr = document.createElement('tr');
+    if (row.altura === matchAltura && row.ext === matchExt) tr.className = 'match';
+    tr.innerHTML = `<td>${row.altura} m</td><td>${row.ext} m</td><td>${row.base} m</td><td>${row.carga} kg</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function drawBalance(leftMoment, rightMoment){
+  const svg = $('balanceSvg');
+  const max = Math.max(leftMoment, rightMoment, 1);
+  const leftH = 20 + (leftMoment/max) * 90;
+  const rightH = 20 + (rightMoment/max) * 90;
+  const ok = leftMoment >= rightMoment;
+  const barColor = ok ? '#1E7A44' : '#A32020';
+  const rightColor = '#B08D57';
+
+  svg.innerHTML = `
+    <line x1="30" y1="150" x2="370" y2="150" stroke="#C9C4B8" stroke-width="3" stroke-linecap="round"/>
+    <polygon points="200,150 188,172 212,172" fill="#1F3864"/>
+    <rect x="70" y="${150-leftH}" width="60" height="${leftH}" fill="${barColor}" rx="4"/>
+    <text x="100" y="${150-leftH-8}" text-anchor="middle" font-size="12" font-weight="700" fill="#1F3864">G·b</text>
+    <text x="100" y="168" text-anchor="middle" font-size="11" fill="#5B6270">Contrapeso</text>
+    <rect x="270" y="${150-rightH}" width="60" height="${rightH}" fill="${rightColor}" rx="4"/>
+    <text x="300" y="${150-rightH-8}" text-anchor="middle" font-size="12" font-weight="700" fill="#1F3864">F·a</text>
+    <text x="300" y="168" text-anchor="middle" font-size="11" fill="#5B6270">Carga + equipo</text>
+  `;
+}
+
+const PESO_POR_TRAMO = 200;
+const CABLE_PESO_LINEAL = 0.39;
+const CABLE_CANTIDAD = 4;
+
+function actualizarTramos(){
+  const tramos = parseFloat($('cantidadTramos').value) || 0;
+  const total = tramos * PESO_POR_TRAMO;
+  $('tramosCalcResult').textContent = `= ${fmt(total)} kg (tramos × ${PESO_POR_TRAMO} kg/tramo, peso promedio)`;
+}
+
+function actualizarTensores(){
+  const pesoUnitario = parseFloat($('pesoUnitarioTensor').value);
+  const cantidad = parseFloat($('cantidadTensores').value) || 0;
+  const resultEl = $('tensoresCalcResult');
+  const hintEl = $('tensoresAutoHint');
+
+  if (pesoUnitario > 0 && cantidad > 0){
+    const total = pesoUnitario * cantidad;
+    resultEl.textContent = `Peso total de tensores: ${fmt(total)} kg (${pesoUnitario} kg × ${cantidad})`;
+    $('pesoTensores').value = total.toFixed(1);
+    $('pesoTensores').readOnly = true;
+    $('pesoTensores').style.background = '#F1EEE6';
+    hintEl.textContent = 'Calculado automáticamente (bloqueado) — borrar el peso unitario para editar a mano';
+  } else {
+    $('pesoTensores').readOnly = false;
+    $('pesoTensores').style.background = '#fff';
+    resultEl.textContent = 'Peso total de tensores: — kg (peso unitario × cantidad)';
+    hintEl.textContent = 'Calculado abajo, o ingresar manualmente';
+  }
+}
+
+function actualizarCable(){
+  const altura = parseFloat($('alturaTrabajo').value) || 0;
+  const total = CABLE_PESO_LINEAL * CABLE_CANTIDAD * altura;
+  $('pesoCables').value = total.toFixed(1);
+  $('cableAutoHint').textContent = `Calculado: altura ${altura} m × ${CABLE_CANTIDAD} cables × ${CABLE_PESO_LINEAL} kg/m = ${fmt(total)} kg`;
+}
+
+function calcular(){
+  const pesoPlataforma = (parseFloat($('cantidadTramos').value) || 0) * PESO_POR_TRAMO;
+  const pesoMecanismo = parseFloat($('pesoMecanismo').value) || 0;
+  const pesoCables = parseFloat($('pesoCables').value) || 0;
+  const pesoTensores = parseFloat($('pesoTensores').value) || 0;
+  const cargaTrabajo = parseFloat($('cargaTrabajo').value) || 0;
+  const a = parseFloat($('extension').value) || 0;
+  const b = parseFloat($('distanciaBases').value) || 0;
+  const alturaTrabajo = parseFloat($('alturaTrabajo').value) || 0;
+  const contrapesoReal = parseFloat($('contrapesoReal').value) || 0;
+
+  const F = pesoPlataforma + pesoMecanismo + pesoCables + pesoTensores + cargaTrabajo;
+  const G = (a > 0 && b > 0) ? (2 * F * a) / b : 0;
+
+  $('outF').innerHTML = fmt(F) + '<span class="u">kg</span>';
+  $('outG').innerHTML = (a>0 && b>0) ? fmt(G) + '<span class="u">kg</span>' : '—<span class="u">kg</span>';
+
+  // Estado contrapeso
+  const stG = $('statusG');
+  if (contrapesoReal > 0 && a > 0 && b > 0){
+    if (contrapesoReal >= G){
+      stG.className = 'status ok';
+      stG.innerHTML = `<strong>Contrapeso — Conforme</strong>${fmt(contrapesoReal)} kg colocados ≥ ${fmt(G)} kg requeridos.`;
+    } else {
+      const falta = G - contrapesoReal;
+      stG.className = 'status bad';
+      stG.innerHTML = `<strong>Contrapeso — No conforme</strong>Faltan ${fmt(falta)} kg. Colocado: ${fmt(contrapesoReal)} kg · Requerido: ${fmt(G)} kg.`;
+    }
+  } else {
+    stG.className = 'status neutral';
+    stG.innerHTML = `<strong>Contrapeso</strong>Ingresá el contrapeso real para verificar si alcanza el mínimo.`;
+  }
+
+  // Estado n logrado
+  const stN = $('statusN');
+  if (contrapesoReal > 0 && F > 0 && a > 0){
+    const n = (contrapesoReal * b) / (F * a);
+    if (n >= 2){
+      stN.className = 'status ok';
+      stN.innerHTML = `<strong>Coeficiente n logrado</strong>n = ${fmt(n)} — cumple el mínimo exigido (n ≥ 2).`;
+    } else {
+      stN.className = 'status bad';
+      stN.innerHTML = `<strong>Coeficiente n logrado</strong>n = ${fmt(n)} — por debajo del mínimo exigido (n ≥ 2).`;
+    }
+  } else {
+    stN.className = 'status neutral';
+    stN.innerHTML = `<strong>Coeficiente n logrado</strong>—`;
+  }
+
+  // Carga máxima admisible según estabilidad (n>=2), con el contrapeso real ingresado
+  const stCM = $('statusCargaMax');
+  const pesoBase = pesoPlataforma + pesoMecanismo + pesoCables + pesoTensores;
+  if (contrapesoReal > 0 && a > 0 && b > 0){
+    const cargaMax = (contrapesoReal * b) / (2 * a) - pesoBase;
+    if (cargaMax < 0){
+      stCM.className = 'status bad';
+      stCM.innerHTML = `<strong>Carga máxima admisible (según estabilidad, con tu contrapeso real)</strong>El contrapeso ni siquiera alcanza a sostener el peso propio del sistema (${fmt(pesoBase)} kg) con esta geometría. No hay carga de trabajo posible en esta configuración.`;
+    } else if (cargaTrabajo <= cargaMax){
+      stCM.className = 'status ok';
+      stCM.innerHTML = `<strong>Carga máxima admisible (según estabilidad, con tu contrapeso real)</strong>Con ${fmt(contrapesoReal)} kg de contrapeso, a = ${a} m y b = ${b} m: máximo ${fmt(cargaMax)} kg de carga de trabajo. Tu carga prevista (${fmt(cargaTrabajo)} kg) está dentro de ese máximo.`;
+    } else {
+      stCM.className = 'status bad';
+      stCM.innerHTML = `<strong>Carga máxima admisible (según estabilidad, con tu contrapeso real)</strong>Con ${fmt(contrapesoReal)} kg de contrapeso, a = ${a} m y b = ${b} m: máximo ${fmt(cargaMax)} kg de carga de trabajo. Tu carga prevista (${fmt(cargaTrabajo)} kg) LA SUPERA — reducí la carga, aumentá el contrapeso, o corregí la geometría (a/b).`;
+    }
+  } else {
+    stCM.className = 'status neutral';
+    stCM.innerHTML = `<strong>Carga máxima admisible (según estabilidad, con tu contrapeso real)</strong>Ingresá el contrapeso real, la extensión (a) y la distancia entre bases (b) para calcularla.`;
+  }
+
+  // Tabla / carga permitida (referencia del fabricante — solo válida dentro del rango que probó)
+  const fueraDeRango = (a > 1.7 || a < 1.3 || b < 4.4 || b > 4.6);
+  const altMatch = nearest([50,100,120,150], alturaTrabajo);
+  const extMatch = nearest([1.3,1.5,1.7], a);
+  const row = tabla.find(r => r.altura===altMatch && r.ext===extMatch);
+  renderTable(altMatch, extMatch);
+
+  const stC = $('statusCarga');
+  if (fueraDeRango){
+    stC.className = 'status warn';
+    stC.innerHTML = `<strong>Referencia — tabla del fabricante (configuración estándar)</strong>Tu extensión (a = ${a} m) o tu distancia entre bases (b = ${b} m) está fuera del rango que el fabricante probó (a: 1,3–1,7 m · b: 4,4–4,6 m). La tabla NO aplica a esta configuración: usá exclusivamente el resultado de "Carga máxima admisible" de arriba, calculado con la fórmula real.`;
+  } else if (row){
+    const exact = (altMatch===alturaTrabajo && extMatch===a);
+    if (cargaTrabajo <= row.carga){
+      stC.className = 'status ok';
+      stC.innerHTML = `<strong>Referencia — tabla del fabricante (configuración estándar)</strong>${fmt(cargaTrabajo)} kg ≤ ${row.carga} kg permitidos (fila: ${row.altura} m / ${row.ext} m)${exact ? '' : ' — valor más cercano, no exacto'}.`;
+    } else {
+      stC.className = 'status bad';
+      stC.innerHTML = `<strong>Referencia — tabla del fabricante (configuración estándar)</strong>${fmt(cargaTrabajo)} kg supera los ${row.carga} kg de la fila ${row.altura} m / ${row.ext} m${exact ? '' : ' (valor más cercano, no exacto)'}.`;
+    }
+  }
+
+  drawBalance(contrapesoReal>0 ? contrapesoReal*b : G*b, F*a);
+}
+
+document.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { actualizarTramos(); actualizarCable(); actualizarTensores(); calcular(); }));
+actualizarTramos();
+actualizarCable();
+actualizarTensores();
+calcular();
+</script>
+
+</body>
+</html>

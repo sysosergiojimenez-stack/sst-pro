@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './lib/trpc';
-import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff } from 'lucide-react';
+import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff, Calculator } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
@@ -14,7 +14,7 @@ const trpcClient = trpc.createClient({
   links: [httpBatchLink({ url: '/trpc' })],
 });
 
-type View = 'proyectos' | 'admin';
+type View = 'proyectos' | 'admin' | 'calculadora';
 
 interface Proyecto {
   rowIndex: number;
@@ -84,6 +84,7 @@ export default function App() {
   const navItems = [
     { id: 'proyectos' as View, icon: Building2, label: 'Proyectos', desc: 'Gestión de obras SST', color: 'text-blue-400', gradient: 'from-blue-500 to-blue-600' },
     ...(canAccess('admin-usuarios') ? [{ id: 'admin' as View, icon: Shield, label: 'Usuarios', desc: 'Admin y permisos', color: 'text-purple-400', gradient: 'from-purple-500 to-purple-600' }] : []),
+    { id: 'calculadora' as View, icon: Calculator, label: 'Calculadora ZLP800', desc: 'Contrapesos y estabilidad', color: 'text-cyan-400', gradient: 'from-cyan-500 to-blue-500' },
   ];
 
   return (
@@ -224,7 +225,7 @@ export default function App() {
                     </>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm lg:text-lg font-semibold">{view === 'proyectos' ? 'Proyectos' : 'Usuarios'}</h2>
+                      <h2 className="text-sm lg:text-lg font-semibold">{view === 'proyectos' ? 'Proyectos' : view === 'admin' ? 'Usuarios' : 'Calculadora ZLP800'}</h2>
                     </div>
                   )}
                 </div>
@@ -257,6 +258,14 @@ export default function App() {
                   <>
                     {view === 'proyectos' && <Proyectos onSelectProyecto={handleSelectProyecto} />}
                     {view === 'admin' && canAccess('admin-usuarios') && <AdminUsuarios />}
+                    {view === 'calculadora' && (
+                      <iframe
+                        src="/calculadora-contrapesos-zlp800.html"
+                        title="Calculadora de Contrapesos y Estabilidad — ZLP800"
+                        className="w-full rounded-xl border border-border bg-white"
+                        style={{ height: 'calc(100vh - 160px)' }}
+                      />
+                    )}
                   </>
                 )}
               </div>
