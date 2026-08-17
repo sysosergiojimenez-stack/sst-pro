@@ -245,9 +245,13 @@ interface FormularioEmpleadoProps {
   disabledNroDocumento?: boolean;
   onCancel?: () => void;
   isEditing?: boolean;
+  pdfFile?: File | null;
+  onPdfFileChange?: (file: File | null) => void;
+  isUploadingPdf?: boolean;
 }
 
-function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disabledNroDocumento = false, onCancel, isEditing = false }: FormularioEmpleadoProps) {
+function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disabledNroDocumento = false, onCancel, isEditing = false, pdfFile, onPdfFileChange, isUploadingPdf = false }: FormularioEmpleadoProps) {
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   return (
     <form onSubmit={handleSubmit} className={`space-y-6 ${inline ? '' : 'max-h-[75vh] overflow-y-auto pr-1'}`}>
       <div>
@@ -338,8 +342,40 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
         </div>
       </div>
 
+      {!isEditing && onPdfFileChange && (
+        <div>
+          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Documento adjunto</h4>
+          <input type="file" ref={pdfInputRef} accept=".pdf,application/pdf" onChange={(e) => onPdfFileChange(e.target.files?.[0] || null)} className="hidden" />
+          {!pdfFile ? (
+            <button
+              type="button"
+              onClick={() => pdfInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-4 text-sm text-muted-foreground hover:bg-secondary/30 transition-colors"
+            >
+              <FileText size={18} />
+              Click para adjuntar PDF (opcional)
+            </button>
+          ) : (
+            <div className="flex items-center justify-between bg-secondary p-3 rounded-lg border border-border">
+              <div className="flex items-center gap-3">
+                <FileText size={20} className="text-primary" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">{pdfFile.name}</div>
+                  <div className="text-xs text-muted-foreground">{(pdfFile.size / 1024).toFixed(1)} KB</div>
+                </div>
+              </div>
+              <button type="button" onClick={() => { onPdfFileChange(null); if (pdfInputRef.current) pdfInputRef.current.value = ''; }} className="text-muted-foreground hover:text-red-400 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 pt-2">
-        <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"><Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Crear Empleado'}</button>
+        <button type="submit" disabled={isUploadingPdf} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50">
+          <Save size={18} /> {isUploadingPdf ? 'Subiendo PDF...' : isEditing ? 'Guardar Cambios' : 'Crear Empleado'}
+        </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80">Cancelar</button>
         )}
@@ -363,6 +399,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
+  const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
+  const [isUploadingManualPdf, setIsUploadingManualPdf] = useState(false);
   const [showPdfFilters, setShowPdfFilters] = useState(false);
   const [pdfFilters, setPdfFilters] = useState({ empresa: '', estado: '', cargo: '' });
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -633,18 +671,50 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     return hora ? `${fechaFmt} ${hora}` : fechaFmt;
   };
 
+  const subirPdfManual = (file: File, nroDocumento: string, nombres: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        try {
+          const response = await fetch('/api/empleados/upload-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdfBase64: base64, mimeType: file.type || 'application/pdf', nroDocumento, nombres }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Error al subir PDF');
+          resolve(result.url);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo PDF'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const empleadoEditando = editingEmpleado || filaExpandida;
       const url = empleadoEditando ? `/api/empleados/${empleadoEditando.rowIndex}` : '/api/empleados';
       const method = empleadoEditando ? 'PUT' : 'POST';
-      const body = empleadoEditando 
+
+      let scanDocumentos: string | undefined;
+      if (!empleadoEditando && manualPdfFile) {
+        setIsUploadingManualPdf(true);
+        try {
+          scanDocumentos = await subirPdfManual(manualPdfFile, form.nroDocumento, form.nombres);
+        } finally {
+          setIsUploadingManualPdf(false);
+        }
+      }
+
+      const body = empleadoEditando
         ? { ...form, obra: proyecto.denominacion, rowIndex: empleadoEditando.rowIndex }
-        : { ...form, obra: proyecto.denominacion };
+        : { ...form, obra: proyecto.denominacion, ...(scanDocumentos ? { scanDocumentos } : {}) };
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setShowForm(false); setEditingEmpleado(null); setFilaExpandida(null); setForm(emptyForm);
+      setShowForm(false); setEditingEmpleado(null); setFilaExpandida(null); setForm(emptyForm); setManualPdfFile(null);
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
@@ -989,7 +1059,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             <h3 className="text-lg font-semibold">{editingEmpleado ? 'Editar Empleado' : 'Nuevo Empleado'}</h3>
             <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
-          <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} isEditing={!!editingEmpleado} disabledNroDocumento={!!editingEmpleado} onCancel={() => setShowForm(false)} />
+          <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} isEditing={!!editingEmpleado} disabledNroDocumento={!!editingEmpleado} onCancel={() => { setShowForm(false); setManualPdfFile(null); }} pdfFile={manualPdfFile} onPdfFileChange={setManualPdfFile} isUploadingPdf={isUploadingManualPdf} />
         </div>
       )}
 
