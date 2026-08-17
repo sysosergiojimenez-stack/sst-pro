@@ -1,5 +1,26 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Users, AlertTriangle, Building2, MapPin, Plus, Pencil, Trash2, X, Save, FileText, Brain } from 'lucide-react';
+import { ArrowLeft, Users, AlertTriangle, Building2, MapPin, Plus, Pencil, Trash2, X, Save, FileText, Brain, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+
+type GeminiItem = {
+  id: string;
+  file: File;
+  status: 'pendiente' | 'procesando' | 'ok' | 'error';
+  datosExtraidos: any;
+  error: string;
+};
+
+const MAX_ARCHIVOS_GEMINI = 10;
+const MAX_ARCHIVO_BYTES = 10 * 1024 * 1024;
+const CONCURRENCIA_GEMINI = 3;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
 
 interface Proyecto {
   rowIndex: number;
@@ -68,9 +89,10 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
   });
   
   // Gemini states
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
-  const [geminiLoading, setGeminiLoading] = useState(false);
+  const [geminiItems, setGeminiItems] = useState<GeminiItem[]>([]);
+  const [geminiProcessing, setGeminiProcessing] = useState(false);
+  const [geminiError, setGeminiError] = useState('');
+  const [geminiSaving, setGeminiSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -165,74 +187,102 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
   };
 
   // Gemini Functions
-  const handleGeminiSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pdfFile) return;
-    
-    setGeminiLoading(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        
-        const response = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pdfBase64: base64,
-            mimeType: pdfFile.type,
-          }),
-        });
+  const handleGeminiFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+    setGeminiError('');
+    setGeminiItems(prev => {
+      const espacioDisponible = MAX_ARCHIVOS_GEMINI - prev.length;
+      if (espacioDisponible <= 0) {
+        setGeminiError(`Máximo ${MAX_ARCHIVOS_GEMINI} archivos por lote.`);
+        return prev;
+      }
+      const sobrantes = selectedFiles.slice(espacioDisponible);
+      if (sobrantes.length > 0) setGeminiError(`Máximo ${MAX_ARCHIVOS_GEMINI} archivos por lote. Se ignoraron ${sobrantes.length}.`);
+      const nuevos: GeminiItem[] = selectedFiles.slice(0, espacioDisponible)
+        .filter(f => {
+          if (f.size > MAX_ARCHIVO_BYTES) { setGeminiError(`"${f.name}" supera el tamaño máximo de 10MB y fue omitido.`); return false; }
+          return true;
+        })
+        .map(f => ({ id: `${f.name}-${f.size}-${f.lastModified}`, file: f, status: 'pendiente', datosExtraidos: null, error: '' }));
+      return [...prev, ...nuevos];
+    });
+    e.target.value = '';
+  };
 
-        const data = await response.json();
-        if (data.success) {
-          setDatosExtraidos(data.data);
-        } else {
-          alert('Error: ' + data.error);
-        }
-        setGeminiLoading(false);
-      };
-      reader.readAsDataURL(pdfFile);
+  const removeGeminiItem = (id: string) => setGeminiItems(prev => prev.filter(it => it.id !== id));
+
+  const procesarGeminiItem = async (item: GeminiItem) => {
+    setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
+    try {
+      const base64 = await fileToBase64(item.file);
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Error');
+      setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'ok', datosExtraidos: data.data } : it));
     } catch (err: any) {
-      console.error('Error:', err);
-      setGeminiLoading(false);
+      setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'error', error: err.message } : it));
     }
   };
 
+  const handleGeminiProcess = async () => {
+    const pendientes = geminiItems.filter(it => it.status === 'pendiente' || it.status === 'error');
+    if (pendientes.length === 0) return;
+    setGeminiProcessing(true); setGeminiError('');
+    for (let i = 0; i < pendientes.length; i += CONCURRENCIA_GEMINI) {
+      const lote = pendientes.slice(i, i + CONCURRENCIA_GEMINI);
+      await Promise.all(lote.map(procesarGeminiItem));
+    }
+    setGeminiProcessing(false);
+  };
+
+  const geminiItemsOk = geminiItems.filter(it => it.status === 'ok');
+  const geminiHayPendientes = geminiItems.some(it => it.status === 'pendiente' || it.status === 'error');
+
   const handleConfirmGemini = async () => {
-    if (!datosExtraidos) return;
-    
+    if (geminiItemsOk.length === 0 || geminiSaving) return;
+
+    setGeminiSaving(true);
+    setGeminiError('');
     try {
-      const body = {
-        nroDocumento: datosExtraidos.nroDocumento || '',
-        nombres: datosExtraidos.nombres || '',
-        apellidos: datosExtraidos.apellidos || '',
-        cargo: datosExtraidos.cargo || '',
-        obra: proyecto.denominacion,
-        empresa: datosExtraidos.empresa || '',
-        telefonoCelular: datosExtraidos.telefono || '',
-        email: datosExtraidos.email || '',
-        scanDocumentos: datosExtraidos.scanDocumentos || '',
-      };
+      for (const item of geminiItemsOk) {
+        const datosExtraidos = item.datosExtraidos;
+        const body = {
+          nroDocumento: datosExtraidos.nroDocumento || '',
+          nombres: datosExtraidos.nombres || '',
+          apellidos: datosExtraidos.apellidos || '',
+          cargo: datosExtraidos.cargo || '',
+          obra: proyecto.denominacion,
+          empresa: datosExtraidos.empresa || '',
+          telefonoCelular: datosExtraidos.telefono || '',
+          email: datosExtraidos.email || '',
+          scanDocumentos: datosExtraidos.scanDocumentos || '',
+        };
 
-      const response = await fetch('/api/empleados', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+        const response = await fetch('/api/empleados', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Error');
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(`${item.file.name}: ${err.error || 'Error'}`);
+        }
       }
 
       setShowGeminiForm(false);
-      setDatosExtraidos(null);
-      setPdfFile(null);
+      setGeminiItems([]);
       fetchData();
     } catch (err: any) {
       console.error('Error:', err.message);
-      alert('Error: ' + err.message);
+      setGeminiError(err.message);
+    } finally {
+      setGeminiSaving(false);
     }
   };
 
@@ -324,7 +374,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
               <Plus size={18} /> Agregar Manual
             </button>
             <button
-              onClick={() => { setShowGeminiForm(true); setDatosExtraidos(null); setPdfFile(null); }}
+              onClick={() => { setShowGeminiForm(true); setGeminiItems([]); setGeminiError(''); }}
               className="bg-secondary border border-border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors"
             >
               <Brain size={18} /> Agregar con IA
@@ -450,61 +500,73 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
                 </button>
               </div>
               
-              {!datosExtraidos ? (
-                <form onSubmit={handleGeminiSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Subir PDF de ficha</label>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
-                    />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Subir ficha(s) en PDF (una por empleado)</label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    multiple
+                    onChange={handleGeminiFileChange}
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {geminiItems.length > 0 && (
+                  <div className="space-y-2">
+                    {geminiItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between bg-secondary/50 p-3 rounded-lg">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText size={20} className="text-primary flex-shrink-0" />
+                          <div className="text-left min-w-0">
+                            <div className="text-sm font-medium truncate">{item.file.name}</div>
+                            {item.status === 'ok' && (
+                              <div className="text-xs text-emerald-400 mt-1">
+                                {item.datosExtraidos?.nombres} {item.datosExtraidos?.apellidos} · Doc. {item.datosExtraidos?.nroDocumento || 'N/A'}
+                              </div>
+                            )}
+                            {item.status === 'error' && <div className="text-xs text-red-400 mt-1">{item.error}</div>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {item.status === 'procesando' && <Loader2 size={16} className="animate-spin text-primary" />}
+                          {item.status === 'ok' && <CheckCircle2 size={16} className="text-emerald-400" />}
+                          {item.status === 'error' && <AlertCircle size={16} className="text-red-400" />}
+                          <button onClick={() => removeGeminiItem(item.id)} disabled={item.status === 'procesando'} className="text-muted-foreground hover:text-red-400 transition-colors disabled:opacity-30">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                )}
+
+                {geminiItems.length > 0 && geminiHayPendientes && (
                   <button
-                    type="submit"
-                    disabled={!pdfFile || geminiLoading}
+                    onClick={handleGeminiProcess}
+                    disabled={geminiProcessing}
                     className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Brain size={18} />
-                    {geminiLoading ? 'Procesando...' : 'Procesar con IA'}
+                    {geminiProcessing ? 'Procesando...' : `Procesar con IA ${geminiItems.length > 1 ? `(${geminiItems.length})` : ''}`}
                   </button>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="font-medium">Datos extraidos:</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><strong>Documento:</strong> {datosExtraidos.nroDocumento}</div>
-                    <div><strong>Nombres:</strong> {datosExtraidos.nombres}</div>
-                    <div><strong>Apellidos:</strong> {datosExtraidos.apellidos}</div>
-                    <div><strong>Cargo:</strong> {datosExtraidos.cargo}</div>
-                    <div><strong>Empresa:</strong> {datosExtraidos.empresa}</div>
-                    <div><strong>Telefono:</strong> {datosExtraidos.telefono}</div>
-                    <div><strong>Email:</strong> {datosExtraidos.email}</div>
-                    <div><strong>Obra:</strong> {proyecto.denominacion}</div>
-                  </div>
-                  {datosExtraidos.scanDocumentos && (
-                    <a href={datosExtraidos.scanDocumentos} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
-                      <FileText size={14} className="inline mr-1" />
-                      Ver PDF procesado
-                    </a>
-                  )}
-                  <div className="flex gap-2">
+                )}
+
+                {geminiError && <div className="text-sm text-red-400">{geminiError}</div>}
+
+                {geminiItemsOk.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-emerald-400 font-medium">{geminiItemsOk.length} empleado{geminiItemsOk.length > 1 ? 's' : ''} listo{geminiItemsOk.length > 1 ? 's' : ''} para guardar en {proyecto.denominacion}</div>
                     <button
                       onClick={handleConfirmGemini}
-                      className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+                      disabled={geminiSaving}
+                      className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
-                      <Save size={18} /> Confirmar y Guardar
-                    </button>
-                    <button
-                      onClick={() => setDatosExtraidos(null)}
-                      className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80"
-                    >
-                      Subir otro PDF
+                      <Save size={18} /> {geminiSaving ? 'Guardando...' : `Confirmar y Guardar ${geminiItemsOk.length > 1 ? `(${geminiItemsOk.length})` : ''}`}
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 

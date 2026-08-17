@@ -698,9 +698,29 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
 }
 
 // ========== FORMULARIO GEMINI AI ==========
+type GeminiItem = {
+  id: string;
+  file: File;
+  status: 'pendiente' | 'procesando' | 'ok' | 'error';
+  datosExtraidos: any;
+  error: string;
+};
+
+const MAX_ARCHIVOS_GEMINI = 10;
+const MAX_ARCHIVO_BYTES = 10 * 1024 * 1024;
+const CONCURRENCIA_GEMINI = 3;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
-  const [file, setFile] = useState<File | null>(null);
-  const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
+  const [items, setItems] = useState<GeminiItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -708,56 +728,89 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
   const isSavingRef = useRef(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) { setFile(selectedFile); setDatosExtraidos(null); setError(''); }
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+    setError('');
+    setItems(prev => {
+      const espacioDisponible = MAX_ARCHIVOS_GEMINI - prev.length;
+      if (espacioDisponible <= 0) {
+        setError(`Máximo ${MAX_ARCHIVOS_GEMINI} archivos por lote.`);
+        return prev;
+      }
+      const sobrantes = selectedFiles.slice(espacioDisponible);
+      if (sobrantes.length > 0) setError(`Máximo ${MAX_ARCHIVOS_GEMINI} archivos por lote. Se ignoraron ${sobrantes.length}.`);
+      const nuevos: GeminiItem[] = selectedFiles.slice(0, espacioDisponible)
+        .filter(f => {
+          if (f.size > MAX_ARCHIVO_BYTES) { setError(`"${f.name}" supera el tamaño máximo de 10MB y fue omitido.`); return false; }
+          return true;
+        })
+        .map(f => ({ id: `${f.name}-${f.size}-${f.lastModified}`, file: f, status: 'pendiente', datosExtraidos: null, error: '' }));
+      return [...prev, ...nuevos];
+    });
+    e.target.value = '';
+  };
+
+  const removeItem = (id: string) => setItems(prev => prev.filter(it => it.id !== id));
+
+  const procesarItem = async (item: GeminiItem) => {
+    setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
+    try {
+      const base64 = await fileToBase64(item.file);
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Error');
+      setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'ok', datosExtraidos: result.data } : it));
+    } catch (err: any) {
+      setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'error', error: err.message } : it));
+    }
   };
 
   const handleProcess = async () => {
-    if (!file) return;
+    const pendientes = items.filter(it => it.status === 'pendiente' || it.status === 'error');
+    if (pendientes.length === 0) return;
     setIsProcessing(true); setError('');
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = (reader.result as string).split(',')[1];
-      try {
-        const response = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pdfBase64: base64, mimeType: file.type }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Error');
-        setDatosExtraidos(result.data);
-      } catch (err: any) { setError(err.message); }
-      finally { setIsProcessing(false); }
-    };
-    reader.readAsDataURL(file);
+    for (let i = 0; i < pendientes.length; i += CONCURRENCIA_GEMINI) {
+      const lote = pendientes.slice(i, i + CONCURRENCIA_GEMINI);
+      await Promise.all(lote.map(procesarItem));
+    }
+    setIsProcessing(false);
   };
 
+  const itemsOk = items.filter(it => it.status === 'ok');
+  const hayPendientes = items.some(it => it.status === 'pendiente' || it.status === 'error');
+
   const handleConfirm = async () => {
-    if (!datosExtraidos || isSavingRef.current) return;
+    if (itemsOk.length === 0 || isSavingRef.current) return;
 
     isSavingRef.current = true;
     setIsSaving(true);
     setError('');
     try {
-      const response = await fetch('/api/empleados', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nroDocumento: datosExtraidos.nroDocumento || '',
-          nombres: datosExtraidos.nombres || '',
-          apellidos: datosExtraidos.apellidos || '',
-          cargo: datosExtraidos.cargo || '',
-          obra: datosExtraidos.obra || '',
-          empresa: datosExtraidos.empresa || '',
-          telefonoCelular: datosExtraidos.telefono || '',
-          email: datosExtraidos.email || '',
-          fechaInicioContrato: datosExtraidos.fechaInicioContrato || '',
-          scanDocumentos: datosExtraidos.scanDocumentos || '',
-          estado: 'Activo',
-        }),
-      });
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      for (const item of itemsOk) {
+        const datosExtraidos = item.datosExtraidos;
+        const response = await fetch('/api/empleados', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nroDocumento: datosExtraidos.nroDocumento || '',
+            nombres: datosExtraidos.nombres || '',
+            apellidos: datosExtraidos.apellidos || '',
+            cargo: datosExtraidos.cargo || '',
+            obra: datosExtraidos.obra || '',
+            empresa: datosExtraidos.empresa || '',
+            telefonoCelular: datosExtraidos.telefono || '',
+            email: datosExtraidos.email || '',
+            fechaInicioContrato: datosExtraidos.fechaInicioContrato || '',
+            scanDocumentos: datosExtraidos.scanDocumentos || '',
+            estado: 'Activo',
+          }),
+        });
+        if (!response.ok) { const err = await response.json(); throw new Error(`${item.file.name}: ${err.error || 'Error'}`); }
+      }
       onSuccess();
     } catch (err: any) { setError(err.message); }
     finally { isSavingRef.current = false; setIsSaving(false); }
@@ -771,55 +824,63 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
         </div>
         <div>
           <h3 className="text-lg font-semibold text-purple-400">Nuevo Empleado con IA</h3>
-          <p className="text-xs text-muted-foreground">Sube una ficha o cédula en PDF para extraer datos automáticamente</p>
+          <p className="text-xs text-muted-foreground">Sube una o varias fichas/cédulas en PDF (un PDF por empleado) para extraer datos automáticamente</p>
         </div>
       </div>
 
       <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:bg-secondary/30 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-        <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileChange} className="hidden" />
-        {!file ? (
-          <div className="flex flex-col items-center gap-3">
-            <FileText size={48} className="text-purple-400/60" />
-            <span className="text-sm text-muted-foreground">Click para seleccionar PDF</span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between bg-secondary/50 p-4 rounded-lg">
-            <div className="flex items-center gap-3">
-              <FileText size={24} className="text-purple-400" />
-              <div className="text-left">
-                <div className="text-sm font-medium">{file.name}</div>
-                <div className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</div>
-              </div>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); setFile(null); setDatosExtraidos(null); }} className="text-muted-foreground hover:text-red-400 transition-colors">
-              <X size={18} />
-            </button>
-          </div>
-        )}
+        <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" multiple onChange={handleFileChange} className="hidden" />
+        <div className="flex flex-col items-center gap-3">
+          <FileText size={48} className="text-purple-400/60" />
+          <span className="text-sm text-muted-foreground">Click para seleccionar uno o varios PDF</span>
+        </div>
       </div>
 
-      {file && !datosExtraidos && (
+      {items.length > 0 && (
+        <div className="space-y-2">
+          {items.map(item => (
+            <div key={item.id} className="flex items-center justify-between bg-secondary/50 p-4 rounded-lg">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText size={24} className="text-purple-400 flex-shrink-0" />
+                <div className="text-left min-w-0">
+                  <div className="text-sm font-medium truncate">{item.file.name}</div>
+                  <div className="text-xs text-muted-foreground">{(item.file.size / 1024).toFixed(1)} KB</div>
+                  {item.status === 'ok' && (
+                    <div className="text-xs text-emerald-400 mt-1">
+                      {item.datosExtraidos?.nombres} {item.datosExtraidos?.apellidos} · Doc. {item.datosExtraidos?.nroDocumento || 'N/A'}
+                    </div>
+                  )}
+                  {item.status === 'error' && <div className="text-xs text-red-400 mt-1">{item.error}</div>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {item.status === 'procesando' && <Loader2 size={18} className="animate-spin text-purple-400" />}
+                {item.status === 'ok' && <CheckCircle2 size={18} className="text-emerald-400" />}
+                {item.status === 'error' && <AlertCircle size={18} className="text-red-400" />}
+                <button onClick={() => removeItem(item.id)} disabled={item.status === 'procesando'} className="text-muted-foreground hover:text-red-400 transition-colors disabled:opacity-30">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {items.length > 0 && hayPendientes && (
         <button onClick={handleProcess} disabled={isProcessing} className="w-full bg-purple-500/15 text-purple-400 border border-purple-500/25 font-medium py-3 rounded-xl hover:bg-purple-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-          {isProcessing ? <><Loader2 size={18} className="animate-spin" />Procesando con IA...</> : <><Sparkles size={18} />Extraer datos</>}
+          {isProcessing ? <><Loader2 size={18} className="animate-spin" />Procesando con IA...</> : <><Sparkles size={18} />Extraer datos {items.length > 1 ? `(${items.length} PDFs)` : ''}</>}
         </button>
       )}
 
       {error && <div className="flex items-start gap-2 bg-red-500/10 text-red-400 border border-red-500/20 p-3 rounded-xl text-sm"><AlertCircle size={16} className="flex-shrink-0 mt-0.5" />{error}</div>}
 
-      {datosExtraidos && (
+      {itemsOk.length > 0 && (
         <div className="space-y-4 animate-fade-in">
           <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-            <div className="flex items-center gap-2 text-emerald-400 mb-3 font-medium"><CheckCircle2 size={18} />Datos extraídos correctamente</div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="text-muted-foreground">Documento:</span> <span className="font-medium">{datosExtraidos.nroDocumento || 'N/A'}</span></div>
-              <div><span className="text-muted-foreground">Nombre:</span> <span className="font-medium">{datosExtraidos.nombres} {datosExtraidos.apellidos}</span></div>
-              <div><span className="text-muted-foreground">Cargo:</span> <span className="font-medium">{datosExtraidos.cargo || 'N/A'}</span></div>
-              <div><span className="text-muted-foreground">Empresa:</span> <span className="font-medium">{datosExtraidos.empresa || 'N/A'}</span></div>
-              <div><span className="text-muted-foreground">Fecha inicio contrato:</span> <span className="font-medium">{datosExtraidos.fechaInicioContrato || 'N/A'}</span></div>
-            </div>
+            <div className="flex items-center gap-2 text-emerald-400 mb-1 font-medium"><CheckCircle2 size={18} />{itemsOk.length} empleado{itemsOk.length > 1 ? 's' : ''} listo{itemsOk.length > 1 ? 's' : ''} para guardar</div>
           </div>
           <button onClick={handleConfirm} disabled={isSaving} className="w-full btn-primary flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 shadow-purple-500/20">
-            {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Confirmar y Guardar</>}
+            {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Confirmar y Guardar {itemsOk.length > 1 ? `(${itemsOk.length})` : ''}</>}
           </button>
         </div>
       )}
