@@ -471,16 +471,51 @@ function EditarEmpleadoForm({ empleado, onSuccess, empresasExistentes }: any) {
 
 // ========== FORMULARIO NUEVO EMPLEADO ==========
 function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
-  const [form, setForm] = useState({ 
-    nroDocumento: '', nombres: '', apellidos: '', cargo: '', obra: '', 
+  const [form, setForm] = useState({
+    nroDocumento: '', nombres: '', apellidos: '', cargo: '', obra: '',
     empresa: '', telefonoCelular: '', email: '', estado: 'Activo',
-    fechaIngreso: '', eps: '', arl: '', contactoEmergencia: '', 
-    tipoSangre: '', direccion: '' 
+    fechaIngreso: '', eps: '', arl: '', contactoEmergencia: '',
+    tipoSangre: '', direccion: ''
   });
   const [nuevaEmpresa, setNuevaEmpresa] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [error, setError] = useState('');
   const isSavingRef = useRef(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) setPdfFile(selectedFile);
+  };
+
+  const subirPdf = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!pdfFile) { resolve(''); return; }
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        try {
+          const response = await fetch('/api/empleados/upload-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pdfBase64: base64,
+              mimeType: pdfFile.type || 'application/pdf',
+              nroDocumento: form.nroDocumento,
+              nombres: form.nombres,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Error al subir PDF');
+          resolve(result.url);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo PDF'));
+      reader.readAsDataURL(pdfFile);
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -489,15 +524,21 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
     isSavingRef.current = true;
     setIsSaving(true); setError('');
     try {
+      let scanDocumentos = '';
+      if (pdfFile) {
+        setIsUploadingPdf(true);
+        scanDocumentos = await subirPdf();
+        setIsUploadingPdf(false);
+      }
       const response = await fetch('/api/empleados', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, scanDocumentos }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       onSuccess();
     } catch (err: any) { setError(err.message); }
-    finally { isSavingRef.current = false; setIsSaving(false); }
+    finally { isSavingRef.current = false; setIsSaving(false); setIsUploadingPdf(false); }
   };
 
   return (
@@ -620,8 +661,37 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
         </div>
       </div>
 
+      {/* Adjuntar PDF */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Documento adjunto (PDF)</label>
+        <input type="file" ref={pdfInputRef} accept=".pdf,application/pdf" onChange={handlePdfChange} className="hidden" />
+        {!pdfFile ? (
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-4 text-sm text-muted-foreground hover:bg-secondary/30 transition-colors"
+          >
+            <FileText size={18} />
+            Click para adjuntar PDF (opcional)
+          </button>
+        ) : (
+          <div className="flex items-center justify-between bg-secondary/50 p-3 rounded-xl">
+            <div className="flex items-center gap-3">
+              <FileText size={20} className="text-primary" />
+              <div className="text-left">
+                <div className="text-sm font-medium">{pdfFile.name}</div>
+                <div className="text-xs text-muted-foreground">{(pdfFile.size / 1024).toFixed(1)} KB</div>
+              </div>
+            </div>
+            <button type="button" onClick={() => { setPdfFile(null); if (pdfInputRef.current) pdfInputRef.current.value = ''; }} className="text-muted-foreground hover:text-red-400 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+        )}
+      </div>
+
       <button type="submit" disabled={isSaving} className="btn-primary w-full flex items-center justify-center gap-2">
-        {isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Guardar Empleado</>}
+        {isUploadingPdf ? <><Loader2 size={18} className="animate-spin" />Subiendo PDF...</> : isSaving ? <><Loader2 size={18} className="animate-spin" />Guardando... por favor espera</> : <><CheckCircle2 size={18} />Guardar Empleado</>}
       </button>
     </form>
   );
@@ -682,6 +752,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
           empresa: datosExtraidos.empresa || '',
           telefonoCelular: datosExtraidos.telefono || '',
           email: datosExtraidos.email || '',
+          fechaInicioContrato: datosExtraidos.fechaInicioContrato || '',
           scanDocumentos: datosExtraidos.scanDocumentos || '',
           estado: 'Activo',
         }),
@@ -744,6 +815,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
               <div><span className="text-muted-foreground">Nombre:</span> <span className="font-medium">{datosExtraidos.nombres} {datosExtraidos.apellidos}</span></div>
               <div><span className="text-muted-foreground">Cargo:</span> <span className="font-medium">{datosExtraidos.cargo || 'N/A'}</span></div>
               <div><span className="text-muted-foreground">Empresa:</span> <span className="font-medium">{datosExtraidos.empresa || 'N/A'}</span></div>
+              <div><span className="text-muted-foreground">Fecha inicio contrato:</span> <span className="font-medium">{datosExtraidos.fechaInicioContrato || 'N/A'}</span></div>
             </div>
           </div>
           <button onClick={handleConfirm} disabled={isSaving} className="w-full btn-primary flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 shadow-purple-500/20">

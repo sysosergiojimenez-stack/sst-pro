@@ -310,6 +310,26 @@ app.post('/api/gemini', async (c) => {
   }
 });
 
+// API REST - Subir PDF manual (sin extraccion IA) para adjuntar a un empleado
+app.post('/api/empleados/upload-pdf', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { pdfBase64, mimeType, nroDocumento, nombres } = body;
+
+    if (!pdfBase64 || pdfBase64.length < 100) {
+      return c.json({ error: 'PDF vacio o corrupto. Length: ' + (pdfBase64?.length || 0) }, 400);
+    }
+
+    const nombreArchivo = `FICHA_${nroDocumento || 'SIN_DOC'}_${nombres || 'SIN_NOMBRE'}_${Date.now()}.pdf`;
+    const gcsUrl = await subirPDFAGCS(pdfBase64, nombreArchivo, mimeType || 'application/pdf');
+
+    return c.json({ success: true, url: gcsUrl });
+  } catch (error: any) {
+    console.error('Error POST /api/empleados/upload-pdf:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ============================================
 // API GEMINI - EPP (Procesamiento de Facturas/Remisiones)
 // ============================================

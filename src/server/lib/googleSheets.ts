@@ -104,6 +104,7 @@ export interface DatosExtraidosPDF {
   obra: string;
   contactoEmergencia: string;
   telefonoEmergencia: string;
+  fechaInicioContrato: string;
   [key: string]: string;
 }
 
@@ -123,7 +124,7 @@ export async function extraerDatosConGemini(
 
 1. CEDULA DE IDENTIDAD (Republica del Paraguay): esta es la UNICA fuente para NOMBRES, APELLIDOS, NUMERO DE DOCUMENTO y FECHA DE NACIMIENTO. Usa solamente este documento para esos 4 campos, salvo que no este presente o no sea legible (ver REGLA DE RESPALDO).
 
-2. ACTA DE INDUCCION EN SEGURIDAD (formulario con checklist de riesgos y firmas): usa este documento UNICAMENTE para extraer el CARGO, tomando el campo "CARGO O LABOR A DESEMPEÑAR". No uses este documento para ningun otro campo.
+2. ACTA DE INDUCCION EN SEGURIDAD PARA TRABAJADOR NUEVO (formulario con checklist de riesgos y firmas): usa este documento UNICAMENTE para extraer el CARGO, tomando el campo "CARGO O LABOR A DESEMPEÑAR"; y la FECHA DE INICIO DE CONTRATO, tomando la fecha que aparece en la celda "Fecha" del acta. No uses este documento para ningun otro campo.
 
 3. CONSTANCIA DE ENTRADA DEL ASEGURADO (IPS - Instituto de Prevision Social): usa este documento UNICAMENTE para extraer la EMPRESA, tomando el nombre que aparece en la seccion "DATOS DEL EMPLEADOR" junto a "Empleador:" (el nombre de la persona o razon social que sigue al codigo, no el numero). No uses este documento para ningun otro campo, salvo la REGLA DE RESPALDO.
 
@@ -148,7 +149,8 @@ Responde UNICAMENTE en formato JSON con esta estructura exacta:
   "empresa": "nombre de la empresa",
   "obra": "obra o proyecto asignado",
   "contactoEmergencia": "nombre contacto de emergencia",
-  "telefonoEmergencia": "telefono de emergencia"
+  "telefonoEmergencia": "telefono de emergencia",
+  "fechaInicioContrato": "fecha de inicio de contrato, tomada del campo Fecha del acta de induccion en seguridad (DD/MM/YYYY)"
 }
 Si algun dato no esta en el documento, usa string vacio "".
 NO incluyas explicaciones, SOLO el JSON.`;
