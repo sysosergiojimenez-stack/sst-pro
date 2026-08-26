@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import autoTable from 'jspdf-autotable';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
 
 type GeminiItem = {
   id: string;
@@ -90,6 +91,8 @@ interface Empleado {
   fechaTerminoContrato?: string;
   calce?: string;
   scanDocumentos?: string;
+  ultimaDeclaracionIPS?: string;
+  ipsDocumentoUrl?: string;
   estado?: string;
 }
 
@@ -427,6 +430,10 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [pdfFilters, setPdfFilters] = useState({ empresa: '', estado: '', cargo: '' });
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showBiometricoMenu, setShowBiometricoMenu] = useState(false);
+  const [showIPSForm, setShowIPSForm] = useState(false);
+  const [ipsPdfFile, setIpsPdfFile] = useState<File | null>(null);
+  const [ipsLoading, setIpsLoading] = useState(false);
+  const [editingFecha, setEditingFecha] = useState<{ rowIndex: number | null; value: string }>({ rowIndex: null, value: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchData(); }, [proyecto.denominacion]);
@@ -551,6 +558,21 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [trabajadorHoras, setTrabajadorHoras] = useState('');
   const [fechaDesdeHoras, setFechaDesdeHoras] = useState('');
   const [fechaHastaHoras, setFechaHastaHoras] = useState('');
+  type FilaControlHoras = {
+    fechaISO: string;
+    fechaMostrar: string;
+    nombreDia: string;
+    horaEntrada: string;
+    horaSalida: string;
+    horasTrabajadas: number;
+    horasExtras: number;
+    horasAusentes: number;
+    estado: string;
+    rowIndex?: number;
+    modificado: boolean;
+  };
+  const [filasControlHoras, setFilasControlHoras] = useState<FilaControlHoras[]>([]);
+  const [guardandoHoras, setGuardandoHoras] = useState(false);
   const FERIADOS_KEY = 'sstpro_feriados';
   const [feriados, setFeriados] = useState<string[]>(() => {
     try {
@@ -587,7 +609,67 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     if (isNaN(h) || isNaN(m)) return null;
     return h * 60 + m;
   };
-  const generarInformeHoras = () => {
+  const calcularFilaControlHoras = (fila: Partial<FilaControlHoras>, fechaISO: string, diaSemana: number, esFeriado: boolean): FilaControlHoras => {
+    const horaEntrada = fila.horaEntrada || '';
+    const horaSalida = fila.horaSalida || '';
+    const horaFinEsperada = diaSemana === 1 ? '18:00' : '17:30';
+    const inicioMin = aMinutos('07:00')!;
+    const finMin = aMinutos(horaFinEsperada)!;
+    const esFinDeSemana = diaSemana === 0 || diaSemana === 6;
+    const esNoLaborable = esFinDeSemana || esFeriado;
+    let horasTrabajadas = 0;
+    let horasExtras = 0;
+    let horasAusentes = 0;
+    let estado = '';
+    if (esNoLaborable) {
+      if (horaEntrada && horaSalida) {
+        const eMin = aMinutos(horaEntrada);
+        const sMin = aMinutos(horaSalida);
+        if (eMin !== null && sMin !== null) {
+          let mins = sMin - eMin;
+          if (mins < 0) mins += 24 * 60;
+          horasExtras = mins / 60;
+          estado = esFeriado ? 'Trabajado - Feriado (Extra)' : 'Trabajado - Fin de semana (Extra)';
+        }
+      } else {
+        estado = esFeriado ? 'Feriado' : 'Fin de semana';
+      }
+    } else {
+      if (!horaEntrada || !horaSalida) {
+        horasAusentes = (finMin - inicioMin) / 60;
+        estado = !horaEntrada && !horaSalida ? 'Ausente (sin marcacion)' : 'Ausente (falta entrada o salida)';
+      } else {
+        const eMin = aMinutos(horaEntrada)!;
+        const sMin = aMinutos(horaSalida)!;
+        const retrasoMin = Math.max(0, eMin - inicioMin);
+        const salidaTempranaMin = Math.max(0, finMin - sMin);
+        const extraAntesMin = Math.max(0, inicioMin - eMin - TOLERANCIA_MIN);
+        const extraDespuesMin = Math.max(0, sMin - finMin - TOLERANCIA_MIN);
+        const ausenteMin = (retrasoMin > TOLERANCIA_MIN ? retrasoMin : 0) + (salidaTempranaMin > TOLERANCIA_MIN ? salidaTempranaMin : 0);
+        const extraMin = extraAntesMin + extraDespuesMin;
+        const trabajadasMin = Math.max(0, Math.min(sMin, finMin) - Math.max(eMin, inicioMin));
+        horasTrabajadas = trabajadasMin / 60;
+        horasExtras = extraMin / 60;
+        horasAusentes = ausenteMin / 60;
+        estado = ausenteMin > 0 ? 'Presente con observaciones' : 'Presente';
+      }
+    }
+    return {
+      fechaISO,
+      fechaMostrar: fila.fechaMostrar || new Date(fechaISO + 'T00:00:00').toLocaleDateString('es-ES'),
+      nombreDia: fila.nombreDia || new Date(fechaISO + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long' }),
+      horaEntrada,
+      horaSalida,
+      horasTrabajadas,
+      horasExtras,
+      horasAusentes,
+      estado,
+      rowIndex: fila.rowIndex,
+      modificado: fila.modificado || false,
+    };
+  };
+
+  const generarVistaPreviaHoras = () => {
     if (!trabajadorHoras || !fechaDesdeHoras || !fechaHastaHoras) {
       alert('Selecciona un trabajador y el rango de fechas.');
       return;
@@ -596,15 +678,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       alert('La fecha desde no puede ser posterior a la fecha hasta.');
       return;
     }
-    const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
-    if (!emp) return;
     const mapaMarcaciones = new Map(marcaciones.filter(m => m.nroDocumento === trabajadorHoras).map((m: any) => [m.fecha, m]));
-    const filas: any[] = [];
-    let totalTrabajadas = 0;
-    let totalExtras = 0;
-    let totalAusentes = 0;
-    let diasConMarcacion = 0;
-    let diasAusente = 0;
+    const nuevasFilas: FilaControlHoras[] = [];
     const inicio = new Date(fechaDesdeHoras + 'T00:00:00');
     const fin = new Date(fechaHastaHoras + 'T00:00:00');
     for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
@@ -614,64 +689,86 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       const nombreDia = d.toLocaleDateString('es-ES', { weekday: 'long' });
       const m: any = mapaMarcaciones.get(fechaISO);
       const esFeriado = feriados.includes(fechaISO);
-      const esFinDeSemana = diaSemana === 0 || diaSemana === 6;
-      const esNoLaborable = esFinDeSemana || esFeriado;
-      const horaFinEsperada = diaSemana === 1 ? '18:00' : '17:30';
-      const inicioMin = aMinutos('07:00')!;
-      const finMin = aMinutos(horaFinEsperada)!;
-      let horasTrabajadas = 0;
-      let horasExtras = 0;
-      let horasAusentes = 0;
-      let estado = '';
-      if (esNoLaborable) {
-        if (m && m.horaEntrada && m.horaSalida) {
-          const eMin = aMinutos(m.horaEntrada);
-          const sMin = aMinutos(m.horaSalida);
-          if (eMin !== null && sMin !== null) {
-            let mins = sMin - eMin;
-            if (mins < 0) mins += 24 * 60;
-            horasExtras = mins / 60;
-            estado = esFeriado ? 'Trabajado - Feriado (Extra)' : 'Trabajado - Fin de semana (Extra)';
-          }
-        } else {
-          estado = esFeriado ? 'Feriado' : 'Fin de semana';
-        }
-      } else {
-        if (!m || !m.horaEntrada || !m.horaSalida) {
-          horasAusentes = (finMin - inicioMin) / 60;
-          diasAusente++;
-          estado = !m ? 'Ausente (sin marcacion)' : 'Ausente (falta entrada o salida)';
-        } else {
-          const eMin = aMinutos(m.horaEntrada)!;
-          const sMin = aMinutos(m.horaSalida)!;
-          diasConMarcacion++;
-          const retrasoMin = Math.max(0, eMin - inicioMin);
-          const salidaTempranaMin = Math.max(0, finMin - sMin);
-          const extraAntesMin = Math.max(0, inicioMin - eMin);
-          const extraDespuesMin = Math.max(0, sMin - finMin);
-          const ausenteMin = (retrasoMin > TOLERANCIA_MIN ? retrasoMin : 0) + (salidaTempranaMin > TOLERANCIA_MIN ? salidaTempranaMin : 0);
-          const extraMin = extraAntesMin + extraDespuesMin;
-          const trabajadasMin = Math.max(0, Math.min(sMin, finMin) - Math.max(eMin, inicioMin));
-          horasTrabajadas = trabajadasMin / 60;
-          horasExtras = extraMin / 60;
-          horasAusentes = ausenteMin / 60;
-          estado = ausenteMin > 0 ? 'Presente con observaciones' : 'Presente';
-        }
-      }
-      totalTrabajadas += horasTrabajadas;
-      totalExtras += horasExtras;
-      totalAusentes += horasAusentes;
-      filas.push({
-        Fecha: fechaMostrar,
-        Dia: nombreDia,
-        'Hora Entrada': m?.horaEntrada || '-',
-        'Hora Salida': m?.horaSalida || '-',
-        'Horas Trabajadas': horasTrabajadas > 0 ? horasTrabajadas.toFixed(2) : '-',
-        'Horas Extras': horasExtras > 0 ? horasExtras.toFixed(2) : '-',
-        'Horas Ausentes': horasAusentes > 0 ? horasAusentes.toFixed(2) : '-',
-        Estado: estado,
-      });
+      nuevasFilas.push(calcularFilaControlHoras({
+        fechaMostrar,
+        nombreDia,
+        horaEntrada: m?.horaEntrada || '',
+        horaSalida: m?.horaSalida || '',
+        rowIndex: m?.rowIndex,
+      }, fechaISO, diaSemana, esFeriado));
     }
+    setFilasControlHoras(nuevasFilas);
+  };
+
+  const handleEditarHora = (index: number, campo: 'horaEntrada' | 'horaSalida', valor: string) => {
+    setFilasControlHoras(prev => {
+      const fila = prev[index];
+      if (!fila) return prev;
+      const nuevaFila = calcularFilaControlHoras(
+        { ...fila, [campo]: valor, modificado: true },
+        fila.fechaISO,
+        new Date(fila.fechaISO + 'T00:00:00').getDay(),
+        feriados.includes(fila.fechaISO)
+      );
+      const nuevas = [...prev];
+      nuevas[index] = nuevaFila;
+      return nuevas;
+    });
+  };
+
+  const guardarCambiosHoras = async () => {
+    const filasModificadas = filasControlHoras.filter(f => f.modificado && f.rowIndex);
+    if (filasModificadas.length === 0) {
+      alert('No hay cambios para guardar.');
+      return;
+    }
+    setGuardandoHoras(true);
+    try {
+      for (const fila of filasModificadas) {
+        await fetch(`/api/marcaciones-biometricas/${fila.rowIndex}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            horaEntrada: fila.horaEntrada,
+            horaSalida: fila.horaSalida,
+            horasRaw: `${fila.horaEntrada} ${fila.horaSalida}`.trim(),
+          }),
+        });
+      }
+      await fetchData();
+      alert('Cambios guardados correctamente.');
+    } catch (err: any) {
+      alert('Error al guardar: ' + err.message);
+    } finally {
+      setGuardandoHoras(false);
+    }
+  };
+
+  const exportarExcelHoras = () => {
+    const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
+    if (!emp) return;
+    let totalTrabajadas = 0;
+    let totalExtras = 0;
+    let totalAusentes = 0;
+    let diasConMarcacion = 0;
+    let diasAusente = 0;
+    const filas = filasControlHoras.map(f => {
+      totalTrabajadas += f.horasTrabajadas;
+      totalExtras += f.horasExtras;
+      totalAusentes += f.horasAusentes;
+      if (f.horaEntrada && f.horaSalida && !f.estado.includes('Ausente')) diasConMarcacion++;
+      if (f.estado.includes('Ausente')) diasAusente++;
+      return {
+        Fecha: f.fechaMostrar,
+        Dia: f.nombreDia,
+        'Hora Entrada': f.horaEntrada || '-',
+        'Hora Salida': f.horaSalida || '-',
+        'Horas Trabajadas': f.horasTrabajadas > 0 ? f.horasTrabajadas.toFixed(2) : '-',
+        'Horas Extras': f.horasExtras > 0 ? f.horasExtras.toFixed(2) : '-',
+        'Horas Ausentes': f.horasAusentes > 0 ? f.horasAusentes.toFixed(2) : '-',
+        Estado: f.estado,
+      };
+    });
     filas.push({ Fecha: '', Dia: '', 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
     filas.push({ Fecha: 'Total dias con marcacion', Dia: diasConMarcacion, 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
     filas.push({ Fecha: 'Total dias ausente', Dia: diasAusente, 'Hora Entrada': '', 'Hora Salida': '', 'Horas Trabajadas': '', 'Horas Extras': '', 'Horas Ausentes': '', Estado: '' });
@@ -682,6 +779,79 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, 'Control de Horas');
     XLSX.writeFile(libro, `Control_Horas_${emp.nombres}_${emp.apellidos}_${fechaDesdeHoras}_a_${fechaHastaHoras}.xlsx`);
+  };
+
+  const exportarPDFHoras = () => {
+    const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
+    if (!emp) return;
+    let totalTrabajadas = 0;
+    let totalExtras = 0;
+    let totalAusentes = 0;
+    let diasConMarcacion = 0;
+    let diasAusente = 0;
+    const body = filasControlHoras.map(f => {
+      totalTrabajadas += f.horasTrabajadas;
+      totalExtras += f.horasExtras;
+      totalAusentes += f.horasAusentes;
+      if (f.horaEntrada && f.horaSalida && !f.estado.includes('Ausente')) diasConMarcacion++;
+      if (f.estado.includes('Ausente')) diasAusente++;
+      return [
+        f.fechaMostrar,
+        f.nombreDia.charAt(0).toUpperCase() + f.nombreDia.slice(1),
+        f.horaEntrada || '-',
+        f.horaSalida || '-',
+        f.horasTrabajadas > 0 ? f.horasTrabajadas.toFixed(2) : '-',
+        f.horasExtras > 0 ? f.horasExtras.toFixed(2) : '-',
+        f.horasAusentes > 0 ? f.horasAusentes.toFixed(2) : '-',
+        f.estado,
+      ];
+    });
+
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageW = doc.internal.pageSize.getWidth();
+    const m = 10;
+    let y = 12;
+    doc.setFontSize(13);
+    doc.text('Control de Horas', pageW / 2, y, { align: 'center' });
+    y += 5;
+    doc.setFontSize(8);
+    const periodo = `${new Date(fechaDesdeHoras + 'T00:00:00').toLocaleDateString('es-ES')} al ${new Date(fechaHastaHoras + 'T00:00:00').toLocaleDateString('es-ES')}`;
+    doc.text(`${proyecto.denominacion}  |  ${emp.nombres} ${emp.apellidos} (${emp.nroDocumento})  |  ${periodo}`, pageW / 2, y, { align: 'center' });
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Fecha', 'Día', 'Ent.', 'Sal.', 'Trab.', 'Extras', 'Ausent.', 'Estado']],
+      body,
+      styles: { fontSize: 7.5, cellPadding: 1, lineColor: [200, 200, 200], lineWidth: 0.15 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold', minCellHeight: 5 },
+      bodyStyles: { minCellHeight: 4.5 },
+      columnStyles: {
+        0: { cellWidth: 18, halign: 'center' },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 13, halign: 'center' },
+        3: { cellWidth: 13, halign: 'center' },
+        4: { cellWidth: 13, halign: 'right' },
+        5: { cellWidth: 13, halign: 'right' },
+        6: { cellWidth: 13, halign: 'right' },
+        7: { cellWidth: 'auto' },
+      },
+      margin: { left: m, right: m, bottom: 8 },
+      pageBreak: 'avoid',
+      didParseCell: (data) => {
+        if (data.row.index >= filasControlHoras.length) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      },
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY || y + 20;
+    y = finalY + 3;
+    doc.setFontSize(7.5);
+    doc.text(`Días con marcación: ${diasConMarcacion}    |    Días ausente: ${diasAusente}    |    Horas trabajadas: ${totalTrabajadas.toFixed(2)}    |    Horas extras: ${totalExtras.toFixed(2)}    |    Horas ausentes: ${totalAusentes.toFixed(2)}`, m, y);
+
+    doc.save(`Control_Horas_${emp.nombres}_${emp.apellidos}_${fechaDesdeHoras}_a_${fechaHastaHoras}.pdf`);
   };
 
   const ultimaMarcacion = (nroDocumento: string): string => {
@@ -764,6 +934,54 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
+  const handleGuardarFechaInicio = async (rowIndex: number) => {
+    if (editingFecha.rowIndex !== rowIndex) return;
+    try {
+      const response = await fetch(`/api/empleados/${rowIndex}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fechaInicioContrato: editingFecha.value }),
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+      setEditingFecha({ rowIndex: null, value: '' });
+      fetchData();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  };
+
+  const renderFechaInicioCell = (emp: Empleado) => {
+    const isEditing = editingFecha.rowIndex === emp.rowIndex;
+    return (
+      <td
+        className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell cursor-pointer"
+        onClick={(e) => {
+          if (isEditing) return;
+          e.stopPropagation();
+          setEditingFecha({ rowIndex: emp.rowIndex, value: emp.fechaInicioContrato || '' });
+        }}
+      >
+        <span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>
+        {isEditing ? (
+          <input
+            type="date"
+            value={editingFecha.value}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setEditingFecha({ rowIndex: emp.rowIndex, value: e.target.value })}
+            onBlur={() => handleGuardarFechaInicio(emp.rowIndex)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') handleGuardarFechaInicio(emp.rowIndex);
+              if (e.key === 'Escape') setEditingFecha({ rowIndex: null, value: '' });
+            }}
+            className="w-full bg-secondary border border-border rounded-lg px-2 py-1 text-sm"
+          />
+        ) : (
+          emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-'
+        )}
+      </td>
+    );
+  };
+
   const handleGeminiFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
@@ -831,6 +1049,39 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     finally { setGeminiSaving(false); }
   };
 
+  const handleSubmitIPS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ipsPdfFile) return;
+    setIpsLoading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(ipsPdfFile);
+      });
+      const response = await fetch('/api/declaraciones-ips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfBase64: base64,
+          mimeType: ipsPdfFile.type || 'application/pdf',
+          proyecto: proyecto.denominacion,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al procesar declaración IPS');
+      alert(`Declaración IPS procesada: ${data.periodo}. Se actualizaron ${data.actualizados} empleados.`);
+      setShowIPSForm(false);
+      setIpsPdfFile(null);
+      fetchData();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setIpsLoading(false);
+    }
+  };
+
   const ordenarAlfabetico = (a: Empleado, b: Empleado) =>
     a.nombres.localeCompare(b.nombres, 'es') || a.apellidos.localeCompare(b.apellidos, 'es');
 
@@ -895,8 +1146,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
 
     const contratistas = Object.keys(agrupados).sort((a, b) => a.localeCompare(b, 'es'));
 
-    const headers = ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Unidad', 'Fecha Inicio Contrato', 'Última Marcación'];
-    const colWidths = [30, 35, 35, 40, 30, 35, 40];
+    const headers = ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Fecha Inicio Contrato', 'Scan Documentos', 'Última dec IPS'];
+    const colWidths = [30, 40, 40, 45, 35, 38, 34];
     const startX = marginLeft;
 
     for (const contratista of contratistas) {
@@ -930,15 +1181,28 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           emp.nombres || '-',
           emp.apellidos || '-',
           emp.cargo || '-',
-          emp.unidad || '-',
           emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-',
-          ultimaMarcacion(emp.nroDocumento),
+          emp.scanDocumentos || 'Sin PDF',
+          emp.ultimaDeclaracionIPS || 'Aun no Genera',
         ];
         x = startX + 2;
         row.forEach((cell, i) => {
-          const maxLen = i === 3 ? 22 : 18;
-          const text = String(cell).length > maxLen ? String(cell).slice(0, maxLen) + '...' : String(cell);
-          doc.text(text, x, y);
+          const maxLens = [18, 24, 24, 26, 14, 20, 18];
+          const maxLen = maxLens[i] || 18;
+          let text = String(cell);
+          if (text.length > maxLen) text = text.slice(0, maxLen) + '...';
+
+          if (i === 5 && emp.scanDocumentos) {
+            doc.setTextColor(0, 102, 204);
+            doc.textWithLink(text, x, y, { url: emp.scanDocumentos });
+            doc.setTextColor(0, 0, 0);
+          } else if (i === 6 && emp.ipsDocumentoUrl) {
+            doc.setTextColor(0, 102, 204);
+            doc.textWithLink(text, x, y, { url: emp.ipsDocumentoUrl });
+            doc.setTextColor(0, 0, 0);
+          } else {
+            doc.text(text, x, y);
+          }
           x += colWidths[i];
         });
         y += 6;
@@ -954,6 +1218,45 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
 
     const fechaArchivo = new Date().toISOString().split('T')[0];
     doc.save(`Empleados_${proyecto.denominacion.replace(/\s+/g, '_')}_${fechaArchivo}.pdf`);
+  };
+
+  const descargarExcel = () => {
+    let filtrados = [...empleados];
+    if (pdfFilters.empresa) filtrados = filtrados.filter(e => (e.empresa || '').trim().toLowerCase() === pdfFilters.empresa.trim().toLowerCase());
+    if (pdfFilters.estado) filtrados = filtrados.filter(e => (e.estado || 'Activo').trim().toLowerCase() === pdfFilters.estado.trim().toLowerCase());
+    if (pdfFilters.cargo.trim()) filtrados = filtrados.filter(e => (e.cargo || '').toLowerCase().includes(pdfFilters.cargo.toLowerCase()));
+
+    const rows = filtrados.map(emp => ({
+      'Documento': emp.nroDocumento || '-',
+      'Nombres': emp.nombres || '-',
+      'Apellidos': emp.apellidos || '-',
+      'Cargo': emp.cargo || '-',
+      'Fecha Inicio Contrato': emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-',
+      'Scan Documentos': emp.scanDocumentos || 'Sin PDF',
+      'Estado': emp.estado || 'Activo',
+      'Empresa': emp.empresa || '-',
+      'Última dec IPS': emp.ultimaDeclaracionIPS || 'Aun no Genera',
+    }));
+
+    const hoja = XLSX.utils.json_to_sheet(rows);
+    hoja['!cols'] = [
+      { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 22 }, { wch: 20 }, { wch: 12 }, { wch: 20 }, { wch: 22 }
+    ];
+    const colIPS = 8;
+    filtrados.forEach((emp, i) => {
+      if (emp.ipsDocumentoUrl && emp.ultimaDeclaracionIPS) {
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: colIPS });
+        hoja[cellRef] = {
+          v: emp.ultimaDeclaracionIPS,
+          t: 's',
+          l: { Target: emp.ipsDocumentoUrl, Tooltip: 'Ver PDF' }
+        };
+      }
+    });
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Empleados');
+    const fechaArchivo = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(libro, `Empleados_${proyecto.denominacion.replace(/\s+/g, '_')}_${fechaArchivo}.xlsx`);
   };
 
   return (
@@ -1021,9 +1324,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           <button
             onClick={() => setShowPdfFilters(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
-            title="Descargar PDF"
+            title="Descargar listado"
           >
-            <FileDown size={18} /> <span className="hidden sm:inline">Descargar PDF</span>
+            <FileDown size={18} /> <span className="hidden sm:inline">Descargar</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowIPSForm(prev => !prev)}
+            className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+            title="Subir declaración jurada de salarios IPS"
+          >
+            <FileText size={18} /> <span className="hidden sm:inline">Declaración IPS</span>
           </button>
         </div>
       </div>
@@ -1107,13 +1418,73 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               </div>
             )}
           </div>
-          <button onClick={generarInformeHoras} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
-            <FileText size={18} /> Generar Excel
+          <button onClick={generarVistaPreviaHoras} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+            <FileText size={18} /> Vista Previa / Editar
           </button>
           <p className="text-xs text-muted-foreground mt-2">
-            Horario: lunes 07:00-18:00, martes a viernes 07:00-17:30. Tolerancia de {`{TOLERANCIA_MIN}`} minutos para llegada tardia/salida temprana.
+            Horario: lunes 07:00-18:00, martes a viernes 07:00-17:30. Tolerancia de {TOLERANCIA_MIN} minutos para llegada tardia/salida temprana.
             El informe incluye horas trabajadas, horas extras (fuera de horario, fin de semana o feriado) y horas ausentes (llegada tardia, salida temprana o falta de marcacion) por dia, con totales del periodo.
           </p>
+
+          {filasControlHoras.length > 0 && (
+            <div className="mt-6 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={guardarCambiosHoras} disabled={guardandoHoras} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-50">
+                  <Save size={18} /> {guardandoHoras ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+                <button onClick={exportarExcelHoras} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors text-sm">
+                  <FileSpreadsheet size={18} /> Exportar Excel
+                </button>
+                <button onClick={exportarPDFHoras} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm">
+                  <FileText size={18} /> Exportar PDF
+                </button>
+              </div>
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Fecha</th>
+                      <th className="text-left px-3 py-2 font-medium">Día</th>
+                      <th className="text-left px-3 py-2 font-medium">Entrada</th>
+                      <th className="text-left px-3 py-2 font-medium">Salida</th>
+                      <th className="text-right px-3 py-2 font-medium">Trab.</th>
+                      <th className="text-right px-3 py-2 font-medium">Extras</th>
+                      <th className="text-right px-3 py-2 font-medium">Ausent.</th>
+                      <th className="text-left px-3 py-2 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filasControlHoras.map((fila, idx) => (
+                      <tr key={fila.fechaISO} className="border-t border-border/50">
+                        <td className="px-3 py-2 whitespace-nowrap">{fila.fechaMostrar}</td>
+                        <td className="px-3 py-2 whitespace-nowrap capitalize">{fila.nombreDia}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={fila.horaEntrada}
+                            onChange={(e) => handleEditarHora(idx, 'horaEntrada', e.target.value)}
+                            className="w-full bg-secondary border border-border rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={fila.horaSalida}
+                            onChange={(e) => handleEditarHora(idx, 'horaSalida', e.target.value)}
+                            className="w-full bg-secondary border border-border rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">{fila.horasTrabajadas > 0 ? fila.horasTrabajadas.toFixed(2) : '-'}</td>
+                        <td className="px-3 py-2 text-right">{fila.horasExtras > 0 ? fila.horasExtras.toFixed(2) : '-'}</td>
+                        <td className="px-3 py-2 text-right">{fila.horasAusentes > 0 ? fila.horasAusentes.toFixed(2) : '-'}</td>
+                        <td className="px-3 py-2 text-xs">{fila.estado}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1188,7 +1559,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <FileDown size={20} className="text-primary" />
-              Descargar listado en PDF
+              Descargar listado
             </h3>
             <button onClick={() => setShowPdfFilters(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
@@ -1239,6 +1610,12 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               <FileDown size={18} /> Generar PDF
             </button>
             <button
+              onClick={() => { descargarExcel(); setShowPdfFilters(false); }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <FileSpreadsheet size={18} /> Generar Excel
+            </button>
+            <button
               onClick={() => setPdfFilters({ empresa: '', estado: '', cargo: '' })}
               className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
             >
@@ -1251,6 +1628,57 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               Cancelar
             </button>
           </div>
+        </div>
+      )}
+
+      {showIPSForm && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileText size={20} className="text-primary" />
+              Subir declaración jurada de salarios IPS
+            </h3>
+            <button onClick={() => { setShowIPSForm(false); setIpsPdfFile(null); }} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+          </div>
+          <form onSubmit={handleSubmitIPS} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Archivo PDF de la planilla IPS</label>
+              {!ipsPdfFile ? (
+                <label className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-6 text-sm text-muted-foreground hover:bg-secondary/30 transition-colors cursor-pointer">
+                  <Upload size={18} />
+                  Click para seleccionar PDF
+                  <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => setIpsPdfFile(e.target.files?.[0] || null)} />
+                </label>
+              ) : (
+                <div className="flex items-center justify-between bg-secondary p-3 rounded-lg border border-border">
+                  <div className="flex items-center gap-3">
+                    <FileText size={20} className="text-primary" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">{ipsPdfFile.name}</div>
+                      <div className="text-xs text-muted-foreground">{(ipsPdfFile.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setIpsPdfFile(null)} className="text-muted-foreground hover:text-red-400"><X size={16} /></button>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={!ipsPdfFile || ipsLoading}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Brain size={18} /> {ipsLoading ? 'Procesando...' : 'Procesar con IA'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowIPSForm(false); setIpsPdfFile(null); }}
+                className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -1279,15 +1707,16 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Unidad</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Fecha Inicio Contrato</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Última Marcación</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Última dec IPS</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
             <tbody className="block sm:table-row-group">
               <tr className="bg-secondary/30">
-                <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
+                <td colSpan={10} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos ({activosOrdenados.length})</td>
               </tr>
               {activosOrdenados.length === 0 && (
-                <tr><td colSpan={9} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
+                <tr><td colSpan={10} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
               )}
               {activosOrdenados.map((emp) => (
                 <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
@@ -1310,9 +1739,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                     <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
                     <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
                     <td className="py-3 px-4 text-sm block sm:table-cell">{emp.unidad || '-'}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>{emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                    {renderFechaInicioCell(emp)}
                     <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell">
                       <span className="text-muted-foreground/60 sm:hidden">Última Marcación: </span>{ultimaMarcacion(emp.nroDocumento)}
+                    </td>
+                    <td className="py-3 px-4 text-sm block sm:table-cell">
+                      <span className="text-muted-foreground/60 sm:hidden">Última dec IPS: </span>
+                      {emp.ultimaDeclaracionIPS ? (
+                        <a href={emp.ipsDocumentoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>{emp.ultimaDeclaracionIPS}</a>
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td className="py-3 px-4 block sm:table-cell">
                       <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
@@ -1324,7 +1761,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                   </tr>
                   {filaExpandida?.rowIndex === emp.rowIndex && (
                     <tr className="border-b border-border bg-card">
-                      <td colSpan={9} className="p-4 sm:p-6">
+                      <td colSpan={10} className="p-4 sm:p-6">
                         <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
                         <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} inline isEditing disabledNroDocumento onCancel={() => setFilaExpandida(null)} />
                       </td>
@@ -1335,7 +1772,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
               {inactivosOrdenados.length > 0 && (
                 <>
                   <tr className="bg-secondary/30">
-                    <td colSpan={9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
+                    <td colSpan={10} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
                   </tr>
                   {inactivosOrdenados.map((emp) => (
                     <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
@@ -1358,9 +1795,17 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                         <td className="py-3 px-4 text-sm block sm:table-cell">{emp.cargo}</td>
                         <td className="py-3 px-4 text-sm block sm:table-cell">{emp.empresa}</td>
                         <td className="py-3 px-4 text-sm block sm:table-cell">{emp.unidad || '-'}</td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>{emp.fechaInicioContrato ? new Date(emp.fechaInicioContrato + 'T00:00:00').toLocaleDateString('es-ES') : '-'}</td>
+                        {renderFechaInicioCell(emp)}
                         <td className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell">
                           <span className="text-muted-foreground/60 sm:hidden">Última Marcación: </span>{ultimaMarcacion(emp.nroDocumento)}
+                        </td>
+                        <td className="py-3 px-4 text-sm block sm:table-cell">
+                          <span className="text-muted-foreground/60 sm:hidden">Última dec IPS: </span>
+                          {emp.ultimaDeclaracionIPS ? (
+                            <a href={emp.ipsDocumentoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>{emp.ultimaDeclaracionIPS}</a>
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td className="py-3 px-4 block sm:table-cell">
                           <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
@@ -1372,7 +1817,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                       </tr>
                       {filaExpandida?.rowIndex === emp.rowIndex && (
                         <tr className="border-b border-border bg-card">
-                          <td colSpan={9} className="p-4 sm:p-6">
+                          <td colSpan={10} className="p-4 sm:p-6">
                             <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
                             <FormularioEmpleado form={form} setForm={setForm} handleSubmit={handleSubmit} inline isEditing disabledNroDocumento onCancel={() => setFilaExpandida(null)} />
                           </td>
