@@ -525,7 +525,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
 
   const handleToggleCompletarTarea = async (tarea: BitacoraTarea) => {
     if (tarea.estado === 'completada') {
-      // Volver a pendiente, manteniendo historial (Opcion A)
+      // Volver a pendiente; el backend elimina las fotos "despues" de GCS y limpia los datos de completado
       try {
         await fetch(`/api/bitacora/tareas/${tarea.rowIndex}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -790,7 +790,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
 
       {deletingId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-sm p-5">
+          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-500/10 rounded-full"><Trash2 size={20} className="text-red-400" /></div>
               <div><h3 className="font-semibold text-sm">Eliminar Entrada</h3><p className="text-muted-foreground text-xs">Esta accion no se puede deshacer.</p></div>
@@ -805,7 +805,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
 
       {completarTarea && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md p-5">
+          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-green-500/10 rounded-full"><CheckCircle2 size={20} className="text-green-400" /></div>
               <div>
@@ -859,7 +859,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
       {editandoTarea && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <ErrorBoundary>
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md p-5">
+          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-primary/10 rounded-full"><Pencil size={20} className="text-primary" /></div>
               <div>
@@ -922,7 +922,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
 
       {moviendoTarea && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md p-5">
+          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-primary/10 rounded-full"><ArrowRightLeft size={20} className="text-primary" /></div>
               <div>
