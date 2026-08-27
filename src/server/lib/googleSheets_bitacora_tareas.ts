@@ -59,6 +59,11 @@ export async function getTareasByBitacora(idBitacora: string): Promise<BitacoraT
   return all.filter(t => t.idBitacora === idBitacora);
 }
 
+export async function getTareaByRowIndex(rowIndex: number): Promise<BitacoraTarea | null> {
+  const all = await getAllTareas();
+  return all.find(t => t.rowIndex === rowIndex) || null;
+}
+
 export async function appendTarea(tarea: Omit<BitacoraTarea, 'rowIndex'>): Promise<void> {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -79,17 +84,17 @@ export async function updateTarea(
   tarea: Partial<Omit<BitacoraTarea, 'rowIndex'>>
 ): Promise<void> {
   const updates = [];
-  const fields: Record<string, string> = {
-    'E': tarea.idBitacora ?? '',
-    'F': tarea.descripcion ?? '',
-    'G': tarea.estado ?? '',
-    'H': tarea.fotosAntes ?? '',
-    'I': tarea.fotosDespues ?? '',
-    'J': tarea.fechaCompletado ?? '',
-    'K': tarea.completadosPor ?? '',
+  const fields: Record<string, string | undefined> = {
+    'E': tarea.idBitacora,
+    'F': tarea.descripcion,
+    'G': tarea.estado,
+    'H': tarea.fotosAntes,
+    'I': tarea.fotosDespues,
+    'J': tarea.fechaCompletado,
+    'K': tarea.completadosPor,
   };
   for (const [col, val] of Object.entries(fields)) {
-    if (val !== '') {
+    if (val !== undefined) {
       updates.push({
         range: `${SHEET_TAREAS}!${col}${rowIndex}`,
         values: [[val]],

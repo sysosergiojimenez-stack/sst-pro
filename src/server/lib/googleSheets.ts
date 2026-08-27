@@ -3,10 +3,10 @@ import { google } from 'googleapis';
 export const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '1n5C0-BBOGVR9JrCTCiwECYecVny8AFlxLFXbwBjMw3Y';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'sst-documentos-empleados';
+export const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'sst-documentos-empleados';
 const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || 'sg-sst-501720';
 
-const auth = new google.auth.GoogleAuth({
+export const auth = new google.auth.GoogleAuth({
   keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_SHEETS_KEY_PATH || '/home/syso_sergiojimenez/credentials/service-account.json',
   scopes: [
     'https://www.googleapis.com/auth/spreadsheets',
@@ -84,6 +84,41 @@ export async function subirPDFAGCS(
   } catch (error) {
     console.error('[GCS] Error subiendo a GCS:', error);
     throw new Error('Error al subir PDF a GCS: ' + (error as Error).message);
+  }
+}
+
+export async function eliminarDeGCS(url: string): Promise<void> {
+  try {
+    if (!url || !url.includes('storage.googleapis.com')) {
+      console.warn('[GCS] URL no válida para eliminar:', url);
+      return;
+    }
+    const path = new URL(url).pathname;
+    const parts = path.split('/');
+    if (parts.length < 3) {
+      console.warn('[GCS] No se pudo extraer nombre de objeto de:', url);
+      return;
+    }
+    const objectName = parts.slice(2).join('/');
+    const client = await auth.getClient();
+    const token = await client.getAccessToken();
+    if (!token.token) {
+      console.warn('[GCS] No se pudo obtener token para eliminar:', url);
+      return;
+    }
+    const deleteUrl = `https://storage.googleapis.com/storage/v1/b/${GCS_BUCKET_NAME}/o/${encodeURIComponent(objectName)}`;
+    const response = await fetch(deleteUrl, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token.token },
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn('[GCS] No se pudo eliminar objeto:', response.status, errorText);
+      return;
+    }
+    console.log('[GCS] Objeto eliminado:', objectName);
+  } catch (error) {
+    console.warn('[GCS] Error eliminando objeto (ignorado):', error);
   }
 }
 
@@ -239,6 +274,110 @@ NO incluyas explicaciones, SOLO el JSON.`;
   }
 }
 
+export interface DetallePlanillaIPS {
+  nroCic: string;
+  mov: string;
+}
+
+export interface PlanillaIPSExtraida {
+  periodo: string;
+  empleados: DetallePlanillaIPS[];
+}
+
+export async function extraerPlanillaIPSConGemini(
+  base64PDF: string,
+  mimeType: string = 'application/pdf'
+): Promise<PlanillaIPSExtraida> {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY no configurada en .env');
+  }
+  console.log('Usando gemini-2.5-flash para planilla IPS...');
+  if (!base64PDF || base64PDF.length < 100) {
+    throw new Error('PDF vacio o base64 invalido. Length: ' + (base64PDF?.length || 0));
+  }
+  const prompt = `Analiza este documento PDF correspondiente a una "Declaracion Jurada de Salarios" del Instituto de Prevision Social (IPS) de Paraguay (Detalle de Planilla).
+
+Extrae ESTRICTAMENTE:
+1. El PERIODO de la planilla. Aparece en el encabezado con formato similar a "1000 - MAYO/2026" o "MAYO/2026". Devuelve solo el mes y el año en mayusculas, por ejemplo "MAYO/2026".
+2. Para cada fila de empleado, extrae:
+   - "nroCic": el numero de cedula de identidad del asegurado. Este se encuentra en la columna "Nro Cic", que es la SEGUNDA columna numerica de la fila. La primera columna numerica es "Ide Asecot" (un codigo interno del IPS) y NO debe confundirse con el CIC. Usa UNICAMENTE el valor de la columna "Nro Cic".
+   - "mov": el tipo de movimiento (columna "Salario Imponible Mov"). Los valores tipicos son NORMAL, ENTRADA, SALIDA. Devuelve el valor tal cual aparece en mayusculas.
+
+Ejemplo de fila:
+Ide Asecot: 2282229 | Nro Cic: 5076312 | Asegurado: ACOSTA ISASI PEDRO JAVIER | Mov: NORMAL
+Debe extraerse: {"nroCic": "5076312", "mov": "NORMAL"}
+
+Responde UNICAMENTE en formato JSON con esta estructura exacta:
+{
+  "periodo": "MAYO/2026",
+  "empleados": [
+    {"nroCic": "1234567", "mov": "NORMAL"},
+    {"nroCic": "7654321", "mov": "ENTRADA"}
+  ]
+}
+Si no hay datos, devuelve periodo vacio y empleados vacio []. NO incluyas explicaciones, SOLO el JSON.`;
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: base64PDF } }
+            ]
+          }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 65535 }
+        })
+      }
+    );
+    console.log('Gemini IPS status:', response.status);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(`Gemini error: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+    if (!result.candidates || !result.candidates[0]) {
+      throw new Error('Gemini no devolvio candidates en la respuesta');
+    }
+    const candidate = result.candidates[0];
+    if (!candidate.content || !candidate.content.parts) {
+      throw new Error('Gemini no devolvio content.parts en la respuesta');
+    }
+    const text = candidate.content.parts[0]?.text || '';
+    if (!text) {
+      throw new Error('Gemini no devolvio texto en la respuesta');
+    }
+    let datos: any = null;
+    const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (markdownMatch) {
+      try { datos = JSON.parse(markdownMatch[1].trim()); } catch { /* ignore */ }
+    }
+    if (!datos) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { datos = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+      }
+    }
+    if (!datos) {
+      console.error('Texto completo recibido de Gemini:', text);
+      throw new Error('No se pudo extraer JSON de la respuesta de Gemini');
+    }
+    return {
+      periodo: datos.periodo || '',
+      empleados: Array.isArray(datos.empleados) ? datos.empleados.map((e: any) => ({ nroCic: String(e.nroCic || ''), mov: String(e.mov || '') })) : [],
+    };
+  } catch (error) {
+    console.error('Error en Gemini IPS:', error);
+    throw error;
+  }
+}
+
 export interface Empleado {
   rowIndex: number;
   nroDocumento: string;
@@ -295,6 +434,8 @@ export interface Empleado {
   fechaTerminoContrato?: string;
   calce?: string;
   scanDocumentos?: string;
+  ultimaDeclaracionIPS?: string;
+  ipsDocumentoUrl?: string;
   estado?: string;
 }
 
@@ -302,67 +443,72 @@ export async function getEmpleados(): Promise<Empleado[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'NOMINA DE PERSONAL!A2:BC',
+      range: 'NOMINA DE PERSONAL!A2:BE',
     });
     const rows = response.data.values || [];
-    return rows.map((row, index) => ({
-      rowIndex: index + 2,
-      nroDocumento: row[0] || '',
-      fechaHora: row[1] || '',
-      userEmail: row[2] || '',
-      obra: row[3] || '',
-      tipoDocumento: row[4] || '',
-      nombres: row[5] || '',
-      apellidos: row[6] || '',
-      ciudadNacimiento: row[7] || '',
-      fechaNacimiento: row[8] || '',
-      sexo: row[9] || '',
-      estadoCivil: row[10] || '',
-      nombrePadre: row[11] || '',
-      ocupacionPadre: row[12] || '',
-      nombreMadre: row[13] || '',
-      ocupacionMadre: row[14] || '',
-      nombreConyuge: row[15] || '',
-      ocupacionConyuge: row[16] || '',
-      fechaNacConyuge: row[17] || '',
-      direccion: row[18] || '',
-      nro: row[19] || '',
-      dpto: row[20] || '',
-      piso: row[21] || '',
-      barrio: row[22] || '',
-      ciudad: row[23] || '',
-      departamentoTerritorial: row[24] || '',
-      puntoReferencia: row[25] || '',
-      telefonoCelular: row[26] || '',
-      telefonoEmergencia: row[27] || '',
-      email: row[28] || '',
-      gradoInstruccion: row[29] || '',
-      instruccionConcluida: row[30] || '',
-      carreraUniversitaria: row[31] || '',
-      tipoSangre: row[32] || '',
-      hijo1: row[33] || '',
-      fechaNacHijo1: row[34] || '',
-      hijo2: row[35] || '',
-      fechaNacHijo2: row[36] || '',
-      hijo3: row[37] || '',
-      fechaNacHijo3: row[38] || '',
-      hijo4: row[39] || '',
-      fechaNacHijo4: row[40] || '',
-      hijo5: row[41] || '',
-      fechaNacHijo5: row[42] || '',
-      empresa: row[43] || '',
-      cargo: row[44] || '',
-      unidad: row[45] || '',
-      honorarios: row[46] || '',
-      moneda: row[47] || '',
-      regimen: row[48] || '',
-      actividades: row[49] || '',
-      fechaInicioContrato: row[50] || '',
-      fechaTerminoContrato: row[51] || '',
-      calce: row[52] || '',
-      scanDocumentos: row[53] || '',
-      estado: row[54] || 'Activo',
-    }));
+    return rows.map((row, index) => {
+      const tieneIPS = row.length > 55;
+      return {
+        rowIndex: index + 2,
+        nroDocumento: row[0] || '',
+        fechaHora: row[1] || '',
+        userEmail: row[2] || '',
+        obra: row[3] || '',
+        tipoDocumento: row[4] || '',
+        nombres: row[5] || '',
+        apellidos: row[6] || '',
+        ciudadNacimiento: row[7] || '',
+        fechaNacimiento: row[8] || '',
+        sexo: row[9] || '',
+        estadoCivil: row[10] || '',
+        nombrePadre: row[11] || '',
+        ocupacionPadre: row[12] || '',
+        nombreMadre: row[13] || '',
+        ocupacionMadre: row[14] || '',
+        nombreConyuge: row[15] || '',
+        ocupacionConyuge: row[16] || '',
+        fechaNacConyuge: row[17] || '',
+        direccion: row[18] || '',
+        nro: row[19] || '',
+        dpto: row[20] || '',
+        piso: row[21] || '',
+        barrio: row[22] || '',
+        ciudad: row[23] || '',
+        departamentoTerritorial: row[24] || '',
+        puntoReferencia: row[25] || '',
+        telefonoCelular: row[26] || '',
+        telefonoEmergencia: row[27] || '',
+        email: row[28] || '',
+        gradoInstruccion: row[29] || '',
+        instruccionConcluida: row[30] || '',
+        carreraUniversitaria: row[31] || '',
+        tipoSangre: row[32] || '',
+        hijo1: row[33] || '',
+        fechaNacHijo1: row[34] || '',
+        hijo2: row[35] || '',
+        fechaNacHijo2: row[36] || '',
+        hijo3: row[37] || '',
+        fechaNacHijo3: row[38] || '',
+        hijo4: row[39] || '',
+        fechaNacHijo4: row[40] || '',
+        hijo5: row[41] || '',
+        fechaNacHijo5: row[42] || '',
+        empresa: row[43] || '',
+        cargo: row[44] || '',
+        unidad: row[45] || '',
+        honorarios: row[46] || '',
+        moneda: row[47] || '',
+        regimen: row[48] || '',
+        actividades: row[49] || '',
+        fechaInicioContrato: row[50] || '',
+        fechaTerminoContrato: row[51] || '',
+        calce: row[52] || '',
+        scanDocumentos: row[53] || '',
+        ultimaDeclaracionIPS: tieneIPS ? (row[54] || '') : '',
+        ipsDocumentoUrl: tieneIPS ? (row[55] || '') : '',
+        estado: tieneIPS ? (row[56] || 'Activo') : (row[54] || 'Activo'),
+      };
+    });
   } catch (error) {
     console.error('Error reading empleados:', error);
     return [];
@@ -379,11 +525,12 @@ export async function getEmpleadoByRowIndex(rowIndex: number): Promise<Empleado 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `NOMINA DE PERSONAL!A${rowIndex}:BC${rowIndex}`,
+      range: `NOMINA DE PERSONAL!A${rowIndex}:BE${rowIndex}`,
     });
     const rows = response.data.values || [];
     if (rows.length === 0) return null;
     const row = rows[0];
+    const tieneIPS = row.length > 55;
     return {
       rowIndex: rowIndex,
       nroDocumento: row[0] || '',
@@ -440,7 +587,9 @@ export async function getEmpleadoByRowIndex(rowIndex: number): Promise<Empleado 
       fechaTerminoContrato: row[51] || '',
       calce: row[52] || '',
       scanDocumentos: row[53] || '',
-      estado: row[54] || 'Activo',
+      ultimaDeclaracionIPS: tieneIPS ? (row[54] || '') : '',
+      ipsDocumentoUrl: tieneIPS ? (row[55] || '') : '',
+      estado: tieneIPS ? (row[56] || 'Activo') : (row[54] || 'Activo'),
     };
   } catch (error) {
     console.error('Error reading empleado by row index:', error);
@@ -526,11 +675,13 @@ export async function appendEmpleado(
       empleado.fechaTerminoContrato || '',
       empleado.calce || '',
       empleado.scanDocumentos || '',
+      empleado.ultimaDeclaracionIPS || '',
+      empleado.ipsDocumentoUrl || '',
       empleado.estado || 'Activo',
     ]];
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'NOMINA DE PERSONAL!A2:BC',
+      range: 'NOMINA DE PERSONAL!A2:BE',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values },
@@ -608,7 +759,9 @@ export async function updateEmpleado(
       [`NOMINA DE PERSONAL!AZ${rowIndex}`]: empleado.fechaTerminoContrato,
       [`NOMINA DE PERSONAL!BA${rowIndex}`]: empleado.calce,
       [`NOMINA DE PERSONAL!BB${rowIndex}`]: empleado.scanDocumentos,
-      [`NOMINA DE PERSONAL!BC${rowIndex}`]: empleado.estado,
+      [`NOMINA DE PERSONAL!BC${rowIndex}`]: empleado.ultimaDeclaracionIPS,
+      [`NOMINA DE PERSONAL!BD${rowIndex}`]: empleado.ipsDocumentoUrl,
+      [`NOMINA DE PERSONAL!BE${rowIndex}`]: empleado.estado,
     };
     const updates = Object.entries(map)
       .filter(([_, value]) => value !== undefined)
@@ -628,6 +781,30 @@ export async function updateEmpleado(
   } catch (error) {
     console.error('Error updating empleado:', error);
     throw new Error('Error al actualizar empleado: ' + (error as Error).message);
+  }
+}
+
+export async function actualizarEmpleadosIPS(
+  actualizaciones: Array<{ rowIndex: number; ultimaDeclaracionIPS: string; ipsDocumentoUrl: string }>
+): Promise<void> {
+  try {
+    if (actualizaciones.length === 0) return;
+    const data = [
+      { range: 'NOMINA DE PERSONAL!BC1', values: [['ULTIMA_DEC_IPS']] },
+      { range: 'NOMINA DE PERSONAL!BD1', values: [['IPS_DOCUMENTO_URL']] },
+      ...actualizaciones.flatMap(({ rowIndex, ultimaDeclaracionIPS, ipsDocumentoUrl }) => [
+        { range: `NOMINA DE PERSONAL!BC${rowIndex}`, values: [[ultimaDeclaracionIPS]] },
+        { range: `NOMINA DE PERSONAL!BD${rowIndex}`, values: [[ipsDocumentoUrl]] },
+      ]),
+    ];
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { valueInputOption: 'RAW', data },
+    });
+    console.log('Actualizadas declaraciones IPS para', actualizaciones.length, 'empleados');
+  } catch (error) {
+    console.error('Error actualizando declaraciones IPS:', error);
+    throw new Error('Error al actualizar declaraciones IPS: ' + (error as Error).message);
   }
 }
 

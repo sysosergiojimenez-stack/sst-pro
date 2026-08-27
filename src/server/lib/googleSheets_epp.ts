@@ -533,6 +533,27 @@ export async function importarMarcacionesBiometricas(
   return { actualizados, nuevos };
 }
 
+export async function updateMarcacionBiometrica(
+  rowIndex: number,
+  datos: Partial<Pick<MarcacionBiometrica, 'horaEntrada' | 'horaSalida' | 'horasRaw'>>
+): Promise<void> {
+  const updates: { range: string; values: string[][] }[] = [];
+  if (datos.horaEntrada !== undefined) {
+    updates.push({ range: `${SHEET_MARCACIONES}!C${rowIndex}`, values: [[datos.horaEntrada]] });
+  }
+  if (datos.horaSalida !== undefined) {
+    updates.push({ range: `${SHEET_MARCACIONES}!D${rowIndex}`, values: [[datos.horaSalida]] });
+  }
+  if (datos.horasRaw !== undefined) {
+    updates.push({ range: `${SHEET_MARCACIONES}!E${rowIndex}`, values: [[datos.horasRaw]] });
+  }
+  if (updates.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: { valueInputOption: 'RAW', data: updates },
+  });
+}
+
 // ============================================
 // Entradas (con columna Proyecto al final - columna H)
 // ============================================

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { ShieldAlert, Plus, Pencil, Trash2, X, Save, Search, FileDown, Calendar, User as UserIcon, CheckCircle2, Clock, Archive } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { ShieldAlert, Plus, Pencil, Trash2, X, Save, Search, FileDown, Calendar, User as UserIcon, CheckCircle2, Clock, Archive, Camera, Image as ImageIcon } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface Amonestacion {
@@ -22,6 +22,7 @@ interface Amonestacion {
   diasSuspension: string;
   estado: string;
   empleadoDocumento: string;
+  fotos: string;
 }
 
 interface Empleado {
@@ -51,7 +52,7 @@ const formVacio = {
   idRegistro: '', proyecto: '', nombreApellido: '', cedula: '', empresa: '', cargo: '',
   fechaFalta: '', fechaNotificacion: new Date().toISOString().slice(0, 10),
   descripcionFalta: '', disposicionReglamento: '', clasificacion: '', antecedentes: '',
-  sancion: '', diasSuspension: '', estado: 'Pendiente de Firma', empleadoDocumento: '',
+  sancion: '', diasSuspension: '', estado: 'Pendiente de Firma', empleadoDocumento: '', fotos: '',
 };
 
 export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDisciplinariasProps) {
@@ -65,6 +66,12 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const [filtroClasificacion, setFiltroClasificacion] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [form, setForm] = useState({ ...formVacio, proyecto: proyecto || '' });
+  const [fotosNuevas, setFotosNuevas] = useState<File[]>([]);
+  const [fotosExistentes, setFotosExistentes] = useState<string[]>([]);
+
+  const [busquedaEmpleado, setBusquedaEmpleado] = useState('');
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const empleadoAutocompleteRef = useRef<HTMLDivElement>(null);
 
   const fetchAmonestaciones = async () => {
     setLoading(true);
@@ -94,6 +101,36 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
 
   useEffect(() => { fetchAmonestaciones(); fetchEmpleados(); }, [proyecto]);
 
+  useEffect(() => {
+    const emp = empleados.find(e => e.nroDocumento === form.empleadoDocumento);
+    if (emp) {
+      setBusquedaEmpleado(`${emp.nombres} ${emp.apellidos} — ${emp.nroDocumento}`);
+    } else if (!form.empleadoDocumento) {
+      setBusquedaEmpleado('');
+    }
+  }, [form.empleadoDocumento, empleados]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (empleadoAutocompleteRef.current && !empleadoAutocompleteRef.current.contains(event.target as Node)) {
+        setMostrarSugerencias(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const empleadosSugeridos = useMemo(() => {
+    if (!busquedaEmpleado.trim()) return [];
+    const term = busquedaEmpleado.toLowerCase();
+    return empleados
+      .filter(e =>
+        `${e.nombres} ${e.apellidos}`.toLowerCase().includes(term) ||
+        e.nroDocumento.toLowerCase().includes(term)
+      )
+      .slice(0, 8);
+  }, [busquedaEmpleado, empleados]);
+
   const amonestacionesFiltradas = useMemo(() => {
     let filtradas = [...amonestaciones];
     if (searchTerm) {
@@ -110,7 +147,39 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
     return filtradas.sort((a, b) => (b.fechaHoraRegistro || '').localeCompare(a.fechaHoraRegistro || ''));
   }, [searchTerm, filtroClasificacion, filtroEstado, amonestaciones]);
 
-  const resetForm = () => setForm({ ...formVacio, proyecto: proyecto || '' });
+  const resetForm = () => {
+    setForm({ ...formVacio, proyecto: proyecto || '' });
+    setFotosNuevas([]);
+    setFotosExistentes([]);
+  };
+
+  const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve({ base64: result.split(',')[1], mimeType: file.type || 'image/jpeg' });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const subirFotosAmonestacion = async (files: File[], idRegistro: string): Promise<string[]> => {
+    console.log('[subirFotosAmonestacion] files:', files.length, 'idRegistro:', idRegistro);
+    if (files.length === 0) return [];
+    const archivos = await Promise.all(files.map(fileToBase64));
+    console.log('[subirFotosAmonestacion] base64 listo, subiendo...');
+    const response = await fetch('/api/amonestaciones/fotos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archivos, idRegistro }),
+    });
+    const data = await response.json();
+    console.log('[subirFotosAmonestacion] respuesta:', data);
+    if (!response.ok) throw new Error(data.error || 'Error subiendo fotos');
+    return data.urls || [];
+  };
 
   const handleSelectEmpleado = (documento: string) => {
     const emp = empleados.find(e => e.nroDocumento === documento);
@@ -131,11 +200,15 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const idRegistro = editing ? editing.idRegistro : `AMO-${Date.now()}`;
+      const fotosUrls = await subirFotosAmonestacion(fotosNuevas, idRegistro);
+      const fotosGuardar = JSON.stringify([...fotosExistentes, ...fotosUrls]);
+
       const url = editing ? `/api/amonestaciones/${editing.rowIndex}` : '/api/amonestaciones';
       const method = editing ? 'PUT' : 'POST';
       const body = editing
-        ? { ...form, rowIndex: editing.rowIndex }
-        : { ...form, userEmail: userEmail || 'sistema' };
+        ? { ...form, fotos: fotosGuardar, rowIndex: editing.rowIndex }
+        : { ...form, idRegistro, fotos: fotosGuardar, userEmail: userEmail || 'sistema' };
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null); resetForm();
@@ -159,8 +232,10 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
       empresa: a.empresa, cargo: a.cargo, fechaFalta: a.fechaFalta, fechaNotificacion: a.fechaNotificacion,
       descripcionFalta: a.descripcionFalta, disposicionReglamento: a.disposicionReglamento,
       clasificacion: a.clasificacion, antecedentes: a.antecedentes, sancion: a.sancion,
-      diasSuspension: a.diasSuspension, estado: a.estado, empleadoDocumento: a.empleadoDocumento,
+      diasSuspension: a.diasSuspension, estado: a.estado, empleadoDocumento: a.empleadoDocumento, fotos: a.fotos,
     });
+    setFotosExistentes(safeParseJson<string[]>(a.fotos, []));
+    setFotosNuevas([]);
     setShowForm(true);
   };
 
@@ -251,14 +326,36 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
             <button onClick={() => setShowForm(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div ref={empleadoAutocompleteRef} className="relative">
               <label className="block text-sm font-medium mb-2">Seleccionar Empleado (opcional)</label>
-              <select value={form.empleadoDocumento} onChange={(e) => handleSelectEmpleado(e.target.value)} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50">
-                <option value="">-- Cargar datos manualmente --</option>
-                {empleados.map(emp => (
-                  <option key={emp.nroDocumento} value={emp.nroDocumento}>{emp.nombres} {emp.apellidos} — {emp.nroDocumento}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={busquedaEmpleado}
+                onChange={(e) => { setBusquedaEmpleado(e.target.value); setMostrarSugerencias(true); }}
+                onFocus={() => setMostrarSugerencias(true)}
+                placeholder="Escribi nombre o cedula..."
+                className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+              />
+              {mostrarSugerencias && (
+                <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-card border border-border rounded-xl shadow-lg">
+                  {empleadosSugeridos.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                      {busquedaEmpleado.trim() ? 'No se encontraron empleados' : 'Escribi para buscar empleados'}
+                    </div>
+                  ) : (
+                    empleadosSugeridos.map(emp => (
+                      <button
+                        key={emp.nroDocumento}
+                        type="button"
+                        onClick={() => { handleSelectEmpleado(emp.nroDocumento); setMostrarSugerencias(false); }}
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-secondary transition-colors border-b border-border last:border-0"
+                      >
+                        {emp.nombres} {emp.apellidos} — {emp.nroDocumento}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -336,6 +433,58 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
                 {estados.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Evidencia fotografica</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('input-fotos-amonestacion')?.click()}
+                  className="px-4 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm flex items-center gap-2"
+                >
+                  <ImageIcon size={16} /> Galeria
+                </button>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('input-camara-amonestacion')?.click()}
+                  className="px-4 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm flex items-center gap-2"
+                >
+                  <Camera size={16} /> Camara
+                </button>
+                <input
+                  id="input-fotos-amonestacion"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files) setFotosNuevas(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ''; }}
+                />
+                <input
+                  id="input-camara-amonestacion"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files) setFotosNuevas(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ''; }}
+                />
+              </div>
+              {(fotosExistentes.length > 0 || fotosNuevas.length > 0) && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {fotosExistentes.map((url, idx) => (
+                    <div key={`ex-${idx}`} className="relative">
+                      <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="" className="w-20 h-20 object-cover rounded-xl border border-border" /></a>
+                      <button type="button" onClick={() => setFotosExistentes(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
+                    </div>
+                  ))}
+                  {fotosNuevas.map((file, idx) => (
+                    <div key={`nv-${idx}`} className="relative">
+                      <img src={URL.createObjectURL(file)} alt="" className="w-20 h-20 object-cover rounded-xl border border-border" />
+                      <button type="button" onClick={() => setFotosNuevas(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex gap-3 pt-2">
               <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25">
                 <Save size={18} /> <span className="relative z-10">{editing ? 'Guardar Cambios' : 'Registrar Amonestacion'}</span>
@@ -385,6 +534,14 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.descripcionFalta}</p>
+                    {(() => {
+                      const cantidadFotos = safeParseJson<string[]>(a.fotos, []).length;
+                      return cantidadFotos > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-primary mt-2">
+                          <Camera size={12} /> {cantidadFotos} foto{cantidadFotos > 1 ? 's' : ''}
+                        </span>
+                      ) : null;
+                    })()}
                     <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
                       <span className="flex items-center gap-1"><UserIcon size={12} /> {a.cedula} — {a.cargo}</span>
                       <span className="flex items-center gap-1"><Calendar size={12} /> Falta: {a.fechaFalta}</span>
@@ -411,11 +568,16 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   );
 }
 
+function safeParseJson<T>(value: string | undefined | null, fallback: T): T {
+  if (!value) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
 // ============================================
 // Exportacion a PDF - replica el formato oficial SST-FOR-12
 // ============================================
 
-function generarPDFAmonestacion(a: Amonestacion) {
+async function generarPDFAmonestacion(a: Amonestacion) {
   const doc = new jsPDF('portrait', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -546,6 +708,52 @@ function generarPDFAmonestacion(a: Amonestacion) {
 
   seccionBoxeada('Descargos del trabajador (Art. 40 — derecho a presentar descargos antes de aplicar la sanción)', '', 4);
 
+  // Fotos de evidencia
+  const fotos = safeParseJson<string[]>(a.fotos, []);
+  if (fotos.length > 0) {
+    checkPageBreak(20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Evidencia fotográfica', marginLeft, y);
+    y += 6;
+
+    const imgWidth = 45;
+    const imgHeight = 45;
+    const gap = 6;
+    const fotosPorFila = Math.floor(contentWidth / (imgWidth + gap));
+
+    for (let i = 0; i < fotos.length; i++) {
+      if (i > 0 && i % fotosPorFila === 0) {
+        y += imgHeight + gap + 4;
+        checkPageBreak(imgHeight + gap + 8);
+      }
+      const col = i % fotosPorFila;
+      const xImg = marginLeft + col * (imgWidth + gap);
+
+      try {
+        const base64 = await cargarImagenBase64(fotos[i]);
+        if (base64) {
+          const mime = base64.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+          const format = mime.includes('png') ? 'PNG' : 'JPEG';
+          doc.addImage(base64, format, xImg, y, imgWidth, imgHeight);
+          doc.setDrawColor(180, 180, 180);
+          doc.rect(xImg, y, imgWidth, imgHeight);
+        } else {
+          doc.setTextColor(0, 102, 204);
+          const linkLines = doc.splitTextToSize(`Foto ${i + 1}`, imgWidth);
+          doc.textWithLink(linkLines, xImg, y + 8, { url: fotos[i] });
+          doc.setTextColor(0, 0, 0);
+        }
+      } catch {
+        doc.setTextColor(0, 102, 204);
+        const linkLines = doc.splitTextToSize(`Foto ${i + 1}`, imgWidth);
+        doc.textWithLink(linkLines, xImg, y + 8, { url: fotos[i] });
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+    y += imgHeight + gap + 6;
+  }
+
   // Firmas
   checkPageBreak(30);
   y += 10;
@@ -611,4 +819,16 @@ function formatearFecha(fecha: string): string {
   const d = new Date(fecha + (fecha.length === 10 ? 'T00:00:00' : ''));
   if (isNaN(d.getTime())) return fecha;
   return d.toLocaleDateString('es-PY');
+}
+
+async function cargarImagenBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/amonestaciones/foto?url=${encodeURIComponent(url)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.base64) return null;
+    return `data:${data.mimeType || 'image/jpeg'};base64,${data.base64}`;
+  } catch {
+    return null;
+  }
 }

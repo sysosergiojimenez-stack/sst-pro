@@ -1,7 +1,9 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useRef } from 'react';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
-import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints } from 'lucide-react';
+import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints, FileDown } from 'lucide-react';
 
 interface Producto {
   rowIndex: number;
@@ -138,7 +140,9 @@ export default function EPP({ proyecto }: EPPProps) {
   const [showGeminiSalidaForm, setShowGeminiSalidaForm] = useState(false);
   const [showNotaSalidaForm, setShowNotaSalidaForm] = useState(false);
   const [showSalidaForm, setShowSalidaForm] = useState(false);
-  const [showReporteModal, setShowReporteModal] = useState(false);
+  const [reportesAbierto, setReportesAbierto] = useState(false);
+  const [reporteSeleccionado, setReporteSeleccionado] = useState<TipoReporte>('inventario');
+  const reportesRef = useRef<HTMLDivElement>(null);
   const [showSolicitudForm, setShowSolicitudForm] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
@@ -346,6 +350,10 @@ export default function EPP({ proyecto }: EPPProps) {
 
   // Buscar empleado por documento
   const buscarEmpleado = (documento: string) => empleados.find(e => e.nroDocumento === documento);
+  const nombreQuienRetira = (valor: string) => {
+    const emp = buscarEmpleado(valor);
+    return emp ? `${emp.nombres} ${emp.apellidos}` : valor;
+  };
   const buscarEmpleadosPorTexto = (texto: string) => {
     const vistos = new Set<string>();
     return empleados
@@ -358,56 +366,79 @@ export default function EPP({ proyecto }: EPPProps) {
       });
   };
 
-  // Generar reporte
-  const generarReporte = (tipo: string) => {
-    let contenido = '';
+  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'dotacion';
+
+  // Exportar reportes a PDF o Excel
+  const exportarReporte = (tipo: TipoReporte, formato: 'pdf' | 'excel') => {
     const fecha = new Date().toLocaleDateString('es-ES');
-    
-    switch(tipo) {
+    const safeProyecto = proyecto.replace(/\s+/g, '_');
+    let titulo = '';
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+
+    switch (tipo) {
       case 'inventario':
-        contenido = `REPORTE DE INVENTARIO - ${proyecto}
-Fecha: ${fecha}
-=====================================
-PRODUCTO | STOCK | MINIMO | ESTADO
--------------------------------------\n`;
-        productos.forEach(p => {
+        titulo = 'Inventario Actual';
+        headers = ['Código', 'Producto', 'Proveedor', 'Clasificación', 'Stock', 'Mínimo', 'Estado'];
+        rows = productos.map(p => {
           const stock = stockDisponible(p.codigo);
           const minimo = parseInt(p.stockMinimo || '0');
-          const estado = isStockBajo(p) ? 'BAJO' : 'OK';
-          contenido += `${p.nombre} | ${stock} | ${minimo} | ${estado}\n`;
+          return [p.codigo, p.nombre, p.proveedor, p.clasificacion, stock, minimo, isStockBajo(p) ? 'BAJO' : 'OK'];
         });
         break;
       case 'entradas':
-        contenido = `REPORTE DE ENTRADAS - ${proyecto}
-Fecha: ${fecha}
-=====================================
-PRODUCTO | CANTIDAD | FECHA
--------------------------------------\n`;
-        entradasProyecto.forEach(e => {
-          contenido += `${e.item} | ${e.cantidad} | ${formatearFecha(e.dateTime)}\n`;
-        });
+        titulo = 'Entradas por Producto';
+        headers = ['Producto', 'Código', 'Cantidad', 'Fecha'];
+        rows = entradasProyecto.map(e => [e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)]);
         break;
       case 'salidas':
-        contenido = `REPORTE DE SALIDAS - ${proyecto}
-Fecha: ${fecha}
-=====================================
-TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
--------------------------------------\n`;
-        salidas.forEach(s => {
+        titulo = 'Salidas por Trabajador';
+        headers = ['Documento', 'Trabajador', 'Producto', 'Cantidad', 'Fecha'];
+        rows = salidas.map(s => {
           const prod = productos.find(p => p.codigo === s.refItem);
-          contenido += `${s.trabajadorRetira} | ${prod?.nombre || s.refItem} | ${s.cantidad} | ${formatearFecha(s.fechaHora)}\n`;
+          const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
+          return [s.trabajadorRetira, emp ? `${emp.nombres} ${emp.apellidos}` : '-', prod?.nombre || s.refItem, parseInt(s.cantidad || '0'), formatearFecha(s.fechaHora)];
         });
         break;
+      case 'dotacion':
+        titulo = 'Dotación de Calzados';
+        headers = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta', 'Estado Empleado'];
+        rows = [
+          ...dotacionActivos.map(emp => {
+            const d = calcularDotacion(emp);
+            return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Activo'];
+          }),
+          ...dotacionInactivos.map(emp => {
+            const d = calcularDotacion(emp);
+            return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Inactivo'];
+          }),
+        ];
+        break;
     }
-    
-    const blob = new Blob([contenido], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte-${tipo}-${fecha.replace(/\//g, '-')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setShowReporteModal(false);
+
+    if (formato === 'excel') {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, titulo.slice(0, 31));
+      XLSX.writeFile(wb, `reporte-${tipo}-${safeProyecto}-${fecha.replace(/\//g, '-')}.xlsx`);
+    } else {
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      doc.setFontSize(14);
+      doc.text(titulo, 14, 18);
+      doc.setFontSize(10);
+      doc.text(`Proyecto: ${proyecto}  |  Fecha: ${fecha}`, 14, 26);
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 32,
+        styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak' },
+        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        margin: { left: 10, right: 10 },
+      });
+      doc.save(`reporte-${tipo}-${safeProyecto}-${fecha.replace(/\//g, '-')}.pdf`);
+    }
+    setReportesAbierto(false);
   };
 
   const handleGeminiSubmit = async (e: React.FormEvent) => {
@@ -671,19 +702,25 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       alert('Agregue al menos un producto a la nota');
       return;
     }
+    const quienRetiraFinal = notaSalidaForm.quienRetira || busquedaQuienRetira.trim();
+    if (!quienRetiraFinal) {
+      alert('Indique quien retira los productos');
+      return;
+    }
     try {
       const notaId = `NS-${Date.now()}`;
-      
+      const notaPayload = { ...notaSalidaForm, quienRetira: quienRetiraFinal };
+
       // 1. Crear la Nota de Salida
       await fetch('/api/epp/notas-salida', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idRegistro: notaId,
           obra: proyecto,
-          ...notaSalidaForm,
+          ...notaPayload,
         }),
       });
-      
+
       // 2. Crear todas las Salidas en batch (trabajador = quienRetira de la nota)
       const salidasBatch = salidasTemporales.map((s, idx) => ({
         idRegistro: `SAL-${Date.now()}-${idx}`,
@@ -692,7 +729,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
         refNotaSalida: notaId,
         refItem: s.refItem,
         cantidad: s.cantidad,
-        trabajadorRetira: notaSalidaForm.quienRetira,
+        trabajadorRetira: quienRetiraFinal,
       }));
 
       await fetch('/api/epp/salidas/batch', {
@@ -901,10 +938,15 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showNotaEdit) return;
+    const quienRetiraFinal = editingNotaForm.quienRetira || busquedaQuienRetira.trim();
+    if (!quienRetiraFinal) {
+      alert('Indique quien retira los productos');
+      return;
+    }
     try {
       const response = await fetch(`/api/epp/notas-salida/${showNotaEdit.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingNotaForm),
+        body: JSON.stringify({ ...editingNotaForm, quienRetira: quienRetiraFinal }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowNotaEdit(null);
@@ -925,7 +967,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
       observaciones: nota.observaciones,
     });
     const empActual = buscarEmpleado(nota.quienRetira);
-    setBusquedaQuienRetira(empActual ? `${empActual.nombres} ${empActual.apellidos} - CI: ${empActual.nroDocumento}` : '');
+    setBusquedaQuienRetira(empActual ? `${empActual.nombres} ${empActual.apellidos} - CI: ${empActual.nroDocumento}` : nota.quienRetira);
   };
 
   const productosFiltrados = productos.filter(p =>
@@ -936,6 +978,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
 
   const productosConStock = productosFiltrados.filter(p => stockDisponible(p.codigo) > 0);
   const productosAgotados = productosFiltrados.filter(p => stockDisponible(p.codigo) === 0);
+  const productosConStockSalida = productos.filter(p => stockDisponible(p.codigo) > 0);
 
   const clasificacionesSugeridas = [...new Set([...clasificaciones, ...productos.map(p => p.clasificacion).filter(Boolean)])]
     .sort((a, b) => a.localeCompare(b, 'es'));
@@ -1222,6 +1265,152 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
     doc.save(`Solicitud_Suministro_${s.numero || s.idRegistro}.pdf`);
   };
 
+  const descargarPDFNotaSalida = (n: NotaSalida) => {
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageW = 210;
+    const m = 10;
+    const w = pageW - m * 2;
+
+    const cols = [12, 35, 98, 30];
+    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
+    const x0 = m;
+
+    const renderCopy = (startY: number) => {
+      let y = startY;
+
+      // Encabezado empresa (derecha)
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ALTAZENTA NORTE SA', pageW - m - 2, y + 5, { align: 'right' });
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RUC: 80150280-2', pageW - m - 2, y + 9, { align: 'right' });
+
+      // Titulo
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('NOTA DE SALIDA', m, y + 6);
+
+      y += 14;
+
+      // Nro y Fecha
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Nº ${n.orden || n.idRegistro || '-'}`, pageW - m - 2, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Fecha: ${n.fecha ? formatearFecha(n.fecha) : '-'}`, pageW - m - 2, y + 4, { align: 'right' });
+
+      y += 10;
+
+      // Campos cabecera
+      const campo = (label: string, value: string) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(`${label}:`, m, y);
+        const labelW = doc.getTextWidth(`${label}:`);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value || '-', m + labelW + 2, y);
+        doc.setLineWidth(0.1);
+        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
+        y += 6;
+      };
+
+      campo('Quien Retira', nombreQuienRetira(n.quienRetira));
+      campo('Observaciones', n.observaciones);
+
+      y += 3;
+
+      // Tabla de items
+      const items = salidasByNota(n.idRegistro);
+      doc.setFillColor(230, 230, 230);
+      doc.setLineWidth(0.1);
+      doc.rect(x0, y, w, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      let x = x0;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 1, y + 4);
+        x += cols[i];
+      });
+      doc.rect(x0, y, w, 6);
+      x = x0;
+      cols.forEach((cw, i) => {
+        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+        x += cw;
+      });
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      if (items.length > 0) {
+        items.forEach((it, idx) => {
+          const prod = productos.find(p => p.codigo === it.refItem);
+          const productoText = prod ? `${prod.codigo} - ${prod.nombre}` : (it.refItem || '');
+          const productoLines = doc.splitTextToSize(productoText, cols[2] - 2);
+          const rowH = 3 + productoLines.length * 2.2;
+          x = x0;
+          const vals: (string | string[])[] = [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || ''];
+          vals.forEach((val, i) => {
+            const text = Array.isArray(val) ? val : [String(val)];
+            doc.text(text, x + 1, y + 3);
+            x += cols[i];
+          });
+          doc.rect(x0, y, w, rowH);
+          x = x0;
+          cols.forEach((cw, i) => {
+            if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
+            x += cw;
+          });
+          y += rowH;
+        });
+      } else {
+        doc.rect(x0, y, w, 8);
+        doc.text('Sin items', x0 + 1, y + 5);
+        y += 8;
+      }
+
+      y += 6;
+
+      // Firmas
+      const firmaW = (w - 20) / 3;
+      const firmas = ['QUIEN RETIRA', 'ENTREGA', 'ADMINISTRACIÓN'];
+      let fx = m;
+      doc.setLineWidth(0.1);
+      firmas.forEach((f) => {
+        doc.line(fx, y + 10, fx + firmaW, y + 10);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(f, fx + firmaW / 2, y + 14, { align: 'center' });
+        fx += firmaW + 10;
+      });
+      y += 16;
+
+      return y;
+    };
+
+    let y1 = renderCopy(m);
+    doc.setLineWidth(0.2);
+    doc.rect(m, m, w, y1 - m);
+
+    // Separador entre copias
+    doc.setLineWidth(0.1);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(m, y1 + 3, pageW - m, y1 + 3);
+    doc.setDrawColor(0, 0, 0);
+
+    const estimatedH = y1 - m;
+    let y2Start = y1 + 6;
+    if (y2Start + estimatedH > 287) {
+      doc.addPage();
+      y2Start = m;
+    }
+    let y2 = renderCopy(y2Start);
+    doc.setLineWidth(0.2);
+    doc.rect(m, y2Start, w, y2 - y2Start);
+
+    doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
+  };
+
   const renderFilaProducto = (p: Producto) => {
     const entradas = totalEntradasByProducto(p.codigo);
     const salidas = totalSalidasByProducto(p.codigo);
@@ -1360,11 +1549,82 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
           <p className="text-muted-foreground mt-1">{proyecto}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowReporteModal(true)} className="bg-secondary border border-border px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
-            <FileSpreadsheet size={16} /> Reportes
-          </button>
+          <div ref={reportesRef}>
+            <button
+              type="button"
+              onClick={() => setReportesAbierto(v => !v)}
+              className={`border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm ${reportesAbierto ? 'bg-primary text-white border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
+            >
+              <FileSpreadsheet size={16} /> Reportes
+            </button>
+          </div>
         </div>
       </div>
+
+      {reportesAbierto && (
+        <div className="bg-card border border-border rounded-xl p-6 scale-in">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileDown size={20} className="text-primary" />
+              Exportar reporte
+            </h3>
+            <button onClick={() => setReportesAbierto(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            {[
+              { key: 'inventario', label: 'Inventario Actual', desc: 'Productos con stock y estado', icon: Package, color: 'text-blue-400' },
+              { key: 'entradas', label: 'Entradas por Producto', desc: 'Historial de entradas al inventario', icon: Boxes, color: 'text-emerald-400' },
+              { key: 'salidas', label: 'Salidas por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
+              { key: 'dotacion', label: 'Dotación de Calzados', desc: 'Control de botines por trabajador', icon: Footprints, color: 'text-amber-400' },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setReporteSeleccionado(opt.key as TipoReporte)}
+                className={`text-left p-4 rounded-xl border flex items-center gap-3 transition-colors ${reporteSeleccionado === opt.key ? 'border-primary bg-primary/10' : 'border-border bg-secondary hover:bg-secondary/80'}`}
+              >
+                <opt.icon size={20} className={opt.color} />
+                <div>
+                  <p className="font-medium text-sm">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => exportarReporte(reporteSeleccionado, 'pdf')}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+            >
+              <FileDown size={18} /> Generar PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => exportarReporte(reporteSeleccionado, 'excel')}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <FileSpreadsheet size={18} /> Generar Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => setReporteSeleccionado('inventario')}
+              className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportesAbierto(false)}
+              className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 border-b border-border">
         {[
@@ -1669,7 +1929,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                   <div><label className="block text-sm font-medium mb-2">Orden (Auto)</label><input type="text" value={notaSalidaForm.orden} readOnly className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm text-muted-foreground cursor-not-allowed" /></div>
                   <div><label className="block text-sm font-medium mb-2">Fecha</label><input type="date" value={notaSalidaForm.fecha} onChange={(e) => setNotaSalidaForm({...notaSalidaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-2">Quien Retira (Nro CI) *</label>
+                    <label className="block text-sm font-medium mb-2">Quien Retira *</label>
                     <input
                       type="text"
                       value={busquedaQuienRetira}
@@ -1680,7 +1940,12 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                         if (notaSalidaForm.quienRetira) setNotaSalidaForm({ ...notaSalidaForm, quienRetira: '' });
                       }}
                       onFocus={() => setMostrarSugerenciasQuienRetira(true)}
-                      onBlur={() => setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150)}
+                      onBlur={() => {
+                        setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150);
+                        if (busquedaQuienRetira.trim() && !notaSalidaForm.quienRetira) {
+                          setNotaSalidaForm({ ...notaSalidaForm, quienRetira: busquedaQuienRetira.trim() });
+                        }
+                      }}
                       onKeyDown={(e) => {
                         const filtrados = buscarEmpleadosPorTexto(busquedaQuienRetira);
                         if (e.key === 'ArrowDown') {
@@ -1697,14 +1962,17 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                             setNotaSalidaForm({ ...notaSalidaForm, quienRetira: emp.nroDocumento });
                             setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
                             setMostrarSugerenciasQuienRetira(false);
+                          } else if (busquedaQuienRetira.trim()) {
+                            setNotaSalidaForm({ ...notaSalidaForm, quienRetira: busquedaQuienRetira.trim() });
+                            setMostrarSugerenciasQuienRetira(false);
                           }
                         } else if (e.key === 'Escape') {
                           setMostrarSugerenciasQuienRetira(false);
                         }
                       }}
-                      placeholder="Escribi nombre o cedula..."
+                      placeholder="Nombre, empresa o cedula..."
                       className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
-                      required={!notaSalidaForm.quienRetira}
+                      required={!notaSalidaForm.quienRetira && !busquedaQuienRetira.trim()}
                       autoComplete="off"
                     />
                     {mostrarSugerenciasQuienRetira && busquedaQuienRetira && (
@@ -1766,7 +2034,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                         onFocus={() => setMostrarSugerenciasProducto(true)}
                         onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
                         onKeyDown={(e) => {
-                          const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
+                          const filtrados = productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
                           if (e.key === 'ArrowDown') {
                             e.preventDefault();
                             setMostrarSugerenciasProducto(true);
@@ -1792,8 +2060,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       />
                       {mostrarSugerenciasProducto && busquedaProducto && (
                         <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
-                          {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
-                            productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
+                          {productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
+                            productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
                               <button
                                 type="button"
                                 key={p.codigo}
@@ -1865,8 +2133,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                       return fechaB.getTime() - fechaA.getTime();
                     }).map((n) => {
                       const itemsCount = salidasByNota(n.idRegistro).length;
-                      const emp = buscarEmpleado(n.quienRetira);
-                      const nombreRetira = emp ? `${emp.nombres} ${emp.apellidos}` : n.quienRetira;
+                      const nombreRetira = nombreQuienRetira(n.quienRetira);
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
@@ -1886,6 +2153,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                           </td>
                           <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                              <button onClick={() => descargarPDFNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Descargar PDF"><FileText size={16} /></button>
                               <button onClick={() => startEditNota(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
@@ -1903,14 +2171,16 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                               {n.observaciones && (
                                 <div className="mb-4"><span className="text-xs text-muted-foreground uppercase">Observaciones</span><p className="font-medium">{n.observaciones}</p></div>
                               )}
-                              <h4 className="text-sm font-medium mb-2">Salidas registradas ({itemsCount})</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-medium">Salidas registradas ({itemsCount})</h4>
+                                <button onClick={() => descargarPDFNotaSalida(n)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline" title="Descargar PDF"><FileText size={14} /> PDF</button>
+                              </div>
                               <div className="space-y-2">
                                 {salidasByNota(n.idRegistro).map(s => {
                                   const prod = productos.find(p => p.codigo === s.refItem);
-                                  const empS = buscarEmpleado(s.trabajadorRetira);
                                   return (
                                     <div key={s.idRegistro} className="flex items-center justify-between bg-background/50 p-3 rounded-xl text-sm">
-                                      <div><p className="font-medium">{prod?.nombre || s.refItem}</p><p className="text-xs text-muted-foreground">Trabajador: {empS ? `${empS.nombres} ${empS.apellidos} (${empS.nroDocumento})` : s.trabajadorRetira}</p></div>
+                                      <div><p className="font-medium">{prod?.nombre || s.refItem}</p><p className="text-xs text-muted-foreground">Trabajador: {nombreQuienRetira(s.trabajadorRetira)}</p></div>
                                       <span className="font-medium">{s.cantidad} und</span>
                                     </div>
                                   );
@@ -1938,7 +2208,12 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                       if (editingNotaForm.quienRetira) setEditingNotaForm({ ...editingNotaForm, quienRetira: '' });
                                     }}
                                     onFocus={() => setMostrarSugerenciasQuienRetira(true)}
-                                    onBlur={() => setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150)}
+                                    onBlur={() => {
+                                      setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150);
+                                      if (busquedaQuienRetira.trim() && !editingNotaForm.quienRetira) {
+                                        setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
+                                      }
+                                    }}
                                     onKeyDown={(e) => {
                                       const filtrados = buscarEmpleadosPorTexto(busquedaQuienRetira);
                                       if (e.key === 'ArrowDown') {
@@ -1955,12 +2230,15 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                           setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
                                           setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
                                           setMostrarSugerenciasQuienRetira(false);
+                                        } else if (busquedaQuienRetira.trim()) {
+                                          setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
+                                          setMostrarSugerenciasQuienRetira(false);
                                         }
                                       } else if (e.key === 'Escape') {
                                         setMostrarSugerenciasQuienRetira(false);
                                       }
                                     }}
-                                    placeholder="Escribi nombre o cedula..."
+                                    placeholder="Nombre, empresa o cedula..."
                                     className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
                                     autoComplete="off"
                                   />
@@ -2000,12 +2278,11 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                 <div className="space-y-2">
                                   {salidasByNota(n.idRegistro).map(s => {
                                     const prod = productos.find(p => p.codigo === s.refItem);
-                                    const empS = buscarEmpleado(s.trabajadorRetira);
                                     return (
                                       <div key={s.idRegistro} className="flex items-center gap-3 bg-secondary/30 p-2.5 rounded-xl text-sm">
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium truncate">{prod?.nombre || s.refItem}</p>
-                                          <p className="text-xs text-muted-foreground truncate">Trabajador: {empS ? `${empS.nombres} ${empS.apellidos}` : s.trabajadorRetira}</p>
+                                          <p className="text-xs text-muted-foreground truncate">Trabajador: {nombreQuienRetira(s.trabajadorRetira)}</p>
                                         </div>
                                         <input
                                           type="number"
@@ -2028,13 +2305,12 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                 {salidasTemporales.length > 0 && (
                                   <div className="mb-3 space-y-2">
                                     {salidasTemporales.map((s, idx) => {
-                                      const emp = buscarEmpleado(s.trabajadorRetira);
                                       return (
                                         <div key={idx} className="flex items-center justify-between bg-secondary/50 p-2.5 rounded-xl text-sm">
                                           <div>
                                             <p className="font-medium">{s.itemNombre}</p>
                                             <p className="text-xs text-muted-foreground">
-                                              Cant: {s.cantidad} | Trabajador: {emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira}
+                                              Cant: {s.cantidad} | Trabajador: {nombreQuienRetira(s.trabajadorRetira)}
                                             </p>
                                           </div>
                                           <button type="button" onClick={() => handleEliminarItemTemporal(idx)} className="p-1 rounded hover:bg-red-500/20 text-red-400"><X size={14} /></button>
@@ -2054,7 +2330,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                       onFocus={() => setMostrarSugerenciasProducto(true)}
                                       onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
                                       onKeyDown={(e) => {
-                                        const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
+                                        const filtrados = productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
                                         if (e.key === 'ArrowDown') {
                                           e.preventDefault();
                                           setMostrarSugerenciasProducto(true);
@@ -2081,8 +2357,8 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                     />
                                     {mostrarSugerenciasProducto && busquedaProducto && (
                                       <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
-                                        {productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
-                                          productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
+                                        {productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
+                                          productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
                                             <button
                                               type="button"
                                               key={p.codigo}
@@ -2103,7 +2379,7 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
                                   <div><label className="block text-xs text-muted-foreground uppercase mb-1">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
                                   <div className="flex items-end"><button type="button" onClick={handleAgregarItemSalida} className="w-full bg-secondary border border-border hover:bg-secondary/80 px-3 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"><Plus size={16} /> Agregar Item</button></div>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreRetira}).</p>
+                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreQuienRetira(showNotaEdit?.quienRetira || '')}).</p>
 
                                 {salidasTemporales.length > 0 && (
                                   <div className="mt-3 flex gap-2">
@@ -2498,31 +2774,6 @@ TRABAJADOR | PRODUCTO | CANTIDAD | FECHA
         </div>
       )}
 
-      {/* Modal Reportes */}
-      {showReporteModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card p-6 max-w-lg w-full scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2"><FileSpreadsheet size={20} className="text-primary" />Generar Reporte</h2>
-              <button onClick={() => setShowReporteModal(false)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
-            </div>
-            <div className="space-y-3">
-              <button onClick={() => generarReporte('inventario')} className="w-full glass-card p-4 text-left hover:bg-secondary/50 transition-colors flex items-center gap-3">
-                <Package size={20} className="text-blue-400" />
-                <div><p className="font-medium">Inventario Actual</p><p className="text-xs text-muted-foreground">Productos con stock disponible y estado</p></div>
-              </button>
-              <button onClick={() => generarReporte('entradas')} className="w-full glass-card p-4 text-left hover:bg-secondary/50 transition-colors flex items-center gap-3">
-                <Boxes size={20} className="text-emerald-400" />
-                <div><p className="font-medium">Entradas por Producto</p><p className="text-xs text-muted-foreground">Historial de entradas al inventario</p></div>
-              </button>
-              <button onClick={() => generarReporte('salidas')} className="w-full glass-card p-4 text-left hover:bg-secondary/50 transition-colors flex items-center gap-3">
-                <ArrowDownCircle size={20} className="text-red-400" />
-                <div><p className="font-medium">Salidas por Trabajador</p><p className="text-xs text-muted-foreground">Entregas de EPP a empleados</p></div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   extraerDatosConGemini, 
   appendEmpleado, 
   subirPDFAGCS, 
+  eliminarDeGCS,
   updateEmpleado, 
   deleteEmpleado, 
   getEmpleadoByDocumento,
@@ -22,9 +23,11 @@ import {
   getProyectoById,
   appendProyecto,
   updateProyecto,
-  deleteProyecto
+  deleteProyecto,
+  extraerPlanillaIPSConGemini,
+  actualizarEmpleadosIPS,
 } from './lib/googleSheets';
-import { sheets, SPREADSHEET_ID } from './lib/googleSheets';
+import { sheets, SPREADSHEET_ID, auth, GCS_BUCKET_NAME } from './lib/googleSheets';
 import {
   getAllCapacitaciones, getCapacitacionesByProyecto,
   appendCapacitacion, updateCapacitacion, deleteCapacitacion,
@@ -37,7 +40,7 @@ import {
 } from './lib/googleSheets_bitacora';
 import {
   getAllTareas, getTareasByProyecto, getTareasByBitacora,
-  appendTarea, updateTarea, deleteTarea
+  getTareaByRowIndex, appendTarea, updateTarea, deleteTarea
 } from './lib/googleSheets_bitacora_tareas.js';
 import {
   getAllInspecciones, getInspeccionesByProyecto,
@@ -64,7 +67,7 @@ import {
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
   getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida,
-  getAllMarcacionesBiometricas, importarMarcacionesBiometricas,
+  getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
   getAllSolicitudesSuministro, getSolicitudesSuministroByProyecto, getSolicitudSuministroById, getNextNumeroSolicitud, appendSolicitudSuministro, updateSolicitudSuministro, deleteSolicitudSuministro,
   getAllAjustesStock, getAjustesStockByProyecto, appendAjusteStock, updateAjusteStock, deleteAjusteStock,
   updateEntradasCodigo, updateSalidasRefItem, updateAjustesCodigoProducto
@@ -72,6 +75,10 @@ import {
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
 } from './lib/googleSheets_usuarios';
+import {
+  getAllDeclaracionesIPS,
+  appendDeclaracionIPS
+} from './lib/googleSheets_declaraciones_ips';
 import {
   getAllAmonestaciones, getAmonestacionesByProyecto, getAmonestacionById,
   appendAmonestacion, updateAmonestacion, deleteAmonestacion
@@ -720,6 +727,46 @@ app.get('/api/amonestaciones', async (c) => {
   }
 });
 
+// GET - Obtener imagen de amonestacion como base64 (evita CORS en el PDF)
+app.get('/api/amonestaciones/foto', async (c) => {
+  try {
+    const url = c.req.query('url');
+    if (!url) {
+      return c.json({ error: 'Falta el parametro url' }, 400);
+    }
+    const parsed = new URL(url);
+    const esGCS = parsed.hostname === 'storage.googleapis.com' && parsed.pathname.includes(`/${GCS_BUCKET_NAME}/`);
+    if (!esGCS) {
+      return c.json({ error: 'URL no permitida' }, 400);
+    }
+    const objectName = decodeURIComponent(parsed.pathname.split(`/${GCS_BUCKET_NAME}/`)[1] || '');
+    if (!objectName) {
+      return c.json({ error: 'No se pudo extraer el nombre del objeto' }, 400);
+    }
+
+    const client = await auth.getClient();
+    const token = await client.getAccessToken();
+    if (!token.token) {
+      throw new Error('No se pudo obtener token de acceso para GCS');
+    }
+    const mediaUrl = `https://storage.googleapis.com/storage/v1/b/${GCS_BUCKET_NAME}/o/${encodeURIComponent(objectName)}?alt=media`;
+    const response = await fetch(mediaUrl, {
+      headers: { Authorization: `Bearer ${token.token}` },
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`GCS media error ${response.status}: ${errorText}`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    const base64 = buffer.toString('base64');
+    return c.json({ success: true, base64, mimeType });
+  } catch (error: any) {
+    console.error('Error GET /api/amonestaciones/foto:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // GET - Obtener una amonestacion por ID
 app.get('/api/amonestaciones/:id', async (c) => {
   try {
@@ -740,6 +787,7 @@ app.post('/api/amonestaciones', async (c) => {
   try {
     const body = await c.req.json();
     const idRegistro = body.idRegistro || `AMO-${Date.now()}`;
+    console.log('[POST /api/amonestaciones] fotos recibidas:', body.fotos);
 
     await appendAmonestacion({
       idRegistro,
@@ -760,6 +808,7 @@ app.post('/api/amonestaciones', async (c) => {
       diasSuspension: body.diasSuspension || '',
       estado: body.estado || 'Pendiente de Firma',
       empleadoDocumento: body.empleadoDocumento || '',
+      fotos: body.fotos || '',
     });
 
     return c.json({ success: true, message: 'Amonestacion registrada', idRegistro });
@@ -798,6 +847,138 @@ app.delete('/api/amonestaciones/:rowIndex', async (c) => {
     return c.json({ success: true, message: 'Amonestacion eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/amonestaciones:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Subir fotos de amonestacion
+app.post('/api/amonestaciones/fotos', async (c) => {
+  try {
+    const body = await c.req.json();
+    const archivos = body.archivos || [];
+    console.log('[POST /api/amonestaciones/fotos] cantidad:', archivos.length, 'idRegistro:', body.idRegistro);
+    if (archivos.length === 0) {
+      return c.json({ error: 'No se proporcionaron fotos' }, 400);
+    }
+    const urls: string[] = [];
+    for (let i = 0; i < archivos.length; i++) {
+      const archivo = archivos[i];
+      const mime = archivo.mimeType || 'image/jpeg';
+      const ext = mime.includes('png') ? 'png' : 'jpg';
+      const nombreArchivo = `AMONESTACION_${body.idRegistro || Date.now()}_${i}_${Date.now()}.${ext}`;
+      const url = await subirPDFAGCS(archivo.base64, nombreArchivo, mime);
+      urls.push(url);
+      console.log('[POST /api/amonestaciones/fotos] subida:', url);
+    }
+    return c.json({ success: true, urls });
+  } catch (error: any) {
+    console.error('Error POST /api/amonestaciones/fotos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+const normalizarDocumento = (valor: string): string => String(valor || '').replace(/\D/g, '').replace(/^0+/, '');
+
+// GET - Listar declaraciones IPS
+app.get('/api/declaraciones-ips', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    const data = proyecto ? (await getAllDeclaracionesIPS()).filter(d => d.proyecto === proyecto) : await getAllDeclaracionesIPS();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/declaraciones-ips:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Procesar declaracion jurada de salarios IPS
+app.post('/api/declaraciones-ips', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { pdfBase64, mimeType, proyecto, userEmail } = body;
+    if (!pdfBase64 || !proyecto) {
+      return c.json({ error: 'Faltan datos obligatorios (pdfBase64 o proyecto)' }, 400);
+    }
+    const idRegistro = `IPS-${Date.now()}`;
+    const nombreArchivo = `DECLARACION_IPS_${String(proyecto).replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    const urlPDF = await subirPDFAGCS(pdfBase64, nombreArchivo, mimeType || 'application/pdf');
+    const extraido = await extraerPlanillaIPSConGemini(pdfBase64, mimeType || 'application/pdf');
+    const listaCICs = (extraido.empleados || []).filter(e => e.nroCic);
+    console.log('[POST /api/declaraciones-ips] periodo:', extraido.periodo, 'total CICs:', listaCICs.length, 'proyecto:', proyecto);
+    console.log('[POST /api/declaraciones-ips] primeros CICs:', listaCICs.slice(0, 10).map(e => e.nroCic));
+    await appendDeclaracionIPS({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: userEmail || 'sistema',
+      proyecto,
+      periodo: extraido.periodo || '',
+      urlPDF,
+      listaCICs: JSON.stringify(listaCICs),
+      totalEmpleados: String(listaCICs.length),
+    });
+    const empleados = await getEmpleados();
+    const cicsMap = new Map(listaCICs.map(e => [normalizarDocumento(e.nroCic), e.mov]));
+    const empleadosProyecto = empleados.filter(e => e.obra === proyecto);
+    console.log('[POST /api/declaraciones-ips] empleados en proyecto:', empleadosProyecto.length);
+    console.log('[POST /api/declaraciones-ips] primeros docs empleados:', empleadosProyecto.slice(0, 10).map(e => normalizarDocumento(e.nroDocumento)));
+    const actualizaciones = empleadosProyecto
+      .filter(e => cicsMap.has(normalizarDocumento(e.nroDocumento)))
+      .map(e => {
+        const mov = cicsMap.get(normalizarDocumento(e.nroDocumento)) || '';
+        const periodo = extraido.periodo || '';
+        return {
+          rowIndex: e.rowIndex,
+          ultimaDeclaracionIPS: mov ? `${periodo}-${mov}` : periodo,
+          ipsDocumentoUrl: urlPDF,
+        };
+      });
+    console.log('[POST /api/declaraciones-ips] coincidencias encontradas:', actualizaciones.length);
+    await actualizarEmpleadosIPS(actualizaciones);
+    return c.json({
+      success: true,
+      idRegistro,
+      periodo: extraido.periodo,
+      totalCICs: listaCICs.length,
+      actualizados: actualizaciones.length,
+      urlPDF,
+    });
+  } catch (error: any) {
+    console.error('Error POST /api/declaraciones-ips:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Reprocesar declaracion IPS ya guardada (vuelve a vincular empleados)
+app.post('/api/declaraciones-ips/reprocesar', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { idRegistro } = body;
+    if (!idRegistro) {
+      return c.json({ error: 'Falta idRegistro' }, 400);
+    }
+    const declaraciones = await getAllDeclaracionesIPS();
+    const declaracion = declaraciones.find(d => d.idRegistro === idRegistro);
+    if (!declaracion) {
+      return c.json({ error: 'Declaracion no encontrada' }, 404);
+    }
+    const listaCICs: Array<{ nroCic: string; mov: string }> = JSON.parse(declaracion.listaCICs || '[]');
+    const cicsMap = new Map(listaCICs.map(e => [normalizarDocumento(e.nroCic), e.mov]));
+    const empleados = await getEmpleados();
+    const actualizaciones = empleados
+      .filter(e => e.obra === declaracion.proyecto && cicsMap.has(normalizarDocumento(e.nroDocumento)))
+      .map(e => {
+        const mov = cicsMap.get(normalizarDocumento(e.nroDocumento)) || '';
+        const periodo = declaracion.periodo || '';
+        return {
+          rowIndex: e.rowIndex,
+          ultimaDeclaracionIPS: mov ? `${periodo}-${mov}` : periodo,
+          ipsDocumentoUrl: declaracion.urlPDF,
+        };
+      });
+    await actualizarEmpleadosIPS(actualizaciones);
+    return c.json({ success: true, actualizados: actualizaciones.length, periodo: declaracion.periodo });
+  } catch (error: any) {
+    console.error('Error POST /api/declaraciones-ips/reprocesar:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -1677,6 +1858,26 @@ app.post('/api/marcaciones-biometricas/importar', async (c) => {
   }
 });
 
+// PUT - Editar marcacion biometrica
+app.put('/api/marcaciones-biometricas/:rowIndex', async (c) => {
+  try {
+    const rowIndex = parseInt(c.req.param('rowIndex'));
+    if (isNaN(rowIndex) || rowIndex <= 0) {
+      return c.json({ error: 'rowIndex invalido' }, 400);
+    }
+    const body = await c.req.json();
+    await updateMarcacionBiometrica(rowIndex, {
+      horaEntrada: body.horaEntrada,
+      horaSalida: body.horaSalida,
+      horasRaw: body.horasRaw,
+    });
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error('Error PUT /api/marcaciones-biometricas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // PUT - Editar salida
 app.put('/api/epp/salidas/:rowIndex', async (c) => {
   try {
@@ -1930,6 +2131,21 @@ app.put('/api/bitacora/tareas/:rowIndex', async (c) => {
       return c.json({ error: 'rowIndex invalido' }, 400);
     }
     const body = await c.req.json();
+
+    // Si se vuelve a pendiente, eliminar fotos "despues" de GCS y limpiar datos de completado
+    if (body.estado === 'pendiente') {
+      const tareaActual = await getTareaByRowIndex(rowIndex);
+      if (tareaActual && tareaActual.estado === 'completada') {
+        const fotosDespues = JSON.parse(tareaActual.fotosDespues || '[]') as string[];
+        for (const url of fotosDespues) {
+          await eliminarDeGCS(url);
+        }
+        body.fotosDespues = '';
+        body.fechaCompletado = '';
+        body.completadosPor = '';
+      }
+    }
+
     await updateTarea(rowIndex, body);
     return c.json({ success: true, message: 'Tarea actualizada' });
   } catch (error: any) {

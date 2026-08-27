@@ -19,7 +19,7 @@ const HEADERS = [
   'NOMBRE_APELLIDO', 'CEDULA', 'EMPRESA', 'CARGO',
   'FECHA_FALTA', 'FECHA_NOTIFICACION', 'DESCRIPCION_FALTA', 'DISPOSICION_REGLAMENTO',
   'CLASIFICACION', 'ANTECEDENTES', 'SANCION', 'DIAS_SUSPENSION',
-  'ESTADO', 'EMPLEADO_DOCUMENTO',
+  'ESTADO', 'EMPLEADO_DOCUMENTO', 'FOTOS',
 ];
 
 export interface Amonestacion {
@@ -42,6 +42,7 @@ export interface Amonestacion {
   diasSuspension: string;
   estado: string;
   empleadoDocumento: string;
+  fotos: string;
 }
 
 let sheetEnsured = false;
@@ -57,7 +58,7 @@ async function ensureSheet(): Promise<void> {
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A1:R1`,
+      range: `${SHEET_NAME}!A1:S1`,
       valueInputOption: 'RAW',
       requestBody: { values: [HEADERS] },
     });
@@ -95,6 +96,7 @@ function rowToAmonestacion(row: any[], index: number): Amonestacion {
     diasSuspension: row[15] || '',
     estado: row[16] || 'Pendiente de Firma',
     empleadoDocumento: row[17] || '',
+    fotos: row[18] || '',
   };
 }
 
@@ -102,7 +104,7 @@ export async function getAllAmonestaciones(): Promise<Amonestacion[]> {
   await ensureSheet();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A2:R`,
+    range: `${SHEET_NAME}!A2:S`,
   });
   const rows = response.data.values || [];
   return rows.map((row, index) => rowToAmonestacion(row, index));
@@ -139,10 +141,11 @@ export async function appendAmonestacion(amonestacion: Omit<Amonestacion, 'rowIn
     amonestacion.diasSuspension,
     amonestacion.estado,
     amonestacion.empleadoDocumento,
+    amonestacion.fotos,
   ];
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:R`,
+    range: `${SHEET_NAME}!A:S`,
     valueInputOption: 'RAW',
     requestBody: { values: [values] },
   });
@@ -172,6 +175,7 @@ export async function updateAmonestacion(
     diasSuspension: 'P',
     estado: 'Q',
     empleadoDocumento: 'R',
+    fotos: 'S',
   };
 
   const updates = [];
