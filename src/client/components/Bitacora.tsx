@@ -39,31 +39,6 @@ interface BitacoraProps {
   proyecto: string;
 }
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary capturó:', error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="fixed inset-0 z-[100] bg-red-950/95 text-white p-6 overflow-auto">
-          <h2 className="text-lg font-bold mb-2">Error en la interfaz</h2>
-          <pre className="text-xs whitespace-pre-wrap">{this.state.error?.message}\n{this.state.error?.stack}</pre>
-          <button onClick={() => this.setState({ hasError: false, error: null })} className="mt-4 px-4 py-2 bg-white text-red-900 rounded-lg">Reintentar</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 function safeParseJson<T>(value: string | undefined | null, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -196,6 +171,27 @@ interface TareasPanelProps {
   abrirEditarTarea: (tarea: BitacoraTarea) => void;
   handleEliminarTarea: (tarea: BitacoraTarea) => void;
   abrirMoverTarea: (tarea: BitacoraTarea) => void;
+  completarTarea: BitacoraTarea | null;
+  setCompletarTarea: React.Dispatch<React.SetStateAction<BitacoraTarea | null>>;
+  completarNombres: string;
+  setCompletarNombres: (v: string) => void;
+  completarFotosDespues: File[];
+  setCompletarFotosDespues: React.Dispatch<React.SetStateAction<File[]>>;
+  handleConfirmarCompletar: () => void;
+  editandoTarea: BitacoraTarea | null;
+  setEditandoTarea: React.Dispatch<React.SetStateAction<BitacoraTarea | null>>;
+  editarTareaDescripcion: string;
+  setEditarTareaDescripcion: (v: string) => void;
+  editarTareaFotosAntes: string[];
+  setEditarTareaFotosAntes: React.Dispatch<React.SetStateAction<string[]>>;
+  editarTareaFotosAntesNuevas: File[];
+  setEditarTareaFotosAntesNuevas: React.Dispatch<React.SetStateAction<File[]>>;
+  handleGuardarEdicionTarea: () => void;
+  moviendoTarea: BitacoraTarea | null;
+  setMoviendoTarea: React.Dispatch<React.SetStateAction<BitacoraTarea | null>>;
+  nuevaUbicacionId: string;
+  setNuevaUbicacionId: (v: string) => void;
+  handleMoverTarea: () => void;
 }
 
 function TareasPanel({
@@ -214,6 +210,27 @@ function TareasPanel({
   abrirEditarTarea,
   handleEliminarTarea,
   abrirMoverTarea,
+  completarTarea,
+  setCompletarTarea,
+  completarNombres,
+  setCompletarNombres,
+  completarFotosDespues,
+  setCompletarFotosDespues,
+  handleConfirmarCompletar,
+  editandoTarea,
+  setEditandoTarea,
+  editarTareaDescripcion,
+  setEditarTareaDescripcion,
+  editarTareaFotosAntes,
+  setEditarTareaFotosAntes,
+  editarTareaFotosAntesNuevas,
+  setEditarTareaFotosAntesNuevas,
+  handleGuardarEdicionTarea,
+  moviendoTarea,
+  setMoviendoTarea,
+  nuevaUbicacionId,
+  setNuevaUbicacionId,
+  handleMoverTarea,
 }: TareasPanelProps) {
   const completadas = tareas.filter(t => t.estado === 'completada').length;
   const mostrandoForm = nuevaTareaBitacoraId === entrada.idRegistro;
@@ -333,6 +350,115 @@ function TareasPanel({
                     </button>
                   </div>
                 </div>
+
+                {completarTarea?.idRegistro === tarea.idRegistro && (
+                  <div className="mt-3 pt-3 border-t border-border/50 bg-secondary/20 rounded-lg p-3 space-y-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground uppercase mb-1">Completado por *</label>
+                      <input
+                        type="text"
+                        value={completarNombres}
+                        onChange={(e) => setCompletarNombres(e.target.value)}
+                        placeholder="Nombres separados por coma..."
+                        className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Podés agregar varios nombres separados por coma.</p>
+                    </div>
+                    <div>
+                      <ImagePicker
+                        label="Foto despues (opcional)"
+                        onFilesSelected={(files) => setCompletarFotosDespues(prev => [...prev, ...files])}
+                      />
+                      {completarFotosDespues.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {completarFotosDespues.map((f, idx) => (
+                            <div key={idx} className="relative">
+                              <img src={URL.createObjectURL(f)} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" />
+                              <button type="button" onClick={() => setCompletarFotosDespues(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setCompletarTarea(null); setCompletarNombres(''); setCompletarFotosDespues([]); }} className="flex-1 py-2 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-xs">Cancelar</button>
+                      <button onClick={handleConfirmarCompletar} disabled={guardandoTarea} className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all text-xs flex items-center justify-center gap-2 disabled:opacity-50">
+                        {guardandoTarea ? <Clock size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Completar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {editandoTarea?.idRegistro === tarea.idRegistro && (
+                  <div className="mt-3 pt-3 border-t border-border/50 bg-secondary/20 rounded-lg p-3 space-y-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground uppercase mb-1">Descripcion *</label>
+                      <textarea
+                        value={editarTareaDescripcion}
+                        onChange={(e) => setEditarTareaDescripcion(e.target.value)}
+                        placeholder="Descripcion de la tarea..."
+                        rows={3}
+                        className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-xs text-muted-foreground uppercase mb-1">Fotos antes</span>
+                      {editarTareaFotosAntes.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {editarTareaFotosAntes.map((url, idx) => (
+                            <div key={idx} className="relative">
+                              <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" /></a>
+                              <button type="button" onClick={() => setEditarTareaFotosAntes(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <ImagePicker onFilesSelected={(files) => setEditarTareaFotosAntesNuevas(prev => [...prev, ...files])} />
+                      {editarTareaFotosAntesNuevas.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {editarTareaFotosAntesNuevas.map((f, idx) => (
+                            <div key={idx} className="relative">
+                              <img src={URL.createObjectURL(f)} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" />
+                              <button type="button" onClick={() => setEditarTareaFotosAntesNuevas(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditandoTarea(null); setEditarTareaDescripcion(''); setEditarTareaFotosAntes([]); setEditarTareaFotosAntesNuevas([]); }} className="flex-1 py-2 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-xs">Cancelar</button>
+                      <button onClick={handleGuardarEdicionTarea} disabled={guardandoTarea} className="flex-1 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all text-xs flex items-center justify-center gap-2 disabled:opacity-50">
+                        {guardandoTarea ? <Clock size={14} className="animate-spin" /> : <Save size={14} />} Guardar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {moviendoTarea?.idRegistro === tarea.idRegistro && (
+                  <div className="mt-3 pt-3 border-t border-border/50 bg-secondary/20 rounded-lg p-3 space-y-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground uppercase mb-1">Nueva ubicacion *</label>
+                      <select
+                        value={nuevaUbicacionId}
+                        onChange={(e) => setNuevaUbicacionId(e.target.value)}
+                        className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+                      >
+                        <option value="">Seleccionar ubicacion...</option>
+                        {entradas
+                          .filter(e => e.idRegistro !== tarea.idBitacora)
+                          .map(e => (
+                            <option key={e.idRegistro} value={e.idRegistro}>{e.ubicacionArea}</option>
+                          ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setMoviendoTarea(null); setNuevaUbicacionId(''); }} className="flex-1 py-2 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-xs">Cancelar</button>
+                      <button onClick={handleMoverTarea} disabled={guardandoTarea || !nuevaUbicacionId} className="flex-1 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all text-xs flex items-center justify-center gap-2 disabled:opacity-50">
+                        {guardandoTarea ? <Clock size={14} className="animate-spin" /> : <ArrowRightLeft size={14} />} Mover
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -372,12 +498,6 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
 
   const [moviendoTarea, setMoviendoTarea] = useState<BitacoraTarea | null>(null);
   const [nuevaUbicacionId, setNuevaUbicacionId] = useState('');
-
-  useEffect(() => {
-    if (completarTarea || editandoTarea || moviendoTarea || deletingId) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [completarTarea, editandoTarea, moviendoTarea, deletingId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -543,10 +663,22 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
       }
       return;
     }
-    // Abrir modal para completar
-    setCompletarTarea(tarea);
-    setCompletarNombres('');
-    setCompletarFotosDespues([]);
+    // Alternar formulario inline para completar
+    if (completarTarea?.idRegistro === tarea.idRegistro) {
+      setCompletarTarea(null);
+      setCompletarNombres('');
+      setCompletarFotosDespues([]);
+    } else {
+      setCompletarTarea(tarea);
+      setCompletarNombres('');
+      setCompletarFotosDespues([]);
+      setEditandoTarea(null);
+      setEditarTareaDescripcion('');
+      setEditarTareaFotosAntes([]);
+      setEditarTareaFotosAntesNuevas([]);
+      setMoviendoTarea(null);
+      setNuevaUbicacionId('');
+    }
   };
 
   const handleConfirmarCompletar = async () => {
@@ -585,10 +717,39 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
   };
 
   const abrirEditarTarea = (tarea: BitacoraTarea) => {
-    setEditandoTarea(tarea);
-    setEditarTareaDescripcion(tarea.descripcion);
-    setEditarTareaFotosAntes(safeParseJson<string[]>(tarea.fotosAntes, []));
-    setEditarTareaFotosAntesNuevas([]);
+    if (editandoTarea?.idRegistro === tarea.idRegistro) {
+      setEditandoTarea(null);
+      setEditarTareaDescripcion('');
+      setEditarTareaFotosAntes([]);
+      setEditarTareaFotosAntesNuevas([]);
+    } else {
+      setEditandoTarea(tarea);
+      setEditarTareaDescripcion(tarea.descripcion);
+      setEditarTareaFotosAntes(safeParseJson<string[]>(tarea.fotosAntes, []));
+      setEditarTareaFotosAntesNuevas([]);
+      setCompletarTarea(null);
+      setCompletarNombres('');
+      setCompletarFotosDespues([]);
+      setMoviendoTarea(null);
+      setNuevaUbicacionId('');
+    }
+  };
+
+  const abrirMoverTarea = (tarea: BitacoraTarea) => {
+    if (moviendoTarea?.idRegistro === tarea.idRegistro) {
+      setMoviendoTarea(null);
+      setNuevaUbicacionId('');
+    } else {
+      setMoviendoTarea(tarea);
+      setNuevaUbicacionId('');
+      setCompletarTarea(null);
+      setCompletarNombres('');
+      setCompletarFotosDespues([]);
+      setEditandoTarea(null);
+      setEditarTareaDescripcion('');
+      setEditarTareaFotosAntes([]);
+      setEditarTareaFotosAntesNuevas([]);
+    }
   };
 
   const handleGuardarEdicionTarea = async () => {
@@ -776,7 +937,28 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
                               handleToggleCompletarTarea={handleToggleCompletarTarea}
                               abrirEditarTarea={abrirEditarTarea}
                               handleEliminarTarea={handleEliminarTarea}
-                              abrirMoverTarea={(tarea) => { setMoviendoTarea(tarea); setNuevaUbicacionId(''); }}
+                              abrirMoverTarea={abrirMoverTarea}
+                              completarTarea={completarTarea}
+                              setCompletarTarea={setCompletarTarea}
+                              completarNombres={completarNombres}
+                              setCompletarNombres={setCompletarNombres}
+                              completarFotosDespues={completarFotosDespues}
+                              setCompletarFotosDespues={setCompletarFotosDespues}
+                              handleConfirmarCompletar={handleConfirmarCompletar}
+                              editandoTarea={editandoTarea}
+                              setEditandoTarea={setEditandoTarea}
+                              editarTareaDescripcion={editarTareaDescripcion}
+                              setEditarTareaDescripcion={setEditarTareaDescripcion}
+                              editarTareaFotosAntes={editarTareaFotosAntes}
+                              setEditarTareaFotosAntes={setEditarTareaFotosAntes}
+                              editarTareaFotosAntesNuevas={editarTareaFotosAntesNuevas}
+                              setEditarTareaFotosAntesNuevas={setEditarTareaFotosAntesNuevas}
+                              handleGuardarEdicionTarea={handleGuardarEdicionTarea}
+                              moviendoTarea={moviendoTarea}
+                              setMoviendoTarea={setMoviendoTarea}
+                              nuevaUbicacionId={nuevaUbicacionId}
+                              setNuevaUbicacionId={setNuevaUbicacionId}
+                              handleMoverTarea={handleMoverTarea}
                             />
                           </td>
                         </tr>
@@ -804,164 +986,6 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
             <div className="flex gap-3">
               <button onClick={() => setDeletingId(null)} className="flex-1 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">Cancelar</button>
               <button onClick={confirmarEliminar} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2"><Trash2 size={16} /> Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {completarTarea && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-green-500/10 rounded-full"><CheckCircle2 size={20} className="text-green-400" /></div>
-              <div>
-                <h3 className="font-semibold text-sm">Completar Tarea</h3>
-                <p className="text-muted-foreground text-xs">{completarTarea.descripcion}</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-muted-foreground uppercase mb-1">Completado por *</label>
-                <input
-                  type="text"
-                  value={completarNombres}
-                  onChange={(e) => setCompletarNombres(e.target.value)}
-                  placeholder="Nombres separados por coma..."
-                  className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Podés agregar varios nombres separados por coma.</p>
-              </div>
-              <div>
-                <ImagePicker
-                  label="Foto despues (opcional)"
-                  onFilesSelected={(files) => setCompletarFotosDespues(prev => [...prev, ...files])}
-                />
-                {completarFotosDespues.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {completarFotosDespues.map((f, idx) => (
-                      <div key={idx} className="relative">
-                        <img src={URL.createObjectURL(f)} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" />
-                        <button type="button" onClick={() => setCompletarFotosDespues(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setCompletarTarea(null)} className="flex-1 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">Cancelar</button>
-              <button
-                onClick={handleConfirmarCompletar}
-                disabled={guardandoTarea}
-                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {guardandoTarea ? <Clock size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Completar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editandoTarea && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <ErrorBoundary>
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-primary/10 rounded-full"><Pencil size={20} className="text-primary" /></div>
-              <div>
-                <h3 className="font-semibold text-sm">Editar Tarea</h3>
-                <p className="text-muted-foreground text-xs">{editandoTarea.descripcion}</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-muted-foreground uppercase mb-1">Descripcion *</label>
-                <textarea
-                  value={editarTareaDescripcion}
-                  onChange={(e) => setEditarTareaDescripcion(e.target.value)}
-                  placeholder="Descripcion de la tarea..."
-                  rows={4}
-                  className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50 resize-none"
-                />
-              </div>
-              <div>
-                <span className="block text-xs text-muted-foreground uppercase mb-1">Fotos antes</span>
-                {editarTareaFotosAntes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {editarTareaFotosAntes.map((url, idx) => (
-                      <div key={idx} className="relative">
-                        <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" /></a>
-                        <button type="button" onClick={() => setEditarTareaFotosAntes(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <ImagePicker
-                  onFilesSelected={(files) => setEditarTareaFotosAntesNuevas(prev => [...prev, ...files])}
-                />
-                {editarTareaFotosAntesNuevas.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {editarTareaFotosAntesNuevas.map((f, idx) => (
-                      <div key={idx} className="relative">
-                        <img src={URL.createObjectURL(f)} alt="" className="w-16 h-16 object-cover rounded-lg border border-border" />
-                        <button type="button" onClick={() => setEditarTareaFotosAntesNuevas(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white"><X size={12} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setEditandoTarea(null)} className="flex-1 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">Cancelar</button>
-              <button
-                onClick={handleGuardarEdicionTarea}
-                disabled={guardandoTarea}
-                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {guardandoTarea ? <Clock size={16} className="animate-spin" /> : <Save size={16} />} Guardar
-              </button>
-            </div>
-          </div>
-          </ErrorBoundary>
-        </div>
-      )}
-
-      {moviendoTarea && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a24] border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-primary/10 rounded-full"><ArrowRightLeft size={20} className="text-primary" /></div>
-              <div>
-                <h3 className="font-semibold text-sm">Mover Tarea</h3>
-                <p className="text-muted-foreground text-xs">{moviendoTarea.descripcion}</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-muted-foreground uppercase mb-1">Nueva ubicacion *</label>
-                <select
-                  value={nuevaUbicacionId}
-                  onChange={(e) => setNuevaUbicacionId(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
-                >
-                  <option value="">Seleccionar ubicacion...</option>
-                  {entradasOrdenadas
-                    .filter(e => e.idRegistro !== moviendoTarea.idBitacora)
-                    .map(e => (
-                      <option key={e.idRegistro} value={e.idRegistro}>{e.ubicacionArea}</option>
-                    ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => { setMoviendoTarea(null); setNuevaUbicacionId(''); }} className="flex-1 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">Cancelar</button>
-              <button
-                onClick={handleMoverTarea}
-                disabled={guardandoTarea || !nuevaUbicacionId}
-                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {guardandoTarea ? <Clock size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />} Mover
-              </button>
             </div>
           </div>
         </div>
