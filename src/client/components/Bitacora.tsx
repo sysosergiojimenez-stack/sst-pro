@@ -373,6 +373,12 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
   const [moviendoTarea, setMoviendoTarea] = useState<BitacoraTarea | null>(null);
   const [nuevaUbicacionId, setNuevaUbicacionId] = useState('');
 
+  useEffect(() => {
+    if (completarTarea || editandoTarea || moviendoTarea || deletingId) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [completarTarea, editandoTarea, moviendoTarea, deletingId]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
