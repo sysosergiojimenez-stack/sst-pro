@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Pencil, Trash2, X, Save, Shield, User, Eye, EyeOff } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface Usuario {
   rowIndex: number;
@@ -10,30 +11,40 @@ interface Usuario {
   nombres: string;
   apellidos: string;
   correo: string;
+  proyectosAsignados: string[];
+}
+
+interface Proyecto {
+  idRegistro: string;
+  denominacion: string;
 }
 
 const roles = ['Desarrollador', 'Admin', 'User'] as const;
 
+const formVacio = {
+  nombres: '',
+  apellidos: '',
+  correo: '',
+  rol: 'User' as const,
+  contrasena: '',
+  proyectosAsignados: [] as string[],
+};
+
 export default function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [form, setForm] = useState({
-    nombres: '',
-    apellidos: '',
-    correo: '',
-    rol: 'User' as const,
-    contrasena: '',
-  });
+  const [form, setForm] = useState(formVacio);
 
   const token = localStorage.getItem('token') || '';
 
   const fetchUsuarios = async () => {
     try {
-      const res = await fetch('/api/usuarios', {
+      const res = await apiFetch('/api/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -45,9 +56,31 @@ export default function AdminUsuarios() {
     }
   };
 
+  const fetchProyectos = async () => {
+    try {
+      const res = await apiFetch('/api/proyectos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) setProyectos(data.data);
+    } catch (err) {
+      // silencioso: la asignacion de proyectos es secundaria a la lista de usuarios
+    }
+  };
+
   useEffect(() => {
     fetchUsuarios();
+    fetchProyectos();
   }, []);
+
+  const toggleProyectoAsignado = (denominacion: string) => {
+    setForm(f => ({
+      ...f,
+      proyectosAsignados: f.proyectosAsignados.includes(denominacion)
+        ? f.proyectosAsignados.filter(p => p !== denominacion)
+        : [...f.proyectosAsignados, denominacion],
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +93,7 @@ export default function AdminUsuarios() {
         body.contrasena = '123456';
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +107,7 @@ export default function AdminUsuarios() {
 
       setShowForm(false);
       setEditingUser(null);
-      setForm({ nombres: '', apellidos: '', correo: '', rol: 'User', contrasena: '' });
+      setForm(formVacio);
       fetchUsuarios();
       alert(editingUser ? 'Usuario actualizado' : 'Usuario creado');
     } catch (err: any) {
@@ -85,7 +118,7 @@ export default function AdminUsuarios() {
   const handleDelete = async (u: Usuario) => {
     if (!confirm(`Eliminar usuario ${u.nombres} ${u.apellidos}?`)) return;
     try {
-      const res = await fetch(`/api/usuarios/${u.rowIndex}`, {
+      const res = await apiFetch(`/api/usuarios/${u.rowIndex}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -104,6 +137,7 @@ export default function AdminUsuarios() {
       correo: u.correo,
       rol: u.rol,
       contrasena: '',
+      proyectosAsignados: u.proyectosAsignados || [],
     });
     setShowForm(true);
   };
@@ -126,7 +160,7 @@ export default function AdminUsuarios() {
         <button
           onClick={() => {
             setEditingUser(null);
-            setForm({ nombres: '', apellidos: '', correo: '', rol: 'User', contrasena: '' });
+            setForm(formVacio);
             setShowForm(true);
           }}
           className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25 text-sm"
@@ -182,6 +216,36 @@ export default function AdminUsuarios() {
                 </button>
               </div>
             </div>
+            {form.rol === 'User' && (
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium mb-2">Proyectos asignados</label>
+                {proyectos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No hay proyectos registrados todavia.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {proyectos.map(p => (
+                      <label
+                        key={p.idRegistro}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition-colors ${
+                          form.proyectosAsignados.includes(p.denominacion)
+                            ? 'border-primary/50 bg-primary/10 text-primary'
+                            : 'border-border bg-secondary text-muted-foreground'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          checked={form.proyectosAsignados.includes(p.denominacion)}
+                          onChange={() => toggleProyectoAsignado(p.denominacion)}
+                        />
+                        {p.denominacion}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">Este usuario solo vera los proyectos marcados aqui.</p>
+              </div>
+            )}
             <div className="flex items-end">
               <button type="submit" className="w-full btn-gradient text-white px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25">
                 <Save size={16} /> {editingUser ? 'Actualizar' : 'Crear'} Usuario
@@ -206,6 +270,7 @@ export default function AdminUsuarios() {
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nombre</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Correo</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Rol</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Proyectos</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Registrado</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">Acciones</th>
               </tr>
@@ -217,6 +282,19 @@ export default function AdminUsuarios() {
                   <td className="py-3 px-4 text-muted-foreground block sm:table-cell">{u.correo}</td>
                   <td className="py-3 px-4 block sm:table-cell">
                     <span className={`px-2 py-1 rounded-full text-xs border ${getRolColor(u.rol)}`}>{u.rol}</span>
+                  </td>
+                  <td className="py-3 px-4 block sm:table-cell">
+                    {u.rol !== 'User' ? (
+                      <span className="text-xs text-muted-foreground">Todos</span>
+                    ) : u.proyectosAsignados && u.proyectosAsignados.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {u.proyectosAsignados.map(p => (
+                          <span key={p} className="px-2 py-0.5 rounded-full text-xs border border-border bg-secondary text-muted-foreground">{p}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-red-400">Sin proyectos</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-muted-foreground text-xs block sm:table-cell">{new Date(u.dateTime).toLocaleDateString('es-ES')}</td>
                   <td className="py-3 px-4 sm:text-right block sm:table-cell pt-1.5 sm:pt-3 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">

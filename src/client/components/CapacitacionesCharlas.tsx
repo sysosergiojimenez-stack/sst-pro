@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react';
 import { GraduationCap, Calendar as CalendarIcon, List, Plus, X, Save, Pencil, Trash2, Eye, CheckCircle2, Clock, MapPin, FileText, ChevronLeft, ChevronRight, Users, Image as ImageIcon } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface Capacitacion {
   rowIndex: number;
@@ -113,11 +114,11 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const fetchData = async () => {
     setLoading(true);
     try {
-      const capRes = await fetch(`/api/capacitaciones?proyecto=${encodeURIComponent(proyecto)}`);
+      const capRes = await apiFetch(`/api/capacitaciones?proyecto=${encodeURIComponent(proyecto)}`);
       const capData = await capRes.json();
       if (capData.success) setCapacitaciones(capData.data);
 
-      const empRes = await fetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto)}`);
+      const empRes = await apiFetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto)}`);
       const empData = await empRes.json();
       if (empData.success) setEmpleados(empData.data);
     } catch (err) {
@@ -131,13 +132,13 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     e.preventDefault();
     try {
       if (editingCharla) {
-        await fetch(`/api/capacitaciones/${editingCharla.rowIndex}`, {
+        await apiFetch(`/api/capacitaciones/${editingCharla.rowIndex}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         });
       } else {
         const idRegistro = `CAP-${Date.now()}`;
-        await fetch('/api/capacitaciones', {
+        await apiFetch('/api/capacitaciones', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             idRegistro, proyecto, ...form, estado: 'Pendiente',
@@ -166,7 +167,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const handleDelete = async (cap: Capacitacion) => {
     if (!confirm(`Eliminar charla "${cap.titulo}"?`)) return;
     try {
-      await fetch(`/api/capacitaciones/${cap.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/capacitaciones/${cap.rowIndex}`, { method: 'DELETE' });
       fetchData();
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -203,7 +204,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           reader.onerror = reject;
           reader.readAsDataURL(f);
         })));
-        const upRes = await fetch('/api/capacitaciones/evidencia', {
+        const upRes = await apiFetch('/api/capacitaciones/evidencia', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ archivos: archivosActividad, idRegistro: showRealizarForm.idRegistro }),
         });
@@ -222,14 +223,14 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
           reader.readAsDataURL(f);
         })));
 
-        const upImgRes = await fetch('/api/capacitaciones/imagenes-asistencia', {
+        const upImgRes = await apiFetch('/api/capacitaciones/imagenes-asistencia', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ archivos: imagenesBase64, idRegistro: showRealizarForm.idRegistro }),
         });
         const upImgData = await upImgRes.json();
         if (upImgData.success) urlsImagenes = upImgData.urls;
 
-        const extractRes = await fetch('/api/capacitaciones/extract-asistentes-imagenes', {
+        const extractRes = await apiFetch('/api/capacitaciones/extract-asistentes-imagenes', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imagenes: imagenesBase64.map(im => ({ base64: im.base64, mimeType: im.mimeType })) }),
         });
@@ -276,7 +277,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
       });
 
       // 5. Guardar las asistencias en la hoja relacionada (reemplaza cualquier intento anterior de esta charla)
-      const batchRes = await fetch('/api/capacitaciones/asistencias-batch', {
+      const batchRes = await apiFetch('/api/capacitaciones/asistencias-batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idCapacitacion: showRealizarForm.idRegistro,
@@ -288,7 +289,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
       const batchData = await batchRes.json();
 
       // 6. Actualizar la charla (la columna vieja de "asistentes" ya no se usa)
-      await fetch(`/api/capacitaciones/${showRealizarForm.rowIndex}`, {
+      await apiFetch(`/api/capacitaciones/${showRealizarForm.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
@@ -384,7 +385,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
                 if (nuevoExp && !asistenciasPorCharla[cap.idRegistro]) {
                   setCargandoAsistencias(cap.idRegistro);
                   try {
-                    const resAs = await fetch(`/api/capacitaciones/${cap.idRegistro}/asistencias`);
+                    const resAs = await apiFetch(`/api/capacitaciones/${cap.idRegistro}/asistencias`);
                     const dataAs = await resAs.json();
                     if (dataAs.success) setAsistenciasPorCharla(prev => ({ ...prev, [cap.idRegistro]: dataAs.data }));
                   } catch {}

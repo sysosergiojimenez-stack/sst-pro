@@ -6,6 +6,9 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, AlertTriangle, MinusCircle,
   Settings, ExternalLink, Image as ImageIcon, PlayCircle, FileText, CheckSquare, Square
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { fileToBase64 } from '../lib/fileToBase64';
+import { drawPdfHeader } from '../lib/pdfHeader';
 
 interface Inspeccion {
   rowIndex: number;
@@ -49,23 +52,12 @@ interface TemplateGroup {
 
 interface InspeccionesProps {
   proyecto: string;
-}
-
-function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve({ base64: result.split(',')[1], mimeType: file.type || 'image/jpeg' });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  proyectoLogo?: string;
 }
 
 const RESULTADOS = ['Cumple', 'No Cumple', 'N/A'];
 
-export default function Inspecciones({ proyecto }: InspeccionesProps) {
+export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesProps) {
   const [inspecciones, setInspecciones] = useState<Inspeccion[]>([]);
   const [template, setTemplate] = useState<TemplateItem[]>([]);
   const [templateGroups, setTemplateGroups] = useState<TemplateGroup[]>([]);
@@ -106,9 +98,9 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     setLoading(true);
     try {
       const [inspRes, tplRes, grpRes] = await Promise.all([
-        fetch(`/api/inspecciones?proyecto=${encodeURIComponent(proyecto)}`),
-        fetch('/api/checklist-template'),
-        fetch('/api/checklist-templates'),
+        apiFetch(`/api/inspecciones?proyecto=${encodeURIComponent(proyecto)}`),
+        apiFetch('/api/checklist-template'),
+        apiFetch('/api/checklist-templates'),
       ]);
       const inspData = inspRes.ok ? await inspRes.json() : { data: [] };
       const tplData = tplRes.ok ? await tplRes.json() : { data: [] };
@@ -131,7 +123,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
       return;
     }
     try {
-      await fetch('/api/inspecciones', {
+      await apiFetch('/api/inspecciones', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...programarForm, proyecto }),
       });
@@ -148,7 +140,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     setObservacionesGenerales(insp.observacionesGenerales || '');
     setChecklistItems([]);
     try {
-      const res = await fetch(`/api/checklist-template?idTemplate=${encodeURIComponent(insp.idTemplateChecklist)}`);
+      const res = await apiFetch(`/api/checklist-template?idTemplate=${encodeURIComponent(insp.idTemplateChecklist)}`);
       const data = await res.json();
       const items: TemplateItem[] = (data.data || []).filter((t: TemplateItem) => (t.activo || 'TRUE').toUpperCase() !== 'FALSE');
       setChecklistItems(items.map(t => ({
@@ -170,7 +162,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         const { base64, mimeType } = await fileToBase64(f);
         return { base64, mimeType };
       }));
-      const res = await fetch('/api/inspecciones/fotos', {
+      const res = await apiFetch('/api/inspecciones/fotos', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archivos, idRegistro: showChecklistForm?.idRegistro || Date.now() }),
       });
@@ -196,11 +188,11 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     }
     setGuardandoChecklist(true);
     try {
-      await fetch(`/api/inspecciones/${showChecklistForm.idRegistro}/items`, {
+      await apiFetch(`/api/inspecciones/${showChecklistForm.idRegistro}/items`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: checklistItems }),
       });
-      await fetch(`/api/inspecciones/${showChecklistForm.rowIndex}`, {
+      await apiFetch(`/api/inspecciones/${showChecklistForm.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
@@ -225,7 +217,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     }
     setExpandida(insp.idRegistro);
     try {
-      const res = await fetch(`/api/inspecciones/${insp.idRegistro}/items`);
+      const res = await apiFetch(`/api/inspecciones/${insp.idRegistro}/items`);
       const data = await res.json();
       setItemsExpandidos(data.data || []);
     } catch {
@@ -250,6 +242,9 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
           y = 20;
         }
       };
+
+      y = await drawPdfHeader(doc, { denominacion: proyecto, logo: proyectoLogo }, y, { marginLeft, marginRight });
+      y += 6;
 
       doc.setFontSize(18);
       doc.text('Reporte de Inspecciones', marginLeft, y);
@@ -281,7 +276,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
         }
         y += 6;
 
-        const res = await fetch(`/api/inspecciones/${insp.idRegistro}/items`);
+        const res = await apiFetch(`/api/inspecciones/${insp.idRegistro}/items`);
         const data = await res.json();
         const items: ItemChecklist[] = data.data || [];
 
@@ -317,7 +312,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
               let x = marginLeft + 4;
               for (const url of fotos) {
                 try {
-                  const imgRes = await fetch(`/api/inspecciones/imagen-proxy?url=${encodeURIComponent(url)}`);
+                  const imgRes = await apiFetch(`/api/inspecciones/imagen-proxy?url=${encodeURIComponent(url)}`);
                   const imgData = await imgRes.json();
                   if (imgData.base64) {
                     if (x + 30 > pageWidth - marginRight) { x = marginLeft + 4; y += 32; checkPageBreak(35); }
@@ -372,7 +367,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     if (!editingInspeccion) return;
     setGuardandoEdicion(true);
     try {
-      await fetch(`/api/inspecciones/${editingInspeccion.rowIndex}`, {
+      await apiFetch(`/api/inspecciones/${editingInspeccion.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
@@ -388,7 +383,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const confirmarEliminar = async () => {
     if (!deletingId) return;
     try {
-      await fetch(`/api/inspecciones/${deletingId.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/inspecciones/${deletingId.rowIndex}`, { method: 'DELETE' });
       setDeletingId(null);
       fetchData();
     } catch (err: any) {
@@ -399,7 +394,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const handleCrearGrupo = async () => {
     if (!nuevoGrupoNombre.trim()) return;
     try {
-      await fetch('/api/checklist-templates', {
+      await apiFetch('/api/checklist-templates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre: nuevoGrupoNombre.trim() }),
       });
@@ -412,7 +407,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
 
   const handleGuardarEdicionGrupo = async (rowIndex: number) => {
     try {
-      await fetch(`/api/checklist-templates/${rowIndex}`, {
+      await apiFetch(`/api/checklist-templates/${rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre: editandoGrupoNombre }),
       });
@@ -426,7 +421,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const handleEliminarGrupo = async (rowIndex: number) => {
     if (!confirm('Eliminar este checklist? Tambien se pierden sus items.')) return;
     try {
-      await fetch(`/api/checklist-templates/${rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/checklist-templates/${rowIndex}`, { method: 'DELETE' });
       if (grupoGestion) setGrupoGestion(null);
       fetchData();
     } catch (err: any) {
@@ -438,7 +433,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
     if (grupoGestion === idGrupo) { setGrupoGestion(null); return; }
     setGrupoGestion(idGrupo);
     try {
-      const res = await fetch(`/api/checklist-template?idTemplate=${encodeURIComponent(idGrupo)}`);
+      const res = await apiFetch(`/api/checklist-template?idTemplate=${encodeURIComponent(idGrupo)}`);
       const data = await res.json();
       setItemsGrupoGestion((data.data || []).filter((t: TemplateItem) => (t.activo || 'TRUE').toUpperCase() !== 'FALSE'));
     } catch {
@@ -449,7 +444,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const handleAgregarTemplateItem = async () => {
     if (!nuevoItemTexto.trim() || !grupoGestion) return;
     try {
-      await fetch('/api/checklist-template', {
+      await apiFetch('/api/checklist-template', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texto: nuevoItemTexto.trim(), idTemplate: grupoGestion, orden: itemsGrupoGestion.length + 1 }),
       });
@@ -463,7 +458,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
   const abrirItemsDeGrupoRefresh = async () => {
     if (!grupoGestion) return;
     try {
-      const res = await fetch(`/api/checklist-template?idTemplate=${encodeURIComponent(grupoGestion)}`);
+      const res = await apiFetch(`/api/checklist-template?idTemplate=${encodeURIComponent(grupoGestion)}`);
       const data = await res.json();
       setItemsGrupoGestion((data.data || []).filter((t: TemplateItem) => (t.activo || 'TRUE').toUpperCase() !== 'FALSE'));
     } catch {
@@ -473,7 +468,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
 
   const handleGuardarEdicionTemplate = async (rowIndex: number) => {
     try {
-      await fetch(`/api/checklist-template/${rowIndex}`, {
+      await apiFetch(`/api/checklist-template/${rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texto: editandoTemplateTexto }),
       });
@@ -486,7 +481,7 @@ export default function Inspecciones({ proyecto }: InspeccionesProps) {
 
   const handleEliminarTemplateItem = async (rowIndex: number) => {
     try {
-      await fetch(`/api/checklist-template/${rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/checklist-template/${rowIndex}`, { method: 'DELETE' });
       abrirItemsDeGrupoRefresh();
     } catch (err: any) {
       alert('Error: ' + err.message);

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { ShieldAlert, Plus, Pencil, Trash2, X, Save, Search, FileDown, Calendar, User as UserIcon, CheckCircle2, Clock, Archive, Camera, Image as ImageIcon } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { apiFetch } from '../lib/api';
+import { drawPdfHeader, type ProyectoPdfHeader } from '../lib/pdfHeader';
 
 interface Amonestacion {
   rowIndex: number;
@@ -35,7 +37,7 @@ interface Empleado {
 }
 
 interface MedidasDisciplinariasProps {
-  proyecto?: string;
+  proyecto?: ProyectoPdfHeader;
   userEmail?: string;
 }
 
@@ -65,7 +67,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroClasificacion, setFiltroClasificacion] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [form, setForm] = useState({ ...formVacio, proyecto: proyecto || '' });
+  const [form, setForm] = useState({ ...formVacio, proyecto: proyecto?.denominacion || '' });
   const [fotosNuevas, setFotosNuevas] = useState<File[]>([]);
   const [fotosExistentes, setFotosExistentes] = useState<string[]>([]);
 
@@ -76,8 +78,8 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const fetchAmonestaciones = async () => {
     setLoading(true);
     try {
-      const url = proyecto ? `/api/amonestaciones?proyecto=${encodeURIComponent(proyecto)}` : '/api/amonestaciones';
-      const response = await fetch(url);
+      const url = proyecto ? `/api/amonestaciones?proyecto=${encodeURIComponent(proyecto.denominacion)}` : '/api/amonestaciones';
+      const response = await apiFetch(url);
       const data = await response.json();
       if (data.success) setAmonestaciones(data.data);
       else setError(data.error || 'Error al cargar medidas disciplinarias');
@@ -90,8 +92,8 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
 
   const fetchEmpleados = async () => {
     try {
-      const url = proyecto ? `/api/empleados?proyecto=${encodeURIComponent(proyecto)}` : '/api/empleados';
-      const response = await fetch(url);
+      const url = proyecto ? `/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}` : '/api/empleados';
+      const response = await apiFetch(url);
       const data = await response.json();
       if (data.success !== false) setEmpleados(data.data || []);
     } catch {
@@ -99,7 +101,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
     }
   };
 
-  useEffect(() => { fetchAmonestaciones(); fetchEmpleados(); }, [proyecto]);
+  useEffect(() => { fetchAmonestaciones(); fetchEmpleados(); }, [proyecto?.denominacion]);
 
   useEffect(() => {
     const emp = empleados.find(e => e.nroDocumento === form.empleadoDocumento);
@@ -148,7 +150,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   }, [searchTerm, filtroClasificacion, filtroEstado, amonestaciones]);
 
   const resetForm = () => {
-    setForm({ ...formVacio, proyecto: proyecto || '' });
+    setForm({ ...formVacio, proyecto: proyecto?.denominacion || '' });
     setFotosNuevas([]);
     setFotosExistentes([]);
   };
@@ -170,7 +172,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
     if (files.length === 0) return [];
     const archivos = await Promise.all(files.map(fileToBase64));
     console.log('[subirFotosAmonestacion] base64 listo, subiendo...');
-    const response = await fetch('/api/amonestaciones/fotos', {
+    const response = await apiFetch('/api/amonestaciones/fotos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ archivos, idRegistro }),
@@ -209,7 +211,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
       const body = editing
         ? { ...form, fotos: fotosGuardar, rowIndex: editing.rowIndex }
         : { ...form, idRegistro, fotos: fotosGuardar, userEmail: userEmail || 'sistema' };
-      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null); resetForm();
       fetchAmonestaciones();
@@ -219,7 +221,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const handleDelete = async (a: Amonestacion) => {
     if (!confirm(`Eliminar la notificacion de "${a.nombreApellido}"?`)) return;
     try {
-      const response = await fetch(`/api/amonestaciones/${a.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/amonestaciones/${a.rowIndex}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchAmonestaciones();
     } catch (err: any) { setError(err.message); }
@@ -555,7 +557,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => generarPDFAmonestacion(a)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Exportar PDF para firma"><FileDown size={16} /></button>
+                  <button onClick={() => generarPDFAmonestacion(a, proyecto)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Exportar PDF para firma"><FileDown size={16} /></button>
                   <button onClick={() => startEdit(a)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                   <button onClick={() => handleDelete(a)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                 </div>
@@ -577,7 +579,7 @@ function safeParseJson<T>(value: string | undefined | null, fallback: T): T {
 // Exportacion a PDF - replica el formato oficial SST-FOR-12
 // ============================================
 
-async function generarPDFAmonestacion(a: Amonestacion) {
+async function generarPDFAmonestacion(a: Amonestacion, proyecto?: ProyectoPdfHeader) {
   const doc = new jsPDF('portrait', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -594,14 +596,8 @@ async function generarPDFAmonestacion(a: Amonestacion) {
   };
 
   // Encabezado
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('ALTAZENTA NORTE SA/ ALTAVIDA NORTE', pageWidth - marginRight, y, { align: 'right' });
-  y += 4;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.text('Formularios del Sistema de Gestión de SST', pageWidth - marginRight, y, { align: 'right' });
-  y += 8;
+  y = await drawPdfHeader(doc, proyecto || { denominacion: a.proyecto }, y, { marginLeft, marginRight });
+  y += 6;
 
   // Titulo
   doc.setFillColor(30, 58, 95);
@@ -823,7 +819,7 @@ function formatearFecha(fecha: string): string {
 
 async function cargarImagenBase64(url: string): Promise<string | null> {
   try {
-    const response = await fetch(`/api/amonestaciones/foto?url=${encodeURIComponent(url)}`);
+    const response = await apiFetch(`/api/amonestaciones/foto?url=${encodeURIComponent(url)}`);
     if (!response.ok) return null;
     const data = await response.json();
     if (!data.base64) return null;

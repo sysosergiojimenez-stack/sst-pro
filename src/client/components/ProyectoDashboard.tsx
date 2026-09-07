@@ -8,6 +8,7 @@ import Bitacora from './Bitacora';
 import Inspecciones from './Inspecciones';
 import MedidasDisciplinarias from './MedidasDisciplinarias';
 import Indicadores from './Indicadores';
+import { apiFetch } from '../lib/api';
 
 interface Proyecto {
   rowIndex: number;
@@ -76,31 +77,31 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
       setLoading(true);
       try {
         // Fetch empleados
-        const empRes = await fetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const empRes = await apiFetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const empData = empRes.ok ? await empRes.json() : { data: [] };
         const empleados = empData.data || [];
         const activos = empleados.filter((e: any) => (e.estado || '').toLowerCase() === 'activo').length;
         const inactivos = empleados.length - activos;
 
         // Fetch incidentes
-        const incRes = await fetch(`/api/incidentes?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const incRes = await apiFetch(`/api/incidentes?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const incData = incRes.ok ? await incRes.json() : { data: [] };
         const incidentes = incData.data || [];
         const abiertos = incidentes.filter((i: any) => (i.estado || '').toLowerCase() === 'abierto').length;
         const cerrados = incidentes.length - abiertos;
 
         // Fetch EPP productos
-        const eppRes = await fetch(`/api/epp/productos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const eppRes = await apiFetch(`/api/epp/productos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const eppData = eppRes.ok ? await eppRes.json() : { data: [] };
         const productos = eppData.data || [];
 
         // Fetch EPP entradas para calcular stock
-        const entRes = await fetch(`/api/epp/entradas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const entRes = await apiFetch(`/api/epp/entradas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const entData = entRes.ok ? await entRes.json() : { data: [] };
         const entradas = entData.data || [];
 
         // Fetch EPP salidas para calcular stock
-        const salRes = await fetch(`/api/epp/salidas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const salRes = await apiFetch(`/api/epp/salidas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const salData = salRes.ok ? await salRes.json() : { data: [] };
         const salidas = salData.data || [];
 
@@ -114,7 +115,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         }
 
         // Fetch capacitaciones
-        const capRes = await fetch(`/api/capacitaciones?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const capRes = await apiFetch(`/api/capacitaciones?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const capData = capRes.ok ? await capRes.json() : { data: [] };
         const capacitaciones = capData.data || [];
         const capPendientes = capacitaciones.filter((c: any) => (c.estado || '').toLowerCase() !== 'realizada').length;
@@ -178,7 +179,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <EPP proyecto={proyecto.denominacion} />
+        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
       </div>
     );
   }
@@ -220,7 +221,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-          <Inspecciones proyecto={proyecto.denominacion} />
+          <Inspecciones proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
       </div>
     );
   }
@@ -234,7 +235,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <MedidasDisciplinarias proyecto={proyecto.denominacion} />
+        <MedidasDisciplinarias proyecto={proyecto} />
       </div>
     );
   }

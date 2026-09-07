@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Plus, Pencil, Trash2, X, Save, Search, Brain, FileText, Calendar, Clock, MapPin, Users, CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface Incidente {
   rowIndex: number;
@@ -63,7 +64,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
     setLoading(true);
     try {
       const url = proyecto ? `/api/incidentes?proyecto=${encodeURIComponent(proyecto)}` : '/api/incidentes';
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
       if (data.success) {
         setIncidentes(data.data);
@@ -103,7 +104,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
       const url = editing ? `/api/incidentes/${editing.rowIndex}` : '/api/incidentes';
       const method = editing ? 'PUT' : 'POST';
       const body = editing ? { ...form, rowIndex: editing.rowIndex } : { ...form, fechaHoraRegistro: new Date().toISOString() };
-      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null);
       resetForm();
@@ -114,7 +115,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
   const handleDelete = async (incidente: Incidente) => {
     if (!confirm(`Eliminar incidente "${incidente.idRegistro}"?`)) return;
     try {
-      const response = await fetch(`/api/incidentes/${incidente.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/incidentes/${incidente.rowIndex}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchIncidentes();
     } catch (err: any) { setError(err.message); }
@@ -152,7 +153,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = (reader.result as string).split(',')[1];
-      const response = await fetch('/api/gemini/incidente', {
+      const response = await apiFetch('/api/gemini/incidente', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdfBase64: base64, mimeType: pdfFile.type })
       });
@@ -167,7 +168,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
     if (!datosExtraidos) return;
     try {
       const body = { ...datosExtraidos, proyecto: proyecto || datosExtraidos.proyecto || '', estado: 'Abierto', fechaHoraRegistro: new Date().toISOString() };
-      const response = await fetch('/api/incidentes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch('/api/incidentes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowGeminiForm(false); setDatosExtraidos(null); setPdfFile(null); fetchIncidentes();
     } catch (err: any) { alert('Error: ' + err.message); }

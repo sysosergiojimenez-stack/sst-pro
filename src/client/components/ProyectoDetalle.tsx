@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Users, AlertTriangle, Building2, MapPin, Plus, Pencil, Trash2, X, Save, FileText, Brain, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 type GeminiItem = {
   id: string;
@@ -101,13 +102,13 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
   const fetchData = async () => {
     setLoading(true);
     try {
-      const empResponse = await fetch(`/api/empleados?obra=${encodeURIComponent(proyecto.denominacion)}`);
+      const empResponse = await apiFetch(`/api/empleados?obra=${encodeURIComponent(proyecto.denominacion)}`);
       const empData = await empResponse.json();
       if (empData.success) {
         setEmpleados(empData.data);
       }
 
-      const incResponse = await fetch(`/api/incidentes?area=${encodeURIComponent(proyecto.denominacion)}`);
+      const incResponse = await apiFetch(`/api/incidentes?area=${encodeURIComponent(proyecto.denominacion)}`);
       const incData = await incResponse.json();
       if (incData.success) {
         setIncidentes(incData.data);
@@ -131,7 +132,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
         obra: proyecto.denominacion,
       };
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -156,7 +157,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
     if (!confirm(`Eliminar empleado "${empleado.nombres} ${empleado.apellidos}"?`)) return;
     
     try {
-      const response = await fetch(`/api/empleados/${empleado.nroDocumento}`, {
+      const response = await apiFetch(`/api/empleados/${empleado.nroDocumento}`, {
         method: 'DELETE',
       });
 
@@ -216,7 +217,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
     setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
     try {
       const base64 = await fileToBase64(item.file);
-      const response = await fetch('/api/gemini', {
+      const response = await apiFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }),
@@ -263,7 +264,7 @@ export default function ProyectoDetalle({ proyecto, onBack }: ProyectoDetallePro
           scanDocumentos: datosExtraidos.scanDocumentos || '',
         };
 
-        const response = await fetch('/api/empleados', {
+        const response = await apiFetch('/api/empleados', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

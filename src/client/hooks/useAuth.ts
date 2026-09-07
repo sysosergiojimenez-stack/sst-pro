@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../lib/api';
 
 export interface AuthUser {
   idRegistro: string;
@@ -6,6 +7,7 @@ export interface AuthUser {
   apellidos: string;
   correo: string;
   rol: 'Desarrollador' | 'Admin' | 'User';
+  proyectosAsignados: string[];
 }
 
 export function useAuth() {
@@ -26,9 +28,7 @@ export function useAuth() {
     }
 
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch('/api/auth/me');
       const data = await res.json();
 
       if (data.success) {

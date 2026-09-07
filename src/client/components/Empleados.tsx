@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { trpc } from '../lib/trpc';
 import { Building2, Users, Search, X, Plus, UserPlus, FileText, Sparkles, Loader2, ExternalLink, Pencil, Trash2, Phone, Mail, HardHat, Calendar, HeartPulse, Droplets, ShieldCheck, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function Empleados() {
   const { data, isLoading, error, refetch } = trpc.empleados.list.useQuery();
@@ -332,7 +333,7 @@ function EditarEmpleadoForm({ empleado, onSuccess, empresasExistentes }: any) {
     setIsSaving(true); 
     setError('');
     try {
-      const response = await fetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, {
+      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -497,7 +498,7 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
       reader.onload = async () => {
         const base64 = (reader.result as string).split(',')[1];
         try {
-          const response = await fetch('/api/empleados/upload-pdf', {
+          const response = await apiFetch('/api/empleados/upload-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -530,7 +531,7 @@ function NuevoEmpleadoForm({ onSuccess, empresasExistentes }: any) {
         scanDocumentos = await subirPdf();
         setIsUploadingPdf(false);
       }
-      const response = await fetch('/api/empleados', {
+      const response = await apiFetch('/api/empleados', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, scanDocumentos }),
@@ -756,7 +757,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
     setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
     try {
       const base64 = await fileToBase64(item.file);
-      const response = await fetch('/api/gemini', {
+      const response = await apiFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }),
@@ -792,7 +793,7 @@ function NuevoEmpleadoGeminiForm({ onSuccess, empresasExistentes }: any) {
     try {
       for (const item of itemsOk) {
         const datosExtraidos = item.datosExtraidos;
-        const response = await fetch('/api/empleados', {
+        const response = await apiFetch('/api/empleados', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -897,7 +898,7 @@ function ConfirmarEliminarModal({ empleado, onSuccess, onCancel }: any) {
     setIsDeleting(true);
     setError('');
     try {
-      const response = await fetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, { method: 'DELETE' });
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || 'Error al eliminar');

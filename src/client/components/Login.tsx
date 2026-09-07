@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HardHat, LogIn, Eye, EyeOff, Mail, Lock, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -23,7 +24,7 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo, contrasena }),

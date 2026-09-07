@@ -3,6 +3,7 @@ import {
   BarChart3, Plus, Pencil, Trash2, X, Save, Search, TrendingUp, TrendingDown, Minus,
   CheckCircle2, XCircle, Info, HelpCircle, Target, ClipboardList, Gauge
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface IndicadorMensual {
   rowIndex: number;
@@ -100,7 +101,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
       if (proyecto) params.set('proyecto', proyecto);
       if (desde) params.set('desde', desde);
       if (hasta) params.set('hasta', hasta);
-      const response = await fetch(`/api/indicadores/dashboard?${params.toString()}`);
+      const response = await apiFetch(`/api/indicadores/dashboard?${params.toString()}`);
       const data = await response.json();
       if (data.success) setDashboard(data.data);
       else setError(data.error || 'Error al cargar el dashboard');
@@ -125,7 +126,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
     setLoadingMensual(true);
     try {
       const url = proyecto ? `/api/indicadores/mensual?proyecto=${encodeURIComponent(proyecto)}` : '/api/indicadores/mensual';
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
       if (data.success) setRegistros(data.data);
       else setError(data.error || 'Error al cargar la carga mensual');
@@ -157,7 +158,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
       const body = editing
         ? { ...form, rowIndex: editing.rowIndex }
         : { ...form, userEmail: userEmail || 'sistema' };
-      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null); resetForm();
       fetchMensual();
@@ -167,7 +168,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
   const handleDelete = async (r: IndicadorMensual) => {
     if (!confirm(`Eliminar la carga de "${r.proyecto}" — ${r.mes}?`)) return;
     try {
-      const response = await fetch(`/api/indicadores/mensual/${r.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/indicadores/mensual/${r.rowIndex}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchMensual();
     } catch (err: any) { setError(err.message); }
@@ -201,7 +202,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
   const fetchMetas = async () => {
     setLoadingMetas(true);
     try {
-      const response = await fetch('/api/indicadores/metas');
+      const response = await apiFetch('/api/indicadores/metas');
       const data = await response.json();
       if (data.success) setMetas(data.data);
       else setError(data.error || 'Error al cargar las metas');
@@ -223,7 +224,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
     try {
       const valorNumerico = valorMetaEdit.trim() === '' ? null : Number(valorMetaEdit);
       const metaFinal = valorNumerico === null ? null : (m.unidad === '%' ? valorNumerico / 100 : valorNumerico);
-      const response = await fetch(`/api/indicadores/metas/${m.codigo}`, {
+      const response = await apiFetch(`/api/indicadores/metas/${m.codigo}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ meta: metaFinal, actualizadoPor: userEmail || 'sistema' }),
       });

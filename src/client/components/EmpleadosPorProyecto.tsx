@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { drawPdfHeader, fetchLogoData } from '../lib/pdfHeader';
 
 type GeminiItem = {
   id: string;
@@ -483,14 +485,14 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+      const response = await apiFetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
       const data = await response.json();
       if (data.success) {
         setEmpleados(data.data);
         const uniqueEmpresas = [...new Set(data.data.map((e: Empleado) => e.empresa).filter(Boolean))];
         setEmpresas(uniqueEmpresas);
       }
-      const respMarc = await fetch(`/api/marcaciones-biometricas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+      const respMarc = await apiFetch(`/api/marcaciones-biometricas?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
       const dataMarc = await respMarc.json();
       if (dataMarc.success) setMarcaciones(dataMarc.data);
     } catch (error) { console.error('Error:', error); }
@@ -538,7 +540,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         return;
       }
 
-      const resp = await fetch('/api/marcaciones-biometricas/importar', {
+      const resp = await apiFetch('/api/marcaciones-biometricas/importar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registros }),
       });
@@ -725,7 +727,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     setGuardandoHoras(true);
     try {
       for (const fila of filasModificadas) {
-        await fetch(`/api/marcaciones-biometricas/${fila.rowIndex}`, {
+        await apiFetch(`/api/marcaciones-biometricas/${fila.rowIndex}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -781,7 +783,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     XLSX.writeFile(libro, `Control_Horas_${emp.nombres}_${emp.apellidos}_${fechaDesdeHoras}_a_${fechaHastaHoras}.xlsx`);
   };
 
-  const exportarPDFHoras = () => {
+  const exportarPDFHoras = async () => {
     const emp = empleados.find(e => e.nroDocumento === trabajadorHoras);
     if (!emp) return;
     let totalTrabajadas = 0;
@@ -811,6 +813,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     const pageW = doc.internal.pageSize.getWidth();
     const m = 10;
     let y = 12;
+    const logo = await fetchLogoData(proyecto.logo);
+    if (logo) doc.addImage(logo.dataUrl, logo.format, m, y - 8, 12, 12);
     doc.setFontSize(13);
     doc.text('Control de Horas', pageW / 2, y, { align: 'center' });
     y += 5;
@@ -869,7 +873,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       reader.onload = async () => {
         const base64 = (reader.result as string).split(',')[1];
         try {
-          const response = await fetch('/api/empleados/upload-pdf', {
+          const response = await apiFetch('/api/empleados/upload-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pdfBase64: base64, mimeType: file.type || 'application/pdf', nroDocumento, nombres }),
@@ -904,7 +908,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       const body = empleadoEditando
         ? { ...form, obra: proyecto.denominacion, rowIndex: empleadoEditando.rowIndex }
         : { ...form, obra: proyecto.denominacion, ...(scanDocumentos ? { scanDocumentos } : {}) };
-      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditingEmpleado(null); setFilaExpandida(null); setForm(emptyForm); setManualPdfFile(null);
       fetchData();
@@ -914,7 +918,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const handleDelete = async (empleado: Empleado) => {
     if (!confirm(`Eliminar empleado "${empleado.nombres} ${empleado.apellidos}"?`)) return;
     try {
-      const response = await fetch(`/api/empleados/${empleado.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/empleados/${empleado.rowIndex}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -925,7 +929,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     const nuevoEstado = estadoActual === 'inactivo' ? 'Activo' : 'Inactivo';
     if (!confirm(`Marcar a "${empleado.nombres} ${empleado.apellidos}" como ${nuevoEstado}?`)) return;
     try {
-      const response = await fetch(`/api/empleados/${empleado.rowIndex}`, {
+      const response = await apiFetch(`/api/empleados/${empleado.rowIndex}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
@@ -937,7 +941,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const handleGuardarFechaInicio = async (rowIndex: number) => {
     if (editingFecha.rowIndex !== rowIndex) return;
     try {
-      const response = await fetch(`/api/empleados/${rowIndex}`, {
+      const response = await apiFetch(`/api/empleados/${rowIndex}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fechaInicioContrato: editingFecha.value }),
@@ -1011,7 +1015,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
     try {
       const base64 = await fileToBase64(item.file);
-      const response = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }) });
+      const response = await apiFetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }) });
       const data = await response.json();
       if (!data.success) throw new Error(data.error || 'Error');
       setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'ok', datosExtraidos: data.data } : it));
@@ -1041,7 +1045,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       for (const item of geminiItemsOk) {
         const datosExtraidos = item.datosExtraidos;
         const body = { nroDocumento: datosExtraidos.nroDocumento || '', nombres: datosExtraidos.nombres || '', apellidos: datosExtraidos.apellidos || '', cargo: datosExtraidos.cargo || '', obra: proyecto.denominacion, empresa: datosExtraidos.empresa || '', telefonoCelular: datosExtraidos.telefono || '', email: datosExtraidos.email || '', scanDocumentos: datosExtraidos.scanDocumentos || '' };
-        const response = await fetch('/api/empleados', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const response = await apiFetch('/api/empleados', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!response.ok) { const err = await response.json(); throw new Error(`${item.file.name}: ${err.error || 'Error'}`); }
       }
       setShowGeminiForm(false); setGeminiItems([]); fetchData();
@@ -1060,7 +1064,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         reader.onerror = reject;
         reader.readAsDataURL(ipsPdfFile);
       });
-      const response = await fetch('/api/declaraciones-ips', {
+      const response = await apiFetch('/api/declaraciones-ips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1093,7 +1097,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     .filter(e => (e.estado || 'Activo').trim().toLowerCase() === 'inactivo')
     .sort(ordenarAlfabetico);
 
-  const descargarPDF = () => {
+  const descargarPDF = async () => {
     const doc = new jsPDF('landscape');
     const pageWidth = doc.internal.pageSize.getWidth();
     const marginLeft = 14;
@@ -1112,6 +1116,9 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     if (pdfFilters.empresa) filtrados = filtrados.filter(e => (e.empresa || '').trim().toLowerCase() === pdfFilters.empresa.trim().toLowerCase());
     if (pdfFilters.estado) filtrados = filtrados.filter(e => (e.estado || 'Activo').trim().toLowerCase() === pdfFilters.estado.trim().toLowerCase());
     if (pdfFilters.cargo.trim()) filtrados = filtrados.filter(e => (e.cargo || '').toLowerCase().includes(pdfFilters.cargo.toLowerCase()));
+
+    y = await drawPdfHeader(doc, proyecto, y - 5, { marginLeft, marginRight });
+    y += 4;
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');

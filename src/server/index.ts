@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { appRouter } from './routers/index.js';
@@ -75,6 +76,7 @@ import {
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
 } from './lib/googleSheets_usuarios';
+import type { Usuario } from './lib/googleSheets_usuarios';
 import {
   getAllDeclaracionesIPS,
   appendDeclaracionIPS
@@ -131,7 +133,53 @@ function verifyToken(token: string): { id: string; correo: string; rol: string }
   }
 }
 
-const app = new Hono();
+// ============================================
+// AUTH MIDDLEWARE + AUTORIZACION POR PROYECTO
+// ============================================
+type Variables = { usuario: Usuario };
+
+async function requireAuth(c: Context<{ Variables: Variables }>, next: Next) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'No autorizado' }, 401);
+  }
+  const token = authHeader.substring(7);
+  const payload = verifyToken(token);
+  if (!payload) {
+    return c.json({ error: 'Token invalido o expirado' }, 401);
+  }
+  // Consulta fresca del usuario (no confiamos en el rol/proyectos del JWT,
+  // que puede tener hasta 7 dias de antiguedad y quedar desactualizado).
+  const usuario = await getUsuarioById(payload.id);
+  if (!usuario) {
+    return c.json({ error: 'Usuario no encontrado' }, 401);
+  }
+  c.set('usuario', usuario);
+  await next();
+}
+
+// Devuelve una Response de error (403) si el usuario del contexto no tiene
+// acceso al proyecto indicado, o null si el acceso esta permitido.
+// Admin/Desarrollador siempre tienen acceso a todo.
+function authorizeProyecto(c: Context<{ Variables: Variables }>, proyecto?: string | null): Response | null {
+  const usuario = c.get('usuario');
+  if (!usuario) return c.json({ error: 'No autorizado' }, 401);
+  if (usuario.rol === 'Admin' || usuario.rol === 'Desarrollador') return null;
+  if (!proyecto) return c.json({ error: 'Proyecto requerido' }, 400);
+  if ((usuario.proyectosAsignados || []).includes(proyecto)) return null;
+  return c.json({ error: 'No tiene acceso a este proyecto' }, 403);
+}
+
+// Cuando un listado se pide SIN filtro de proyecto explicito, restringe el
+// resultado a los proyectos asignados si el usuario es 'User' (Admin/Desarrollador ven todo).
+function filtrarPorAsignados<T>(c: Context<{ Variables: Variables }>, items: T[], proyectoDe: (item: T) => string): T[] {
+  const usuario = c.get('usuario');
+  if (usuario.rol !== 'User') return items;
+  const asignados = new Set(usuario.proyectosAsignados || []);
+  return items.filter(item => asignados.has(proyectoDe(item)));
+}
+
+const app = new Hono<{ Variables: Variables }>();
 const pendingEmployeeCreations = new Map<string, Promise<{ success: boolean; id: number; rowIndex: number; existing?: boolean }>>();
 const clientCandidates = [
   path.resolve(process.cwd(), '../client'),
@@ -147,15 +195,29 @@ app.use('/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// Autenticacion requerida para toda la API, excepto login
+app.use('/api/*', async (c, next) => {
+  if (c.req.path === '/api/auth/login') return next();
+  return requireAuth(c, next);
+});
+
 // API REST - Listar empleados
 app.get('/api/empleados', async (c) => {
   try {
+    const usuario = c.get('usuario');
     const obra = c.req.query('obra');
     const proyecto = c.req.query('proyecto');
     const filtro = obra || proyecto;
+    if (filtro) {
+      const authError = authorizeProyecto(c, filtro);
+      if (authError) return authError;
+    }
     let empleados = await getEmpleados();
     if (filtro) {
       empleados = empleados.filter(e => e.obra === filtro);
+    } else if (usuario.rol === 'User') {
+      const asignados = new Set(usuario.proyectosAsignados || []);
+      empleados = empleados.filter(e => asignados.has(e.obra));
     }
     return c.json({ success: true, data: empleados });
   } catch (error: any) {
@@ -183,6 +245,8 @@ app.get('/api/empleados/:documento', async (c) => {
 app.post('/api/empleados', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.obra);
+    if (authError) return authError;
     const docKey = String(body?.nroDocumento ?? '').trim().toLowerCase();
     const empresaKey = String(body?.empresa ?? '').trim().toLowerCase();
     const dedupKey = `${docKey}|${empresaKey}`;
@@ -528,7 +592,12 @@ app.get('/api/cargos', async (c) => {
 // API REST - Listar proyectos
 app.get('/api/proyectos', async (c) => {
   try {
+    const usuario = c.get('usuario');
     const proyectos = await getProyectos();
+    if (usuario.rol === 'User') {
+      const asignados = new Set(usuario.proyectosAsignados || []);
+      return c.json({ success: true, data: proyectos.filter(p => asignados.has(p.denominacion)) });
+    }
     return c.json({ success: true, data: proyectos });
   } catch (error: any) {
     console.error('Error GET /api/proyectos:', error.message);
@@ -560,6 +629,25 @@ app.post('/api/proyectos', async (c) => {
     return c.json({ success: true, id: rowIndex, rowIndex });
   } catch (error: any) {
     console.error('Error POST /api/proyectos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// API REST - Subir logo de proyecto
+app.post('/api/proyectos/logo', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { base64, mimeType, idRegistro } = body;
+    if (!base64) {
+      return c.json({ error: 'No se proporciono imagen' }, 400);
+    }
+    const mime = mimeType || 'image/png';
+    const ext = mime.includes('png') ? 'png' : mime.includes('svg') ? 'svg' : 'jpg';
+    const nombreArchivo = `LOGO_${idRegistro || 'nuevo'}_${Date.now()}.${ext}`;
+    const url = await subirPDFAGCS(base64, nombreArchivo, mime);
+    return c.json({ success: true, url });
+  } catch (error: any) {
+    console.error('Error POST /api/proyectos/logo:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -614,9 +702,11 @@ app.get('/api/incidentes', async (c) => {
     const proyecto = c.req.query('proyecto');
     let data;
     if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
       data = await getIncidentesByProyecto(proyecto);
     } else {
-      data = await getAllIncidentes();
+      data = filtrarPorAsignados(c, await getAllIncidentes(), i => i.proyecto);
     }
     return c.json({ success: true, data });
   } catch (error: any) {
@@ -644,8 +734,10 @@ app.get('/api/incidentes/:id', async (c) => {
 app.post('/api/incidentes', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `INC-${Date.now()}`;
-    
+
     await appendIncidente({
       idRegistro,
       fechaHoraRegistro: new Date().toISOString(),
@@ -719,7 +811,14 @@ app.delete('/api/incidentes/:rowIndex', async (c) => {
 app.get('/api/amonestaciones', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getAmonestacionesByProyecto(proyecto) : await getAllAmonestaciones();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getAmonestacionesByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllAmonestaciones(), a => a.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/amonestaciones:', error.message);
@@ -786,6 +885,8 @@ app.get('/api/amonestaciones/:id', async (c) => {
 app.post('/api/amonestaciones', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `AMO-${Date.now()}`;
     console.log('[POST /api/amonestaciones] fotos recibidas:', body.fotos);
 
@@ -991,7 +1092,14 @@ app.post('/api/declaraciones-ips/reprocesar', async (c) => {
 app.get('/api/indicadores/mensual', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getIndicadoresMensualByProyecto(proyecto) : await getAllIndicadoresMensual();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getIndicadoresMensualByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllIndicadoresMensual(), i => i.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/indicadores/mensual:', error.message);
@@ -1003,6 +1111,8 @@ app.get('/api/indicadores/mensual', async (c) => {
 app.post('/api/indicadores/mensual', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `IND-M-${Date.now()}`;
 
     await appendIndicadorMensual({
@@ -1222,9 +1332,11 @@ app.get('/api/epp/remisiones', async (c) => {
     const proyecto = c.req.query('proyecto');
     let data;
     if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
       data = await getRemisionesByProyecto(proyecto);
     } else {
-      data = await getAllRemisiones();
+      data = filtrarPorAsignados(c, await getAllRemisiones(), r => r.proyecto);
     }
     return c.json({ success: true, data });
   } catch (error: any) {
@@ -1250,6 +1362,8 @@ app.get('/api/epp/remisiones/:id', async (c) => {
 app.post('/api/epp/remisiones', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `REM-${Date.now()}`;
     await appendRemision({
       idRegistro,
@@ -1318,9 +1432,11 @@ app.get('/api/epp/entradas', async (c) => {
     if (refRemision) {
       data = await getEntradasByRemision(refRemision);
     } else if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
       data = await getEntradasByProyecto(proyecto);
     } else {
-      data = await getAllEntradas();
+      data = filtrarPorAsignados(c, await getAllEntradas(), e => e.proyecto);
     }
     return c.json({ success: true, data });
   } catch (error: any) {
@@ -1333,6 +1449,8 @@ app.get('/api/epp/entradas', async (c) => {
 app.post('/api/epp/entradas', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     await appendEntrada({
       idRegistro: body.idRegistro || `ENT-${Date.now()}`,
       dateTime: new Date().toISOString(),
@@ -1357,6 +1475,10 @@ app.post('/api/epp/entradas/batch', async (c) => {
     const entradas = body.entradas || [];
     if (entradas.length === 0) {
       return c.json({ error: 'No se proporcionaron entradas' }, 400);
+    }
+    for (const proyecto of new Set(entradas.map((e: any) => e.proyecto))) {
+      const authError = authorizeProyecto(c, proyecto as string);
+      if (authError) return authError;
     }
     await appendMultipleEntradas(entradas);
     return c.json({ success: true, message: `${entradas.length} entradas registradas` });
@@ -1414,6 +1536,7 @@ app.post('/api/auth/login', async (c) => {
         apellidos: usuario.apellidos,
         correo: usuario.correo,
         rol: usuario.rol,
+        proyectosAsignados: usuario.proyectosAsignados,
       },
     });
   } catch (error: any) {
@@ -1425,22 +1548,9 @@ app.post('/api/auth/login', async (c) => {
 // GET - Obtener usuario actual
 app.get('/api/auth/me', async (c) => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return c.json({ error: 'No autorizado' }, 401);
-    }
-    
-    const token = authHeader.substring(7);
-    const payload = verifyToken(token);
-    if (!payload) {
-      return c.json({ error: 'Token invalido o expirado' }, 401);
-    }
-    
-    const usuario = await getUsuarioById(payload.id);
-    if (!usuario) {
-      return c.json({ error: 'Usuario no encontrado' }, 404);
-    }
-    
+    // requireAuth (aplicado globalmente a /api/*) ya valido el token y cargo el usuario
+    const usuario = c.get('usuario');
+
     return c.json({
       success: true,
       user: {
@@ -1449,6 +1559,7 @@ app.get('/api/auth/me', async (c) => {
         apellidos: usuario.apellidos,
         correo: usuario.correo,
         rol: usuario.rol,
+        proyectosAsignados: usuario.proyectosAsignados,
       },
     });
   } catch (error: any) {
@@ -1471,6 +1582,7 @@ app.get('/api/usuarios', async (c) => {
       nombres: u.nombres,
       apellidos: u.apellidos,
       correo: u.correo,
+      proyectosAsignados: u.proyectosAsignados,
     }));
     return c.json({ success: true, data: safe });
   } catch (error: any) {
@@ -1497,6 +1609,7 @@ app.post('/api/usuarios', async (c) => {
       apellidos: body.apellidos || '',
       correo: body.correo || '',
       contrasena: hashPassword(body.contrasena || '123456'),
+      proyectosAsignados: Array.isArray(body.proyectosAsignados) ? body.proyectosAsignados : [],
     });
     
     return c.json({ success: true, message: 'Usuario creado' });
@@ -1521,7 +1634,8 @@ app.put('/api/usuarios/:rowIndex', async (c) => {
     if (body.apellidos) updates.apellidos = body.apellidos;
     if (body.correo) updates.correo = body.correo;
     if (body.contrasena) updates.contrasena = hashPassword(body.contrasena);
-    
+    if (Array.isArray(body.proyectosAsignados)) updates.proyectosAsignados = body.proyectosAsignados;
+
     await updateUsuario(rowIndex, updates);
     return c.json({ success: true, message: 'Usuario actualizado' });
   } catch (error: any) {
@@ -1557,7 +1671,14 @@ app.get('/api/epp/notas-salida', async (c) => {
     const obra = c.req.query('obra');
     const proyecto = c.req.query('proyecto');
     const filtro = obra || proyecto;
-    const data = filtro ? await getNotasSalidaByProyecto(filtro) : await getAllNotasSalida();
+    let data;
+    if (filtro) {
+      const authError = authorizeProyecto(c, filtro);
+      if (authError) return authError;
+      data = await getNotasSalidaByProyecto(filtro);
+    } else {
+      data = filtrarPorAsignados(c, await getAllNotasSalida(), n => n.obra);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/epp/notas-salida:', error.message);
@@ -1569,6 +1690,8 @@ app.get('/api/epp/notas-salida', async (c) => {
 app.post('/api/epp/notas-salida', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.obra);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `NS-${Date.now()}`;
     await appendNotaSalida({
       idRegistro,
@@ -1626,7 +1749,14 @@ app.delete('/api/epp/notas-salida/:rowIndex', async (c) => {
 app.get('/api/epp/solicitudes-suministro', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getSolicitudesSuministroByProyecto(proyecto) : await getAllSolicitudesSuministro();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getSolicitudesSuministroByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllSolicitudesSuministro(), s => s.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/epp/solicitudes-suministro:', error.message);
@@ -1638,6 +1768,8 @@ app.get('/api/epp/solicitudes-suministro', async (c) => {
 app.post('/api/epp/solicitudes-suministro', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `SOL-${Date.now()}`;
     const numero = body.numero || await getNextNumeroSolicitud();
     await appendSolicitudSuministro({
@@ -1702,7 +1834,14 @@ app.delete('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
 app.get('/api/epp/ajustes-stock', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getAjustesStockByProyecto(proyecto) : await getAllAjustesStock();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getAjustesStockByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllAjustesStock(), a => a.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/epp/ajustes-stock:', error.message);
@@ -1714,6 +1853,8 @@ app.get('/api/epp/ajustes-stock', async (c) => {
 app.post('/api/epp/ajustes-stock', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     await appendAjusteStock({
       idRegistro: body.idRegistro || `AJS-${Date.now()}`,
       fechaHora: new Date().toISOString(),
@@ -1769,6 +1910,7 @@ app.delete('/api/epp/ajustes-stock/:rowIndex', async (c) => {
 // GET - Listar salidas
 app.get('/api/epp/salidas', async (c) => {
   try {
+    const usuario = c.get('usuario');
     const obra = c.req.query('obra');
     const proyecto = c.req.query('proyecto');
     const filtro = obra || proyecto;
@@ -1780,7 +1922,14 @@ app.get('/api/epp/salidas', async (c) => {
     } else if (refNota) {
       data = await getSalidasByNota(refNota);
     } else if (filtro) {
+      const authError = authorizeProyecto(c, filtro);
+      if (authError) return authError;
       data = await getSalidasByProyecto(filtro);
+    } else if (usuario.rol === 'User') {
+      // Salida no tiene campo proyecto propio (se liga via refNotaSalida -> NotaSalida.obra),
+      // asi que reusamos el join ya existente de getSalidasByProyecto por cada proyecto asignado.
+      const listas = await Promise.all((usuario.proyectosAsignados || []).map(p => getSalidasByProyecto(p)));
+      data = listas.flat();
     } else {
       data = await getAllSalidas();
     }
@@ -1795,6 +1944,11 @@ app.get('/api/epp/salidas', async (c) => {
 app.post('/api/epp/salidas', async (c) => {
   try {
     const body = await c.req.json();
+    if (body?.refNotaSalida) {
+      const nota = await getNotaSalidaById(body.refNotaSalida);
+      const authError = authorizeProyecto(c, nota?.obra);
+      if (authError) return authError;
+    }
     await appendSalida({
       idRegistro: body.idRegistro || `SAL-${Date.now()}`,
       fechaHora: new Date().toISOString(),
@@ -1818,6 +1972,11 @@ app.post('/api/epp/salidas/batch', async (c) => {
     const salidas = body.salidas || [];
     if (salidas.length === 0) {
       return c.json({ error: 'No se proporcionaron salidas' }, 400);
+    }
+    for (const refNotaSalida of new Set(salidas.map((s: any) => s.refNotaSalida).filter(Boolean))) {
+      const nota = await getNotaSalidaById(refNotaSalida as string);
+      const authError = authorizeProyecto(c, nota?.obra);
+      if (authError) return authError;
     }
     await appendMultipleSalidas(salidas);
     return c.json({ success: true, message: `${salidas.length} salidas registradas` });
@@ -1960,7 +2119,14 @@ app.delete('/api/epp/productos/:rowIndex', async (c) => {
 app.get('/api/capacitaciones', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getCapacitacionesByProyecto(proyecto) : await getAllCapacitaciones();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getCapacitacionesByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllCapacitaciones(), cap => cap.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/capacitaciones:', error.message);
@@ -1971,6 +2137,8 @@ app.get('/api/capacitaciones', async (c) => {
 app.post('/api/capacitaciones', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `CAP-${Date.now()}`;
     await appendCapacitacion({
       idRegistro,
@@ -2001,7 +2169,14 @@ app.post('/api/capacitaciones', async (c) => {
 app.get('/api/bitacora', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getBitacoraByProyecto(proyecto) : await getAllBitacora();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getBitacoraByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllBitacora(), b => b.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/bitacora:', error.message);
@@ -2012,6 +2187,8 @@ app.get('/api/bitacora', async (c) => {
 app.post('/api/bitacora', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `BIT-${Date.now()}`;
     await appendBitacora({
       idRegistro,
@@ -2089,9 +2266,11 @@ app.get('/api/bitacora/tareas', async (c) => {
     if (idBitacora) {
       data = await getTareasByBitacora(idBitacora);
     } else if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
       data = await getTareasByProyecto(proyecto);
     } else {
-      data = await getAllTareas();
+      data = filtrarPorAsignados(c, await getAllTareas(), t => t.proyecto);
     }
     return c.json({ success: true, data });
   } catch (error: any) {
@@ -2103,6 +2282,8 @@ app.get('/api/bitacora/tareas', async (c) => {
 app.post('/api/bitacora/tareas', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `TAR-${Date.now()}`;
     await appendTarea({
       idRegistro,
@@ -2191,7 +2372,14 @@ app.get('/api/inspecciones/imagen-proxy', async (c) => {
 app.get('/api/inspecciones', async (c) => {
   try {
     const proyecto = c.req.query('proyecto');
-    const data = proyecto ? await getInspeccionesByProyecto(proyecto) : await getAllInspecciones();
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getInspeccionesByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllInspecciones(), i => i.proyecto);
+    }
     return c.json({ success: true, data });
   } catch (error: any) {
     console.error('Error GET /api/inspecciones:', error.message);
@@ -2202,6 +2390,8 @@ app.get('/api/inspecciones', async (c) => {
 app.post('/api/inspecciones', async (c) => {
   try {
     const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
     const idRegistro = body.idRegistro || `INSP-${Date.now()}`;
     await appendInspeccion({
       idRegistro,

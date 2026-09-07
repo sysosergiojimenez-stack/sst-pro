@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Building2, MapPin, Plus, Pencil, Trash2, X, Save, ImageIcon, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Building2, MapPin, Plus, Pencil, Trash2, X, Save, ImageIcon, Search, Filter, AlertTriangle, Upload, Loader2 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { fileToBase64 } from '../lib/fileToBase64';
 
 interface Proyecto {
   rowIndex: number;
@@ -25,11 +27,12 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
   const [editing, setEditing] = useState<Proyecto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({ idRegistro: '', denominacion: '', ubicacion: '', logo: '' });
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
 
   const fetchProyectos = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/proyectos');
+      const response = await apiFetch('/api/proyectos');
       const data = await response.json();
       if (data.success) {
         setProyectos(data.data);
@@ -72,7 +75,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
       const url = editing ? `/api/proyectos/${editing.idRegistro}` : '/api/proyectos';
       const method = editing ? 'PUT' : 'POST';
       const body = editing ? { ...form, rowIndex: editing.rowIndex } : { ...form, fechaHora: new Date().toISOString() };
-      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null); setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '' });
       fetchProyectos();
@@ -82,7 +85,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
   const handleDelete = async (proyecto: Proyecto) => {
     if (!confirm(`Eliminar proyecto "${proyecto.denominacion}"?`)) return;
     try {
-      const response = await fetch(`/api/proyectos/${proyecto.idRegistro}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/proyectos/${proyecto.idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchProyectos();
     } catch (err: any) { setError(err.message); }
@@ -92,6 +95,26 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
     setEditing(proyecto);
     setForm({ idRegistro: proyecto.idRegistro, denominacion: proyecto.denominacion, ubicacion: proyecto.ubicacion, logo: proyecto.logo });
     setShowForm(true);
+  };
+
+  const handleLogoFile = async (file: File) => {
+    setSubiendoLogo(true);
+    setError('');
+    try {
+      const { base64, mimeType } = await fileToBase64(file);
+      const response = await apiFetch('/api/proyectos/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, mimeType, idRegistro: form.idRegistro || editing?.idRegistro }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Error al subir el logo');
+      setForm(f => ({ ...f, logo: data.url }));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubiendoLogo(false);
+    }
   };
 
   return (
@@ -138,8 +161,27 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
                 <input type="text" value={form.ubicacion} onChange={(e) => setForm({...form, ubicacion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Logo URL</label>
-                <input type="text" value={form.logo} onChange={(e) => setForm({...form, logo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" placeholder="https://..." />
+                <label className="block text-sm font-medium mb-2">Logo</label>
+                <div className="flex items-center gap-3">
+                  {form.logo ? (
+                    <img src={form.logo} alt="" className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0">
+                      <ImageIcon size={18} className="text-muted-foreground" />
+                    </div>
+                  )}
+                  <label className="flex-1 flex items-center justify-center gap-2 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm cursor-pointer hover:bg-secondary/80 transition-colors">
+                    {subiendoLogo ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {subiendoLogo ? 'Subiendo...' : form.logo ? 'Cambiar logo' : 'Subir logo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={subiendoLogo}
+                      onChange={(e) => { if (e.target.files?.[0]) handleLogoFile(e.target.files[0]); e.target.value = ''; }}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
             <div className="flex gap-3 pt-2">
