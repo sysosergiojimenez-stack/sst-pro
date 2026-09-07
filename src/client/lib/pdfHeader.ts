@@ -26,9 +26,29 @@ export async function fetchLogoData(logoUrl?: string): Promise<LogoData | null> 
   }
 }
 
-// Dibuja el logo (si existe) + el nombre real del proyecto en la esquina
-// superior derecha del PDF, reemplazando el encabezado institucional fijo
-// que cada reporte dibujaba a mano. Devuelve el nuevo cursor Y.
+// Los logos institucionales suelen ser rectangulos anchos (ej. 4143x1076 px,
+// ~3.85:1), nunca cuadrados. Calcula el tamano a dibujar respetando la
+// relacion de aspecto real de la imagen, en vez de forzar un cuadrado.
+export function computeLogoSize(
+  doc: jsPDF,
+  logo: LogoData,
+  targetHeight: number,
+  maxWidth: number
+): { width: number; height: number } {
+  try {
+    const props = doc.getImageProperties(logo.dataUrl);
+    const ratio = props.width / props.height || 1;
+    const width = Math.min(targetHeight * ratio, maxWidth);
+    return { width, height: width / ratio };
+  } catch {
+    return { width: targetHeight, height: targetHeight };
+  }
+}
+
+// Dibuja el logo (si existe, respetando su relacion de aspecto real) + el
+// nombre real del proyecto en la esquina superior derecha del PDF,
+// reemplazando el encabezado institucional fijo que cada reporte dibujaba a
+// mano. Devuelve el nuevo cursor Y.
 export async function drawPdfHeader(
   doc: jsPDF,
   proyecto: ProyectoPdfHeader,
@@ -38,12 +58,13 @@ export async function drawPdfHeader(
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = opts?.marginLeft ?? 15;
   const marginRight = opts?.marginRight ?? 15;
-  const logoSize = 14;
+  const logoHeight = 12;
   const textRight = pageWidth - marginRight;
 
   const logo = await fetchLogoData(proyecto.logo);
   if (logo) {
-    doc.addImage(logo.dataUrl, logo.format, marginLeft, y, logoSize, logoSize);
+    const { width, height } = computeLogoSize(doc, logo, logoHeight, 48);
+    doc.addImage(logo.dataUrl, logo.format, marginLeft, y, width, height);
   }
 
   doc.setFontSize(9);
@@ -53,5 +74,5 @@ export async function drawPdfHeader(
   doc.setFont('helvetica', 'italic');
   doc.text('Formularios del Sistema de Gestión de SST', textRight, y + 8, { align: 'right' });
 
-  return y + logoSize;
+  return y + logoHeight;
 }

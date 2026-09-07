@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
 import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints, FileDown } from 'lucide-react';
 import { apiFetch } from '../lib/api';
-import { drawPdfHeader, fetchLogoData } from '../lib/pdfHeader';
+import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 
 interface Producto {
   rowIndex: number;
@@ -1120,6 +1120,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const m = 10;
     const w = pageW - m * 2;
     const logo = await fetchLogoData(proyectoLogo);
+    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
 
     const cols = [8, 109, 8, 8, 22, 25];
     const headers = ['Ítem', 'Producto', 'Un.', 'Cant.', 'Cuenta', 'Proveedor'];
@@ -1129,10 +1130,10 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       let y = startY;
 
       // Encabezado proyecto (derecha)
-      if (logo) doc.addImage(logo.dataUrl, logo.format, pageW - m - 12, y, 10, 10);
+      if (logo && logoSize) doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text(proyecto, pageW - m - (logo ? 14 : 2), y + 5, { align: 'right' });
+      doc.text(proyecto, pageW - m - (logoSize ? logoSize.width + 2 : 2), y + 5, { align: 'right' });
 
       // Titulo
       doc.setFontSize(14);
@@ -1274,6 +1275,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const m = 10;
     const w = pageW - m * 2;
     const logo = await fetchLogoData(proyectoLogo);
+    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
 
     const cols = [12, 35, 98, 30];
     const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
@@ -1283,10 +1285,10 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       let y = startY;
 
       // Encabezado proyecto (derecha)
-      if (logo) doc.addImage(logo.dataUrl, logo.format, pageW - m - 12, y, 10, 10);
+      if (logo && logoSize) doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text(proyecto, pageW - m - (logo ? 14 : 2), y + 5, { align: 'right' });
+      doc.text(proyecto, pageW - m - (logoSize ? logoSize.width + 2 : 2), y + 5, { align: 'right' });
 
       // Titulo
       doc.setFontSize(14);

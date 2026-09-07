@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { apiFetch } from '../lib/api';
-import { drawPdfHeader, fetchLogoData } from '../lib/pdfHeader';
+import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 
 type GeminiItem = {
   id: string;
@@ -814,7 +814,10 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     const m = 10;
     let y = 12;
     const logo = await fetchLogoData(proyecto.logo);
-    if (logo) doc.addImage(logo.dataUrl, logo.format, m, y - 8, 12, 12);
+    if (logo) {
+      const { width, height } = computeLogoSize(doc, logo, 10, 36);
+      doc.addImage(logo.dataUrl, logo.format, m, y - 8, width, height);
+    }
     doc.setFontSize(13);
     doc.text('Control de Horas', pageW / 2, y, { align: 'center' });
     y += 5;

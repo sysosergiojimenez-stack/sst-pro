@@ -164,9 +164,9 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
                 <label className="block text-sm font-medium mb-2">Logo</label>
                 <div className="flex items-center gap-3">
                   {form.logo ? (
-                    <img src={form.logo} alt="" className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
+                    <img src={form.logo} alt="" className="h-10 w-32 rounded-lg object-contain bg-white border border-border shrink-0 p-1" />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0">
+                    <div className="h-10 w-32 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0">
                       <ImageIcon size={18} className="text-muted-foreground" />
                     </div>
                   )}
@@ -223,9 +223,9 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
                   {proyecto.logo ? (
-                    <img src={proyecto.logo} alt="" className="w-14 h-14 rounded-xl object-cover shadow-md" />
+                    <img src={proyecto.logo} alt="" className="h-12 w-48 rounded-xl object-contain bg-white shadow-md p-1.5 shrink-0" />
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
                       <Building2 size={28} className="text-white" />
                     </div>
                   )}
