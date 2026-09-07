@@ -1129,11 +1129,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const renderCopy = (startY: number) => {
       let y = startY;
 
-      // Encabezado proyecto (derecha)
-      if (logo && logoSize) doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(proyecto, pageW - m - (logoSize ? logoSize.width + 2 : 2), y + 5, { align: 'right' });
+      // Encabezado proyecto (derecha): si hay logo, se muestra solo el logo;
+      // si no hay logo, se muestra el nombre del proyecto en su lugar.
+      if (logo && logoSize) {
+        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
+      } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(proyecto, pageW - m - 2, y + 5, { align: 'right' });
+      }
 
       // Titulo
       doc.setFontSize(14);
@@ -1284,11 +1288,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const renderCopy = (startY: number) => {
       let y = startY;
 
-      // Encabezado proyecto (derecha)
-      if (logo && logoSize) doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(proyecto, pageW - m - (logoSize ? logoSize.width + 2 : 2), y + 5, { align: 'right' });
+      // Encabezado proyecto (derecha): si hay logo, se muestra solo el logo;
+      // si no hay logo, se muestra el nombre del proyecto en su lugar.
+      if (logo && logoSize) {
+        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
+      } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(proyecto, pageW - m - 2, y + 5, { align: 'right' });
+      }
 
       // Titulo
       doc.setFontSize(14);
