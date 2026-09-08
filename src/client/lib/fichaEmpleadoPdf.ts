@@ -471,9 +471,10 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   let firmaLine = '';
   while (doc.getTextWidth(firmaLine + '_') <= firmaLineMaxWidth) firmaLine += '_';
   doc.text(firmaLine, firmaLineX, y);
+  const firmaLineWidth = doc.getTextWidth(firmaLine);
   y += 4;
   doc.setFontSize(7);
-  doc.text('Firma', m + 128, y);
+  doc.text('Firma', firmaLineX + firmaLineWidth / 2, y, { align: 'center' });
   y += 4;
   doc.setLineWidth(0.2);
   doc.rect(m, marcoTop, w, y - marcoTop);
@@ -490,10 +491,13 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   y += 7;
 
   const marcoTop2 = y;
-  const leftW = 113;
-  const gapCols = 3;
-  const rightX = m + leftW + gapCols;
-  const rightW = w - leftW - gapCols;
+  // rightX se alinea con el borde izquierdo de la columna "Gerente de
+  // Recursos Humanos" de la fila de firmas de abajo (ancho w/3 cada una),
+  // y leftW llega justo hasta ahi (sin espacio), a pedido del usuario.
+  const firmaW = w / 3;
+  const rightX = m + 2 * firmaW;
+  const leftW = rightX - m;
+  const rightW = w - leftW;
 
   celda(doc, m, y, leftW, 9, 'ID.', emp.nroDocumento);
   const idBottom = y + 9;
@@ -547,7 +551,6 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   // Fila de firmas, ancho completo (columna izquierda + panel derecho)
   y = panelBottom;
   const firmaH = 16;
-  const firmaW = w / 3;
   ['Supervisor', 'Director o Gerente', 'Gerente de Recursos Humanos'].forEach((f, i) => {
     const fx = m + i * firmaW;
     doc.setLineWidth(0.15);
