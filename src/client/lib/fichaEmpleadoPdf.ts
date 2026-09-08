@@ -265,15 +265,17 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
 
   // Nombres/Apellidos del Profesional: achicados para que la base de la
   // Foto 3x4 (dibujada abajo) pueda alinearse con la base de esta fila.
+  // Apellidos termina antes de la columna de Foto 3x4 para no superponerse
+  // con ella, ya que ahora Foto ocupa toda la altura de ambas filas.
   const nombresH = 7;
+  const fotoX = m + w - 32;
   campo(doc, m, y, 90, nombresH, 'Nombres del Profesional', emp.nombres);
-  campo(doc, m + 93, y, w - 93, nombresH, 'Apellidos del Profesional', emp.apellidos);
+  campo(doc, m + 93, y, fotoX - 3 - (m + 93), nombresH, 'Apellidos del Profesional', emp.apellidos);
   const filaNombresBottom = y + LABEL_H + nombresH;
   y += LABEL_H + nombresH + 3;
 
   // Foto 3x4 (siempre vacia, no se registra foto en el sistema): su base
   // queda alineada con la base de Nombres/Apellidos del Profesional.
-  const fotoX = m + w - 32;
   const fotoH = filaNombresBottom - filaDocY;
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
