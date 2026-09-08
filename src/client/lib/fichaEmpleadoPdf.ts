@@ -356,7 +356,9 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   // con un tramo vertical hacia arriba en su extremo izquierdo, como en el original
   for (let fila = 0; fila < 3; fila++) {
     for (let col = 0; col < 3; col++) {
-      const gx = m + 6 + col * (croquisW - 14) / 2;
+      // El ancho del tramo horizontal (14) se descuenta del rango de columnas
+      // para que la ultima marca no se salga del recuadro externo.
+      const gx = m + 6 + col * (croquisW - 22) / 2;
       const gy = y + 5 + 12 + fila * (croquisH - 22) / 2;
       doc.line(gx, gy, gx + 14, gy);
       doc.line(gx, gy, gx, gy - 5);
