@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf';
-import { drawPdfHeader, type ProyectoPdfHeader } from './pdfHeader';
 
 export interface EmpleadoFicha {
   nroDocumento: string;
@@ -40,6 +39,8 @@ export interface EmpleadoFicha {
   fechaNacHijo3?: string;
   hijo4?: string;
   fechaNacHijo4?: string;
+  hijo5?: string;
+  fechaNacHijo5?: string;
   empresa: string;
   cargo: string;
   unidad?: string;
@@ -199,17 +200,16 @@ function celdaFecha(doc: jsPDF, x: number, y: number, w: number, label: string, 
   }
 }
 
-export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: ProyectoPdfHeader): Promise<void> {
+// Nota: esta ficha replica un formulario oficial que NO lleva logo ni
+// encabezado de proyecto (a diferencia de los demas PDF del sistema),
+// por eso no usa drawPdfHeader.
+export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   const doc = new jsPDF('portrait', 'mm', 'a4');
   const m = 15;
   const pageW = doc.internal.pageSize.getWidth();
   const w = pageW - m * 2;
 
   let y = m;
-  if (proyecto) {
-    y = await drawPdfHeader(doc, proyecto, y, { marginLeft: m, marginRight: m });
-    y += 4;
-  }
   doc.setFillColor(51, 51, 51);
   doc.roundedRect(m + w / 2 - 45, y, 90, 9, 1.5, 1.5, 'F');
   doc.setTextColor(255, 255, 255);
@@ -224,10 +224,17 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   doc.text('Instrucciones:', m, y);
   const anchoLabelInstrucciones = doc.getTextWidth('Instrucciones: ');
   doc.setFont('helvetica', 'normal');
-  doc.text('Por favor, complete de forma legible todos los campos aquí descriptos, leyendo con atención.', m + anchoLabelInstrucciones + 2, y, { maxWidth: w - anchoLabelInstrucciones - 2 });
+  // Un solo parrafo con word-wrap natural (no dos oraciones forzadas a
+  // 2 lineas), igual que en el formulario original: la primera linea
+  // queda mas angosta por el espacio que ocupa "Instrucciones:".
+  const textoInstrucciones = 'Por favor, complete de forma legible todos los campos aquí descriptos, leyendo con atención. Evite tachaduras, enmiendas o errores, pues este formulario hará parte de su legajo en la empresa.';
+  const primeraLinea = (doc.splitTextToSize(textoInstrucciones, w - anchoLabelInstrucciones - 2) as string[])[0];
+  doc.text(primeraLinea, m + anchoLabelInstrucciones + 2, y);
+  const restoInstrucciones = textoInstrucciones.slice(primeraLinea.length).trim();
   y += 4.5;
-  doc.text('Evite tachados, enmiendas o errores, pues este formulario hará parte de su legajo en la empresa.', m, y, { maxWidth: w });
-  y += 5;
+  const lineasResto = doc.splitTextToSize(restoInstrucciones, w) as string[];
+  doc.text(lineasResto, m, y);
+  y += lineasResto.length * 4 + 1;
 
   doc.setLineWidth(0.2);
   doc.line(m, y, m + w, y);
@@ -242,7 +249,17 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   etiquetaBox(doc, m + 58, y, 68, 'Tipo de Documento');
   checkboxOpcion(doc, m + 60, y + LABEL_H + 2, 'C.I. Paraguaya', esCI);
   checkboxOpcion(doc, m + 60, y + LABEL_H + 6.5, 'Doc. Venezolano', esVenezolano);
-  checkboxOpcion(doc, m + 60, y + LABEL_H + 11, esOtros ? `Otros (${emp.tipoDocumento})` : 'Otros', esOtros);
+  const yOtro = y + LABEL_H + 11;
+  const xDespuesOtro = checkboxOpcion(doc, m + 60, yOtro, 'Otro:', esOtros);
+  if (esOtros) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(emp.tipoDocumento || '', xDespuesOtro + 1, yOtro + 2.6, { maxWidth: m + 58 + 68 - (xDespuesOtro + 3) });
+  } else {
+    doc.setLineDashPattern([0.5, 0.5], 0);
+    doc.line(xDespuesOtro + 1, yOtro + 2.6, m + 58 + 68 - 2, yOtro + 2.6);
+    doc.setLineDashPattern([], 0);
+  }
   // Foto 3x4 (siempre vacia, no se registra foto en el sistema)
   const fotoX = m + w - 32;
   doc.setLineWidth(0.15);
@@ -318,7 +335,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   doc.text('CROQUIS - DISEÑO DE LA UBICACIÓN DE SU CASA', m, y);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
-  doc.text('(Escriba los nombres de las calles vertical y horizontal', m, y + 3.2);
+  doc.text('(escriba los nombres de las calles vertical y horizontal)', m, y + 3.2);
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
   doc.rect(m, y + 5, croquisW, croquisH);
@@ -350,7 +367,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   const ic = normalizar(emp.instruccionConcluida);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
-  doc.text('Concluido', giX + 39, giBoxTop + 10.6);
+  doc.text('Concluido:', giX + 39, giBoxTop + 10.6);
   checkboxOpcion(doc, giX + 39, giBoxTop + 12, 'Sí', incluye(ic, 'si', 'sí'));
   checkboxOpcion(doc, giX + 53, giBoxTop + 12, 'No', incluye(ic, 'no'));
   doc.setFont('helvetica', 'normal');
@@ -395,7 +412,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text('Caso posea hijos, favor nombrarlos abajo, con sus respectivas fechas de nacimiento:', m + w / 2, y, { align: 'center' });
+  doc.text('Caso que posea hijos, favor nombrarlos abajo, con sus respectivas fechas de nacimiento', m + w / 2, y, { align: 'center' });
   y += 6;
 
   const hijos: Array<[string | undefined, string | undefined]> = [
@@ -403,20 +420,21 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
     [emp.hijo2, emp.fechaNacHijo2],
     [emp.hijo3, emp.fechaNacHijo3],
     [emp.hijo4, emp.fechaNacHijo4],
+    [emp.hijo5, emp.fechaNacHijo5],
   ];
   hijos.forEach(([nombre, fecha], i) => {
-    campo(doc, m, y, 135, 10, `${i + 1}. Nombres y Apellidos`, nombre, 'left');
-    campoFecha(doc, m + 138, y, w - 138, 10, 'Fecha de Nacimiento', fecha);
-    y += LABEL_H + 10 + 3;
+    campo(doc, m, y, 135, 9, `${i + 1}. Nombres y Apellidos`, nombre, 'left');
+    campoFecha(doc, m + 138, y, w - 138, 9, 'Fecha de Nacimiento', fecha);
+    y += LABEL_H + 9 + 2.5;
   });
-  y += 2;
+  y += 1.5;
 
   // Recuadro que encierra parentesco + enfermedad + declaracion, como en el original
   const marcoTop = y;
   y += 4;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.text('1. SEÑALE ABAJO CON UNA (X) SI POSEE ALGUNA RELACIÓN DE PARENTEZCO EN LA EMPRESA:', m + 3, y, { maxWidth: w - 6 });
+  doc.text('1. SEÑALE ABAJO CON UNA (X) SI POSEE ALGUNA RELACIÓN DE PARENTEZCO EN LA EMPRESA', m + 3, y, { maxWidth: w - 6 });
   y += 7;
   let px = m + 3;
   ['Esposo (a)', 'Padre/Madre', 'Hijo (a)', 'Hermano (a)', 'Cuñado (a)', 'Primo (a)', 'Tío (a)', 'Nadie'].forEach(op => {
@@ -432,7 +450,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   y += 6;
   let ex = m + 5;
   ex = checkboxOpcion(doc, ex, y, 'Sí, sufro pero está bajo control médico', false, true);
-  checkboxOpcion(doc, ex + 10, y, 'No, estoy libre de este tipo de enfermedad.', false, true);
+  checkboxOpcion(doc, ex + 10, y, 'No, estoy libre de este tipo de enfermedad', false, true);
   y += 8;
 
   doc.setFont('helvetica', 'bold');
@@ -446,8 +464,12 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
     m + 3, y, { maxWidth: w - 6 }
   );
   y += 13;
-  doc.text('Fecha:     /     /', m + 8, y);
-  doc.text('.......................................................', m + 110, y);
+  doc.text('Fecha:_____/______/_________', m + 8, y);
+  const firmaLineX = m + 110;
+  const firmaLineMaxWidth = m + w - 5 - firmaLineX;
+  let firmaLine = '';
+  while (doc.getTextWidth(firmaLine + '_') <= firmaLineMaxWidth) firmaLine += '_';
+  doc.text(firmaLine, firmaLineX, y);
   y += 4;
   doc.setFontSize(7);
   doc.text('Firma', m + 128, y);
@@ -462,7 +484,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('Para uso Exclusivo de la Empresa', m + w / 2, y + 5, { align: 'center' });
+  doc.text('Para uso exclusivo de la Empresa', m + w / 2, y + 5, { align: 'center' });
   doc.setTextColor(0);
   y += 7;
 
@@ -476,26 +498,26 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   const idBottom = y + 9;
 
   const empresaY = idBottom;
-  celda(doc, m, empresaY, leftW, 10, 'Empresa:', emp.empresa);
+  celda(doc, m, empresaY, leftW, 10, 'EMPRESA:', emp.empresa);
   const empresaBottom = empresaY + 10;
 
   const cargoUnidadY = empresaBottom;
   const cargoW = leftW * 0.5;
-  celda(doc, m, cargoUnidadY, cargoW, 10, 'Cargo:', emp.cargo);
-  celda(doc, m + cargoW, cargoUnidadY, leftW - cargoW, 10, 'Unidad - Cuenta Contable:', emp.unidad);
+  celda(doc, m, cargoUnidadY, cargoW, 10, 'CARGO:', emp.cargo);
+  celda(doc, m + cargoW, cargoUnidadY, leftW - cargoW, 10, 'UNIDAD-CUENTA CONTABLE:', emp.unidad);
   const cargoUnidadBottom = cargoUnidadY + 10;
 
   const honorariosY = cargoUnidadBottom;
   const honorariosW = leftW * 0.36;
   const monedaW = leftW * 0.32;
   const regimenW = leftW - honorariosW - monedaW;
-  celda(doc, m, honorariosY, honorariosW, 10, 'Honorarios:', emp.honorarios);
-  celda(doc, m + honorariosW, honorariosY, monedaW, 10, 'Moneda:');
+  celda(doc, m, honorariosY, honorariosW, 10, 'HONORARIOS:', emp.honorarios);
+  celda(doc, m + honorariosW, honorariosY, monedaW, 10, 'MONEDA');
   const mon = normalizar(emp.moneda);
   let mx = m + honorariosW + 2;
   mx = checkboxOpcion(doc, mx, honorariosY + 6, 'GS.', incluye(mon, 'gs', 'guaran'));
   checkboxOpcion(doc, mx, honorariosY + 6, 'USD.', incluye(mon, 'usd', 'dolar', 'dólar'));
-  celda(doc, m + honorariosW + monedaW, honorariosY, regimenW, 10, 'Régimen:');
+  celda(doc, m + honorariosW + monedaW, honorariosY, regimenW, 10, 'RÉGIMEN:');
   const reg = normalizar(emp.regimen);
   let rx = m + honorariosW + monedaW + 2;
   rx = checkboxOpcion(doc, rx, honorariosY + 6, 'IPS.', incluye(reg, 'ips'));
@@ -504,7 +526,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
 
   const actividadesY = honorariosBottom;
   const actividadesH = 16;
-  celda(doc, m, actividadesY, leftW, actividadesH, 'Actividades a realizar:', emp.actividades);
+  celda(doc, m, actividadesY, leftW, actividadesH, 'ACTIVIDADES A REALIZAR:', emp.actividades);
   const actividadesBottom = actividadesY + actividadesH;
 
   // Panel derecho gris: Vigencia de la Contratacion
