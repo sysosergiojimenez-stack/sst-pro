@@ -341,7 +341,15 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   y += LABEL_H + 10 + 5;
 
   // Croquis (siempre vacio, con marcas guia de esquinas) | Grado de Instruccion | Tipo y Factor Sanguineo
-  const croquisW = 55;
+  // "Tipo y Factor Sanguineo" se achica un 20% (a pedido del usuario) y el
+  // espacio que gana se usa para ensanchar el Croquis, lo que de paso corre
+  // "Grado de Instruccion" hacia la derecha.
+  const giW = 68;
+  const gapSecciones = 5;
+  const croquisWBase = 55;
+  const tsWBase = w - croquisWBase - gapSecciones - giW - gapSecciones;
+  const tsW = tsWBase * 0.8;
+  const croquisW = croquisWBase + (tsWBase - tsW);
   const croquisH = 58;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.8);
@@ -368,8 +376,7 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
 
   // GRADO DE INSTRUCCIÓN: caja de etiqueta + caja de valor debajo (mismo
   // patron de dos niveles que campo()), conteniendo los checkboxes.
-  const giX = m + croquisW + 5;
-  const giW = 68;
+  const giX = m + croquisW + gapSecciones;
   const giValueH = 25;
   etiquetaBox(doc, giX, y + 5, giW, 'GRADO DE INSTRUCCIÓN');
   const giBoxTop = y + 5 + LABEL_H;
@@ -402,8 +409,7 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   // Tipo y Factor Sanguineo: alineado arriba con Grado de Instruccion
   // (a pedido del usuario, para mayor prolijidad visual), con el
   // casillero ANTES de la etiqueta, como en el original.
-  const tsX = giX + giW + 5;
-  const tsW = m + w - tsX;
+  const tsX = giX + giW + gapSecciones;
   const tsY = y + 5;
   etiquetaBox(doc, tsX, tsY, tsW, 'Tipo y Factor Sanguíneo');
   const tsBoxTop = tsY + LABEL_H;
