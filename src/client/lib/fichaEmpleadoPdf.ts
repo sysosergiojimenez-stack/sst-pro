@@ -122,19 +122,23 @@ function campoFecha(doc: jsPDF, x: number, y: number, w: number, h: number, labe
   }
 }
 
+// El formulario original escribe la etiqueta PRIMERO y el casillero
+// DESPUES (a la derecha), en todas las listas de opciones del documento.
 function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked: boolean): number {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.text(label, x, y + 2.6);
+  const textW = doc.getTextWidth(label);
   const size = 3;
+  const boxX = x + textW + 1.5;
   doc.setLineWidth(0.15);
-  doc.rect(x, y, size, size);
+  doc.rect(boxX, y, size, size);
   if (checked) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
-    doc.text('X', x + 0.5, y + 2.6);
+    doc.text('X', boxX + 0.5, y + 2.6);
   }
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.8);
-  doc.text(label, x + size + 1.3, y + 2.6);
-  return x + size + 1.3 + doc.getTextWidth(label) + 3;
+  return boxX + size + 4;
 }
 
 // Barra de titulo rellena (usada para el titulo principal y para las
@@ -161,10 +165,8 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
     y = await drawPdfHeader(doc, proyecto, y, { marginLeft: m, marginRight: m });
     y += 4;
   }
-  doc.setLineWidth(0.4);
-  doc.rect(m + w / 2 - 45, y, 90, 9);
   doc.setFillColor(51, 51, 51);
-  doc.rect(m + w / 2 - 45, y, 90, 9, 'F');
+  doc.roundedRect(m + w / 2 - 45, y, 90, 9, 1.5, 1.5, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
@@ -172,18 +174,19 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   doc.setTextColor(0);
   y += 13;
 
-  doc.setLineWidth(0.2);
-  doc.line(m, y, m + w, y);
-  y += 4;
-
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.text('Instrucciones:', m, y);
   const anchoLabelInstrucciones = doc.getTextWidth('Instrucciones: ');
   doc.setFont('helvetica', 'normal');
-  const instrucciones = 'Complete de forma legible todos los campos, leyendo con atención. Este formulario hará parte del legajo del empleado en la empresa.';
-  doc.text(instrucciones, m + anchoLabelInstrucciones + 2, y, { maxWidth: w - anchoLabelInstrucciones - 2 });
-  y += 7;
+  doc.text('Por favor, complete de forma legible todos los campos aquí descriptos, leyendo con atención.', m + anchoLabelInstrucciones + 2, y, { maxWidth: w - anchoLabelInstrucciones - 2 });
+  y += 4.5;
+  doc.text('Evite tachados, enmiendas o errores, pues este formulario hará parte de su legajo en la empresa.', m, y, { maxWidth: w });
+  y += 5;
+
+  doc.setLineWidth(0.2);
+  doc.line(m, y, m + w, y);
+  y += 5;
 
   // Fila 1: Nro Documento | Tipo de Documento | Foto 3x4
   campo(doc, m, y, 55, 12, 'Nro. Documento', emp.nroDocumento);
@@ -262,40 +265,65 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   campo(doc, m + 114, y, w - 114, 10, 'E-mail', emp.email);
   y += LABEL_H + 10 + 5;
 
-  // Croquis (siempre vacio) | Grado de Instruccion | Tipo y Factor Sanguineo
+  // Croquis (siempre vacio, con marcas guia de esquinas) | Grado de Instruccion | Tipo y Factor Sanguineo
   const croquisW = 55;
-  etiquetaBox(doc, m, y, croquisW, 'CROQUIS - UBICACIÓN DE LA CASA');
+  const croquisH = 46;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.text('CROQUIS - DISEÑO DE LA UBICACIÓN DE SU CASA', m, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.text('(Escriba los nombres de las calles vertical y horizontal)', m, y + 3.2);
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
-  doc.rect(m, y + LABEL_H, croquisW, 46);
+  doc.rect(m, y + 5, croquisW, croquisH);
+  // Marcas guia de "esquina de calle" en una grilla 3x3, como en el original
+  const guiaTam = 10;
+  for (let fila = 0; fila < 3; fila++) {
+    for (let col = 0; col < 3; col++) {
+      const gx = m + 5 + col * (croquisW - 10) / 2;
+      const gy = y + 5 + 8 + fila * (croquisH - 16) / 2;
+      doc.line(gx, gy, gx + guiaTam, gy);
+      doc.line(gx, gy, gx, gy - 4);
+    }
+  }
   doc.setDrawColor(0);
 
   const giX = m + croquisW + 5;
   const giW = 68;
-  etiquetaBox(doc, giX, y, giW, 'GRADO DE INSTRUCCIÓN');
+  etiquetaBox(doc, giX, y + 5, giW, 'GRADO DE INSTRUCCIÓN');
   const gi = normalizar(emp.gradoInstruccion);
-  checkboxOpcion(doc, giX + 2, y + LABEL_H + 3, 'Primaria', incluye(gi, 'primaria'));
-  checkboxOpcion(doc, giX + 2, y + LABEL_H + 8, 'Secundaria', incluye(gi, 'secundaria'));
-  checkboxOpcion(doc, giX + 2, y + LABEL_H + 13, 'Universidad', incluye(gi, 'universi'));
+  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 3, 'Primaria', incluye(gi, 'primaria'));
+  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 8, 'Secundaria', incluye(gi, 'secundaria'));
+  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 13, 'Universidad', incluye(gi, 'universi'));
   const ic = normalizar(emp.instruccionConcluida);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
-  doc.text('Concluido', giX + 40, y + LABEL_H + 5.6);
-  checkboxOpcion(doc, giX + 40, y + LABEL_H + 7, 'Sí', incluye(ic, 'si', 'sí'));
-  checkboxOpcion(doc, giX + 52, y + LABEL_H + 7, 'No', incluye(ic, 'no'));
+  doc.text('Concluido', giX + 38, y + 5 + LABEL_H + 5.6);
+  checkboxOpcion(doc, giX + 38, y + 5 + LABEL_H + 7, 'Sí', incluye(ic, 'si', 'sí'));
+  checkboxOpcion(doc, giX + 52, y + 5 + LABEL_H + 7, 'No', incluye(ic, 'no'));
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.text('Carrera Universitaria:', giX + 2, y + LABEL_H + 20);
-  doc.setFontSize(7.5);
-  doc.text(emp.carreraUniversitaria || '', giX + 2, y + LABEL_H + 25, { maxWidth: giW - 4 });
+  const yCarrera = y + 5 + LABEL_H + 20;
+  doc.text('Carrera Universitaria:', giX + 2, yCarrera);
+  const anchoCarreraLabel = doc.getTextWidth('Carrera Universitaria: ');
+  if (emp.carreraUniversitaria) {
+    doc.setFontSize(7.5);
+    doc.text(emp.carreraUniversitaria, giX + 2 + anchoCarreraLabel + 1, yCarrera, { maxWidth: giW - 4 - anchoCarreraLabel - 1 });
+  } else {
+    doc.setLineDashPattern([0.5, 0.5], 0);
+    doc.line(giX + 2 + anchoCarreraLabel, yCarrera, giX + giW - 2, yCarrera);
+    doc.setLineDashPattern([], 0);
+  }
 
   const tsX = giX + giW + 5;
   const tsW = m + w - tsX;
-  etiquetaBox(doc, tsX, y, tsW, 'Tipo y Factor Sanguíneo');
+  const tsY = yCarrera - 2;
+  etiquetaBox(doc, tsX, tsY, tsW, 'Tipo y Factor Sanguíneo');
   const ts = parseTipoSangre(emp.tipoSangre);
   const tipos = ['A', 'B', 'AB', 'O'];
   tipos.forEach((tipo, i) => {
-    const ty = y + LABEL_H + 3 + i * 6;
+    const ty = tsY + LABEL_H + 3 + i * 6;
     checkboxOpcion(doc, tsX + 2, ty, `${tipo} (+)`, !!ts && ts.tipo === tipo && ts.positivo);
     checkboxOpcion(doc, tsX + 2 + tsW / 2, ty, `${tipo} (-)`, !!ts && ts.tipo === tipo && ts.negativo);
   });
