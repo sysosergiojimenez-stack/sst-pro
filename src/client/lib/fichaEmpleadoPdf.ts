@@ -241,6 +241,7 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   y += 5;
 
   // Fila 1: Nro Documento | Tipo de Documento | Foto 3x4
+  const filaDocY = y;
   campo(doc, m, y, 55, 12, 'Nro. Documento', emp.nroDocumento);
   const tipoDoc = normalizar(emp.tipoDocumento);
   const esVenezolano = incluye(tipoDoc, 'venezol');
@@ -260,21 +261,28 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
     doc.line(xDespuesOtro + 1, yOtro + 2.6, m + 58 + 68 - 2, yOtro + 2.6);
     doc.setLineDashPattern([], 0);
   }
-  // Foto 3x4 (siempre vacia, no se registra foto en el sistema)
-  const fotoX = m + w - 32;
-  doc.setLineWidth(0.15);
-  doc.setDrawColor(160);
-  doc.rect(fotoX, y, 32, 20);
-  doc.setFontSize(7);
-  doc.setTextColor(140);
-  doc.text('Foto 3x4', fotoX + 16, y + 11, { align: 'center' });
-  doc.setTextColor(0);
-  doc.setDrawColor(0);
   y += LABEL_H + 12 + 3;
 
-  campo(doc, m, y, 90, 10, 'Nombres del Profesional', emp.nombres);
-  campo(doc, m + 93, y, w - 93, 10, 'Apellidos del Profesional', emp.apellidos);
-  y += LABEL_H + 10 + 3;
+  // Nombres/Apellidos del Profesional: achicados para que la base de la
+  // Foto 3x4 (dibujada abajo) pueda alinearse con la base de esta fila.
+  const nombresH = 7;
+  campo(doc, m, y, 90, nombresH, 'Nombres del Profesional', emp.nombres);
+  campo(doc, m + 93, y, w - 93, nombresH, 'Apellidos del Profesional', emp.apellidos);
+  const filaNombresBottom = y + LABEL_H + nombresH;
+  y += LABEL_H + nombresH + 3;
+
+  // Foto 3x4 (siempre vacia, no se registra foto en el sistema): su base
+  // queda alineada con la base de Nombres/Apellidos del Profesional.
+  const fotoX = m + w - 32;
+  const fotoH = filaNombresBottom - filaDocY;
+  doc.setLineWidth(0.15);
+  doc.setDrawColor(160);
+  doc.rect(fotoX, filaDocY, 32, fotoH);
+  doc.setFontSize(7);
+  doc.setTextColor(140);
+  doc.text('Foto 3x4', fotoX + 16, filaDocY + fotoH / 2 + 1, { align: 'center' });
+  doc.setTextColor(0);
+  doc.setDrawColor(0);
 
   campo(doc, m, y, 52, 10, 'Ciudad de Nacimiento', emp.ciudadNacimiento);
   campoFecha(doc, m + 55, y, 33, 10, 'Fecha de Nacimiento', emp.fechaNacimiento);
