@@ -84,16 +84,20 @@ const LABEL_H = 4.3;
 // (borde + texto centrado chico) pegada arriba de una caja de valor mas
 // grande. Replicamos exactamente esa estructura de dos niveles.
 
-function etiquetaBox(doc: jsPDF, x: number, y: number, w: number, label: string): void {
+function etiquetaBox(doc: jsPDF, x: number, y: number, w: number, label: string, align: 'center' | 'left' = 'center'): void {
   doc.setLineWidth(0.15);
   doc.rect(x, y, w, LABEL_H);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.3);
-  doc.text(label, x + w / 2, y + LABEL_H - 1.4, { align: 'center', maxWidth: w - 2 });
+  if (align === 'left') {
+    doc.text(label, x + 2, y + LABEL_H - 1.4, { maxWidth: w - 4 });
+  } else {
+    doc.text(label, x + w / 2, y + LABEL_H - 1.4, { align: 'center', maxWidth: w - 2 });
+  }
 }
 
-function campo(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, value?: string): void {
-  etiquetaBox(doc, x, y, w, label);
+function campo(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, value?: string, align: 'center' | 'left' = 'center'): void {
+  etiquetaBox(doc, x, y, w, label, align);
   const boxTop = y + LABEL_H;
   doc.setLineWidth(0.15);
   doc.rect(x, boxTop, w, h);
@@ -122,14 +126,29 @@ function campoFecha(doc: jsPDF, x: number, y: number, w: number, h: number, labe
   }
 }
 
-// El formulario original escribe la etiqueta PRIMERO y el casillero
-// DESPUES (a la derecha), en todas las listas de opciones del documento.
-function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked: boolean): number {
+// La mayoria de las listas de opciones del formulario original escriben la
+// etiqueta PRIMERO y el casillero DESPUES (a la derecha). Pero algunas
+// (parentesco, enfermedad infectocontagiosa, fecha indeterminada) van al
+// reves: casillero primero. Replicamos ambos ordenes segun corresponda.
+function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked: boolean, casilleroPrimero = false): number {
+  const size = 3;
+  if (casilleroPrimero) {
+    doc.setLineWidth(0.15);
+    doc.rect(x, y, size, size);
+    if (checked) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text('X', x + 0.5, y + 2.6);
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.text(label, x + size + 1.5, y + 2.6);
+    return x + size + 1.5 + doc.getTextWidth(label) + 4;
+  }
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
   doc.text(label, x, y + 2.6);
   const textW = doc.getTextWidth(label);
-  const size = 3;
   const boxX = x + textW + 1.5;
   doc.setLineWidth(0.15);
   doc.rect(boxX, y, size, size);
@@ -141,17 +160,43 @@ function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked
   return boxX + size + 4;
 }
 
-// Barra de titulo rellena (usada para el titulo principal y para las
-// secciones "oficiales": dependientes, uso exclusivo de la empresa).
-function tituloSeccion(doc: jsPDF, x: number, w: number, y: number, texto: string, alto = 6, fontSize = 9): number {
-  doc.setFillColor(51, 51, 51);
-  doc.rect(x, y, w, alto, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(fontSize);
-  doc.setFont('helvetica', 'bold');
-  doc.text(texto, x + w / 2, y + alto - (alto - fontSize * 0.352) / 2 - 0.3, { align: 'center' });
-  doc.setTextColor(0);
-  return y + alto + 3;
+// Estilo de "celda de planilla" usado en Para Uso Exclusivo de la Empresa:
+// una sola caja con la etiqueta chica pegada arriba a la izquierda y el
+// valor mas grande debajo, dentro del mismo borde (a diferencia de campo(),
+// que usa dos cajas apiladas).
+function celda(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, value?: string): void {
+  doc.setLineWidth(0.15);
+  doc.rect(x, y, w, h);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text(label, x + 2, y + 3.2);
+  if (value) {
+    doc.setFontSize(8.5);
+    doc.text(String(value), x + 2, y + h - 2.2, { maxWidth: w - 4 });
+  }
+}
+
+// Celda de fecha (3 casillas) dentro del estilo de celda de planilla.
+function celdaFecha(doc: jsPDF, x: number, y: number, w: number, label: string, iso?: string): void {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.3);
+  doc.text(label, x, y);
+  const partes = partesFecha(iso);
+  const boxTop = y + 1.5;
+  const boxH = 9;
+  const cw = w / 3;
+  doc.setLineWidth(0.15);
+  for (let i = 0; i < 3; i++) {
+    doc.setFillColor(255, 255, 255);
+    doc.rect(x + cw * i, boxTop, cw, boxH, 'F');
+    doc.setDrawColor(0);
+    doc.rect(x + cw * i, boxTop, cw, boxH, 'S');
+    if (partes[i]) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(partes[i], x + cw * i + cw / 2, boxTop + boxH / 2 + 1.3, { align: 'center' });
+    }
+  }
 }
 
 export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: ProyectoPdfHeader): Promise<void> {
@@ -331,10 +376,13 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   // ---- Pagina 2 ----
   doc.addPage();
   y = m;
-  y = tituloSeccion(doc, m, w, y, 'DEPENDIENTES / HIJOS');
-  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('DEPENDIENTES / HIJOS', m + w / 2, y, { align: 'center' });
+  y += 5;
   doc.setFont('helvetica', 'normal');
-  doc.text('Caso posea hijos, se listan abajo con sus respectivas fechas de nacimiento:', m, y);
+  doc.setFontSize(7.5);
+  doc.text('Caso posea hijos, favor nombrarlos abajo, con sus respectivas fechas de nacimiento:', m + w / 2, y, { align: 'center' });
   y += 6;
 
   const hijos: Array<[string | undefined, string | undefined]> = [
@@ -344,90 +392,138 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
     [emp.hijo4, emp.fechaNacHijo4],
   ];
   hijos.forEach(([nombre, fecha], i) => {
-    campo(doc, m, y, 135, 10, `${i + 1}. Nombres y Apellidos`, nombre);
+    campo(doc, m, y, 135, 10, `${i + 1}. Nombres y Apellidos`, nombre, 'left');
     campoFecha(doc, m + 138, y, w - 138, 10, 'Fecha de Nacimiento', fecha);
     y += LABEL_H + 10 + 3;
   });
-  y += 3;
+  y += 2;
 
+  // Recuadro que encierra parentesco + enfermedad + declaracion, como en el original
+  const marcoTop = y;
+  y += 4;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('1. RELACIÓN DE PARENTESCO EN LA EMPRESA:', m, y);
-  y += 6;
-  let px = m;
+  doc.setFontSize(7.5);
+  doc.text('1. SEÑALE ABAJO CON UNA (X) SI POSEE ALGUNA RELACIÓN DE PARENTEZCO EN LA EMPRESA:', m + 3, y, { maxWidth: w - 6 });
+  y += 7;
+  let px = m + 3;
   ['Esposo (a)', 'Padre/Madre', 'Hijo (a)', 'Hermano (a)', 'Cuñado (a)', 'Primo (a)', 'Tío (a)', 'Nadie'].forEach(op => {
-    px = checkboxOpcion(doc, px, y, op, false);
+    px = checkboxOpcion(doc, px, y, op, false, true);
   });
   y += 7;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('2. ¿SUFRE O ES PORTADOR DE ALGUNA ENFERMEDAD INFECTOCONTAGIOSA?', m, y, { maxWidth: w });
+  doc.setFontSize(7.5);
+  doc.text('2. ¿USTED SUFRE O ES PORTADOR DE ALGUNA ENFERMEDAD INFECTOCONTAGIOSA QUE PUEDA PONER', m + 3, y);
+  y += 3.8;
+  doc.text('EN RIESGO A TERCERAS PERSONAS?', m + 3, y);
   y += 6;
-  let ex = m;
-  ex = checkboxOpcion(doc, ex, y, 'Sí, bajo control médico', false);
-  checkboxOpcion(doc, ex + 8, y, 'No', false);
+  let ex = m + 5;
+  ex = checkboxOpcion(doc, ex, y, 'Sí, sufro pero está bajo control médico', false, true);
+  checkboxOpcion(doc, ex + 10, y, 'No, estoy libre de este tipo de enfermedad.', false, true);
   y += 8;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.text('DECLARACIÓN', m + w / 2, y, { align: 'center' });
-  y += 5;
+  y += 4.5;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.3);
   doc.text(
-    'Declaro que las informaciones descriptas en el presente formulario son expresiones auténticas y verdaderas. Autorizo a la Empresa a corroborarlas.',
-    m, y, { maxWidth: w }
+    'Declaro que las informaciones por mí descriptas en el presente formulario, son expresiones auténticas y verdaderas. Al mismo tiempo, autorizo a la Empresa, a corroborarlas. En caso de comprobarse alguna falsedad o dolo con relación al presente contenido, dicha Organización podrá dar por terminada la relación contractual unilateralmente.',
+    m + 3, y, { maxWidth: w - 6 }
   );
-  y += 10;
-  doc.text('Fecha:  ___ / ___ / ______', m, y);
+  y += 13;
+  doc.text('Fecha:     /     /', m + 8, y);
   doc.text('.......................................................', m + 110, y);
   y += 4;
   doc.setFontSize(7);
-  doc.text('Firma', m + 110, y);
-  y += 8;
+  doc.text('Firma', m + 128, y);
+  y += 4;
+  doc.setLineWidth(0.2);
+  doc.rect(m, marcoTop, w, y - marcoTop);
+  y += 6;
 
-  y = tituloSeccion(doc, m, w, y, 'PARA USO EXCLUSIVO DE LA EMPRESA');
-  campo(doc, m, y, w, 8, 'ID', emp.nroDocumento);
-  y += LABEL_H + 8 + 3;
-  campo(doc, m, y, w, 10, 'Empresa', emp.empresa);
-  y += LABEL_H + 10 + 3;
-  campo(doc, m, y, 95, 10, 'Cargo', emp.cargo);
-  campo(doc, m + 98, y, w - 98, 10, 'Unidad - Cuenta Contable', emp.unidad);
-  y += LABEL_H + 10 + 3;
-  campo(doc, m, y, 60, 10, 'Honorarios', emp.honorarios);
+  // ---- Para uso Exclusivo de la Empresa ----
+  doc.setFillColor(0, 0, 0);
+  doc.rect(m, y, w, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Para uso Exclusivo de la Empresa', m + w / 2, y + 5, { align: 'center' });
+  doc.setTextColor(0);
+  y += 7;
+
+  const marcoTop2 = y;
+  const leftW = 113;
+  const gapCols = 3;
+  const rightX = m + leftW + gapCols;
+  const rightW = w - leftW - gapCols;
+
+  celda(doc, m, y, leftW, 9, 'ID.', emp.nroDocumento);
+  const idBottom = y + 9;
+
+  const empresaY = idBottom;
+  celda(doc, m, empresaY, leftW, 10, 'Empresa:', emp.empresa);
+  const empresaBottom = empresaY + 10;
+
+  const cargoUnidadY = empresaBottom;
+  const cargoW = leftW * 0.5;
+  celda(doc, m, cargoUnidadY, cargoW, 10, 'Cargo:', emp.cargo);
+  celda(doc, m + cargoW, cargoUnidadY, leftW - cargoW, 10, 'Unidad - Cuenta Contable:', emp.unidad);
+  const cargoUnidadBottom = cargoUnidadY + 10;
+
+  const honorariosY = cargoUnidadBottom;
+  const honorariosW = leftW * 0.36;
+  const monedaW = leftW * 0.32;
+  const regimenW = leftW - honorariosW - monedaW;
+  celda(doc, m, honorariosY, honorariosW, 10, 'Honorarios:', emp.honorarios);
+  celda(doc, m + honorariosW, honorariosY, monedaW, 10, 'Moneda:');
   const mon = normalizar(emp.moneda);
-  etiquetaBox(doc, m + 63, y, 45, 'Moneda');
-  let mx = m + 65;
-  mx = checkboxOpcion(doc, mx, y + LABEL_H + 3, 'GS.', incluye(mon, 'gs', 'guaran'));
-  checkboxOpcion(doc, mx, y + LABEL_H + 3, 'USD.', incluye(mon, 'usd', 'dolar', 'dólar'));
+  let mx = m + honorariosW + 2;
+  mx = checkboxOpcion(doc, mx, honorariosY + 6, 'GS.', incluye(mon, 'gs', 'guaran'));
+  checkboxOpcion(doc, mx, honorariosY + 6, 'USD.', incluye(mon, 'usd', 'dolar', 'dólar'));
+  celda(doc, m + honorariosW + monedaW, honorariosY, regimenW, 10, 'Régimen:');
   const reg = normalizar(emp.regimen);
-  etiquetaBox(doc, m + 110, y, w - 110, 'Régimen');
-  let rx = m + 112;
-  rx = checkboxOpcion(doc, rx, y + LABEL_H + 3, 'IPS.', incluye(reg, 'ips'));
-  checkboxOpcion(doc, rx, y + LABEL_H + 3, 'IVA.', incluye(reg, 'iva'));
-  y += LABEL_H + 10 + 3;
-  campo(doc, m, y, w, 14, 'Actividades a realizar', emp.actividades);
-  y += LABEL_H + 14 + 4;
+  let rx = m + honorariosW + monedaW + 2;
+  rx = checkboxOpcion(doc, rx, honorariosY + 6, 'IPS.', incluye(reg, 'ips'));
+  checkboxOpcion(doc, rx, honorariosY + 6, 'IVA.', incluye(reg, 'iva'));
+  const honorariosBottom = honorariosY + 10;
 
+  const actividadesY = honorariosBottom;
+  const actividadesH = 16;
+  celda(doc, m, actividadesY, leftW, actividadesH, 'Actividades a realizar:', emp.actividades);
+  const actividadesBottom = actividadesY + actividadesH;
+
+  // Panel derecho gris: Vigencia de la Contratacion
+  const panelBottom = actividadesBottom;
+  doc.setFillColor(225, 225, 225);
+  doc.rect(rightX, y, rightW, panelBottom - y, 'F');
+  doc.setLineWidth(0.15);
+  doc.rect(rightX, y, rightW, panelBottom - y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.text('VIGENCIA DE LA CONTRATACIÓN', m, y);
-  y += 4;
-  campoFecha(doc, m, y, 55, 10, 'Fecha de Inicio del Contrato', emp.fechaInicioContrato);
-  campoFecha(doc, m + 58, y, 55, 10, 'Fecha de Término del Contrato', emp.fechaTerminoContrato);
-  checkboxOpcion(doc, m + 116, y + LABEL_H + 4, 'Fecha indeterminada', !!emp.fechaInicioContrato && !emp.fechaTerminoContrato);
-  y += LABEL_H + 10 + 6;
+  doc.text('VIGENCIA DE LA CONTRATACIÓN', rightX + rightW / 2, y + 4.5, { align: 'center' });
+  doc.line(rightX, y + 6.5, rightX + rightW, y + 6.5);
+  celdaFecha(doc, rightX + 3, y + 12, rightW - 6, 'Fecha de Inicio del Contrato', emp.fechaInicioContrato);
+  celdaFecha(doc, rightX + 3, y + 24, rightW - 6, 'Fecha de Término del Contrato', emp.fechaTerminoContrato);
+  checkboxOpcion(doc, rightX + 4, y + 36, 'Fecha indeterminada', !!emp.fechaInicioContrato && !emp.fechaTerminoContrato, true);
 
-  const firmaW = (w - 20) / 3;
-  ['SUPERVISOR', 'DIRECTOR O GERENTE', 'GERENTE DE RECURSOS HUMANOS'].forEach((f, i) => {
-    const fx = m + i * (firmaW + 10);
+  // Fila de firmas, ancho completo (columna izquierda + panel derecho)
+  y = panelBottom;
+  const firmaH = 16;
+  const firmaW = w / 3;
+  ['Supervisor', 'Director o Gerente', 'Gerente de Recursos Humanos'].forEach((f, i) => {
+    const fx = m + i * firmaW;
     doc.setLineWidth(0.15);
-    doc.line(fx, y + 10, fx + firmaW, y + 10);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text(f, fx + firmaW / 2, y + 14, { align: 'center', maxWidth: firmaW });
+    doc.rect(fx, y, firmaW, firmaH);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(f, fx + firmaW / 2, y + firmaH - 4, { align: 'center', maxWidth: firmaW - 4 });
   });
+  y += firmaH;
+
+  doc.setLineWidth(0.2);
+  doc.rect(m, marcoTop2, w, y - marcoTop2);
 
   doc.save(`Ficha_${emp.apellidos}_${emp.nombres}_${emp.nroDocumento}.pdf`.replace(/\s+/g, '_'));
 }
