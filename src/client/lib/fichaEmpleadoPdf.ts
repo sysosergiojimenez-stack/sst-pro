@@ -312,65 +312,78 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
 
   // Croquis (siempre vacio, con marcas guia de esquinas) | Grado de Instruccion | Tipo y Factor Sanguineo
   const croquisW = 55;
-  const croquisH = 46;
+  const croquisH = 58;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.8);
   doc.text('CROQUIS - DISEÑO DE LA UBICACIÓN DE SU CASA', m, y);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
-  doc.text('(Escriba los nombres de las calles vertical y horizontal)', m, y + 3.2);
+  doc.text('(Escriba los nombres de las calles vertical y horizontal', m, y + 3.2);
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
   doc.rect(m, y + 5, croquisW, croquisH);
-  // Marcas guia de "esquina de calle" en una grilla 3x3, como en el original
-  const guiaTam = 10;
+  // Marcas guia de "esquina de calle" en una grilla 3x3: linea horizontal
+  // con un tramo vertical hacia arriba en su extremo izquierdo, como en el original
   for (let fila = 0; fila < 3; fila++) {
     for (let col = 0; col < 3; col++) {
-      const gx = m + 5 + col * (croquisW - 10) / 2;
-      const gy = y + 5 + 8 + fila * (croquisH - 16) / 2;
-      doc.line(gx, gy, gx + guiaTam, gy);
-      doc.line(gx, gy, gx, gy - 4);
+      const gx = m + 6 + col * (croquisW - 14) / 2;
+      const gy = y + 5 + 12 + fila * (croquisH - 22) / 2;
+      doc.line(gx, gy, gx + 14, gy);
+      doc.line(gx, gy, gx, gy - 5);
     }
   }
   doc.setDrawColor(0);
 
+  // GRADO DE INSTRUCCIÓN: caja de etiqueta + caja de valor debajo (mismo
+  // patron de dos niveles que campo()), conteniendo los checkboxes.
   const giX = m + croquisW + 5;
   const giW = 68;
+  const giValueH = 25;
   etiquetaBox(doc, giX, y + 5, giW, 'GRADO DE INSTRUCCIÓN');
+  const giBoxTop = y + 5 + LABEL_H;
+  doc.setLineWidth(0.15);
+  doc.rect(giX, giBoxTop, giW, giValueH);
   const gi = normalizar(emp.gradoInstruccion);
-  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 3, 'Primaria', incluye(gi, 'primaria'));
-  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 8, 'Secundaria', incluye(gi, 'secundaria'));
-  checkboxOpcion(doc, giX + 2, y + 5 + LABEL_H + 13, 'Universidad', incluye(gi, 'universi'));
+  checkboxOpcion(doc, giX + 3, giBoxTop + 4, 'Primaria', incluye(gi, 'primaria'));
+  checkboxOpcion(doc, giX + 3, giBoxTop + 9, 'Secundaria', incluye(gi, 'secundaria'));
+  checkboxOpcion(doc, giX + 3, giBoxTop + 14, 'Universidad', incluye(gi, 'universi'));
   const ic = normalizar(emp.instruccionConcluida);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
-  doc.text('Concluido', giX + 38, y + 5 + LABEL_H + 5.6);
-  checkboxOpcion(doc, giX + 38, y + 5 + LABEL_H + 7, 'Sí', incluye(ic, 'si', 'sí'));
-  checkboxOpcion(doc, giX + 52, y + 5 + LABEL_H + 7, 'No', incluye(ic, 'no'));
+  doc.text('Concluido', giX + 39, giBoxTop + 10.6);
+  checkboxOpcion(doc, giX + 39, giBoxTop + 12, 'Sí', incluye(ic, 'si', 'sí'));
+  checkboxOpcion(doc, giX + 53, giBoxTop + 12, 'No', incluye(ic, 'no'));
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  const yCarrera = y + 5 + LABEL_H + 20;
-  doc.text('Carrera Universitaria:', giX + 2, yCarrera);
+  const yCarrera = giBoxTop + giValueH - 3;
+  doc.text('Carrera Universitaria:', giX + 3, yCarrera);
   const anchoCarreraLabel = doc.getTextWidth('Carrera Universitaria: ');
   if (emp.carreraUniversitaria) {
     doc.setFontSize(7.5);
-    doc.text(emp.carreraUniversitaria, giX + 2 + anchoCarreraLabel + 1, yCarrera, { maxWidth: giW - 4 - anchoCarreraLabel - 1 });
+    doc.text(emp.carreraUniversitaria, giX + 3 + anchoCarreraLabel + 1, yCarrera, { maxWidth: giW - 5 - anchoCarreraLabel - 1 });
   } else {
     doc.setLineDashPattern([0.5, 0.5], 0);
-    doc.line(giX + 2 + anchoCarreraLabel, yCarrera, giX + giW - 2, yCarrera);
+    doc.line(giX + 3 + anchoCarreraLabel, yCarrera, giX + giW - 3, yCarrera);
     doc.setLineDashPattern([], 0);
   }
 
+  // Tipo y Factor Sanguineo: posicionado abajo a la derecha (no alineado
+  // arriba con Grado de Instruccion), con el casillero ANTES de la
+  // etiqueta, como en el original.
   const tsX = giX + giW + 5;
   const tsW = m + w - tsX;
-  const tsY = yCarrera - 2;
+  const tsY = giBoxTop + giValueH - 27;
   etiquetaBox(doc, tsX, tsY, tsW, 'Tipo y Factor Sanguíneo');
+  const tsBoxTop = tsY + LABEL_H;
+  const tsBoxH = 27;
+  doc.setLineWidth(0.15);
+  doc.rect(tsX, tsBoxTop, tsW, tsBoxH);
   const ts = parseTipoSangre(emp.tipoSangre);
   const tipos = ['A', 'B', 'AB', 'O'];
   tipos.forEach((tipo, i) => {
-    const ty = tsY + LABEL_H + 3 + i * 6;
-    checkboxOpcion(doc, tsX + 2, ty, `${tipo} (+)`, !!ts && ts.tipo === tipo && ts.positivo);
-    checkboxOpcion(doc, tsX + 2 + tsW / 2, ty, `${tipo} (-)`, !!ts && ts.tipo === tipo && ts.negativo);
+    const ty = tsBoxTop + 4 + i * 6;
+    checkboxOpcion(doc, tsX + 3, ty, `${tipo} (+)`, !!ts && ts.tipo === tipo && ts.positivo, true);
+    checkboxOpcion(doc, tsX + 3 + tsW / 2, ty, `${tipo} (-)`, !!ts && ts.tipo === tipo && ts.negativo, true);
   });
 
   // ---- Pagina 2 ----
