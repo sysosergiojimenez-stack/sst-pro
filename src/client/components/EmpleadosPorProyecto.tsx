@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
+import { generarFichaEmpleadoPDF } from '../lib/fichaEmpleadoPdf';
 
 type GeminiItem = {
   id: string;
@@ -1763,6 +1764,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                     </td>
                     <td className="py-3 px-4 block sm:table-cell">
                       <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                        <button onClick={(e) => { e.stopPropagation(); generarFichaEmpleadoPDF(emp, proyecto); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Exportar Ficha PDF"><FileDown size={16} /></button>
                         <button onClick={(e) => { e.stopPropagation(); handleToggleEstado(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-amber-500 transition-colors" title="Marcar como Inactivo"><UserX size={16} /></button>
                         <button onClick={(e) => { e.stopPropagation(); handleDelete(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
                         {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
@@ -1819,6 +1821,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                         </td>
                         <td className="py-3 px-4 block sm:table-cell">
                           <div className="flex gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
+                            <button onClick={(e) => { e.stopPropagation(); generarFichaEmpleadoPDF(emp, proyecto); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Exportar Ficha PDF"><FileDown size={16} /></button>
                             <button onClick={(e) => { e.stopPropagation(); handleToggleEstado(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-green-500 transition-colors" title="Reactivar"><UserCheck size={16} /></button>
                             <button onClick={(e) => { e.stopPropagation(); handleDelete(emp); }} className="p-2.5 sm:p-1 text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={16} /></button>
                             {emp.scanDocumentos && <a href={emp.scanDocumentos} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-2.5 sm:p-1 text-muted-foreground hover:text-primary transition-colors" title="Ver PDF"><FileText size={16} /></a>}
