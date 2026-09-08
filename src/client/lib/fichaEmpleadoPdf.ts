@@ -247,10 +247,10 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   const esCI = !esVenezolano && (incluye(tipoDoc, 'c.i', 'ci paragua', 'cedula', 'cédula') || tipoDoc === 'ci');
   const esOtros = !!tipoDoc && !esVenezolano && !esCI;
   etiquetaBox(doc, m + 58, y, 68, 'Tipo de Documento');
-  checkboxOpcion(doc, m + 60, y + LABEL_H + 2, 'C.I. Paraguaya', esCI);
-  checkboxOpcion(doc, m + 60, y + LABEL_H + 6.5, 'Doc. Venezolano', esVenezolano);
+  checkboxOpcion(doc, m + 60, y + LABEL_H + 2, 'C.I. Paraguaya', esCI, true);
+  checkboxOpcion(doc, m + 60, y + LABEL_H + 6.5, 'Doc. Venezolano', esVenezolano, true);
   const yOtro = y + LABEL_H + 11;
-  const xDespuesOtro = checkboxOpcion(doc, m + 60, yOtro, 'Otro:', esOtros);
+  const xDespuesOtro = checkboxOpcion(doc, m + 60, yOtro, 'Otro:', esOtros, true);
   if (esOtros) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -279,16 +279,16 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   campo(doc, m, y, 52, 10, 'Ciudad de Nacimiento', emp.ciudadNacimiento);
   campoFecha(doc, m + 55, y, 33, 10, 'Fecha de Nacimiento', emp.fechaNacimiento);
   etiquetaBox(doc, m + 91, y, 15, 'Sexo');
-  checkboxOpcion(doc, m + 92, y + LABEL_H + 1.5, 'Masculino', emp.sexo === 'M');
-  checkboxOpcion(doc, m + 92, y + LABEL_H + 6, 'Femenino', emp.sexo === 'F');
+  checkboxOpcion(doc, m + 92, y + LABEL_H + 1.5, 'Masculino', emp.sexo === 'M', true);
+  checkboxOpcion(doc, m + 92, y + LABEL_H + 6, 'Femenino', emp.sexo === 'F', true);
   const ec = normalizar(emp.estadoCivil);
   etiquetaBox(doc, m + 109, y, w - 109, 'Estado Civil');
   let ecx = m + 111;
-  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Casado', incluye(ec, 'casad'));
-  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Concubinato', incluye(ec, 'concubin'));
-  checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Divorciado', incluye(ec, 'divorci'));
-  checkboxOpcion(doc, m + 111, y + LABEL_H + 6, 'Soltero', incluye(ec, 'solter'));
-  checkboxOpcion(doc, m + 111 + 25, y + LABEL_H + 6, 'Viudo', incluye(ec, 'viud'));
+  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Casado', incluye(ec, 'casad'), true);
+  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Concubinato', incluye(ec, 'concubin'), true);
+  checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Divorciado', incluye(ec, 'divorci'), true);
+  checkboxOpcion(doc, m + 111, y + LABEL_H + 6, 'Soltero', incluye(ec, 'solter'), true);
+  checkboxOpcion(doc, m + 111 + 25, y + LABEL_H + 6, 'Viudo', incluye(ec, 'viud'), true);
   y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 110, 10, 'Nombres y Apellidos del Padre', emp.nombrePadre);
@@ -361,15 +361,15 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   doc.setLineWidth(0.15);
   doc.rect(giX, giBoxTop, giW, giValueH);
   const gi = normalizar(emp.gradoInstruccion);
-  checkboxOpcion(doc, giX + 3, giBoxTop + 4, 'Primaria', incluye(gi, 'primaria'));
-  checkboxOpcion(doc, giX + 3, giBoxTop + 9, 'Secundaria', incluye(gi, 'secundaria'));
-  checkboxOpcion(doc, giX + 3, giBoxTop + 14, 'Universidad', incluye(gi, 'universi'));
+  checkboxOpcion(doc, giX + 3, giBoxTop + 4, 'Primaria', incluye(gi, 'primaria'), true);
+  checkboxOpcion(doc, giX + 3, giBoxTop + 9, 'Secundaria', incluye(gi, 'secundaria'), true);
+  checkboxOpcion(doc, giX + 3, giBoxTop + 14, 'Universidad', incluye(gi, 'universi'), true);
   const ic = normalizar(emp.instruccionConcluida);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
   doc.text('Concluido:', giX + 39, giBoxTop + 10.6);
-  checkboxOpcion(doc, giX + 39, giBoxTop + 12, 'Sí', incluye(ic, 'si', 'sí'));
-  checkboxOpcion(doc, giX + 53, giBoxTop + 12, 'No', incluye(ic, 'no'));
+  checkboxOpcion(doc, giX + 39, giBoxTop + 12, 'Sí', incluye(ic, 'si', 'sí'), true);
+  checkboxOpcion(doc, giX + 53, giBoxTop + 12, 'No', incluye(ic, 'no'), true);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   const yCarrera = giBoxTop + giValueH - 3;
