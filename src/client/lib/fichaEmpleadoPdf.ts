@@ -51,10 +51,10 @@ export interface EmpleadoFicha {
   fechaTerminoContrato?: string;
 }
 
-function fechaISOaDMY(iso?: string): string {
-  if (!iso) return '';
+function partesFecha(iso?: string): [string, string, string] {
+  if (!iso) return ['', '', ''];
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+  return m ? [m[3], m[2], m[1]] : ['', '', ''];
 }
 
 function normalizar(v?: string): string {
@@ -76,22 +76,50 @@ function parseTipoSangre(v?: string): { tipo: string; positivo: boolean; negativ
   return { tipo, positivo, negativo: negativo && !positivo };
 }
 
-// ---- Helpers de dibujo ----
+// Altura de la caja de etiqueta (la franja superior con el nombre del campo).
+const LABEL_H = 4.3;
 
-function campo(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, value?: string): number {
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(90);
-  doc.text(label, x, y);
-  doc.setTextColor(0);
+// ---- Helpers de dibujo ----
+// El formulario original tiene, para cada campo, una caja de etiqueta
+// (borde + texto centrado chico) pegada arriba de una caja de valor mas
+// grande. Replicamos exactamente esa estructura de dos niveles.
+
+function etiquetaBox(doc: jsPDF, x: number, y: number, w: number, label: string): void {
   doc.setLineWidth(0.15);
-  doc.rect(x, y + 1, w, h);
+  doc.rect(x, y, w, LABEL_H);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.3);
+  doc.text(label, x + w / 2, y + LABEL_H - 1.4, { align: 'center', maxWidth: w - 2 });
+}
+
+function campo(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, value?: string): void {
+  etiquetaBox(doc, x, y, w, label);
+  const boxTop = y + LABEL_H;
+  doc.setLineWidth(0.15);
+  doc.rect(x, boxTop, w, h);
   if (value) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(String(value), x + 1.5, y + 1 + h / 2 + 1.3, { maxWidth: w - 3 });
+    doc.text(String(value), x + 1.5, boxTop + h / 2 + 1.3, { maxWidth: w - 3 });
   }
-  return y + 1 + h;
+}
+
+// Campo de fecha con 3 casillas separadas (dia / mes / anio), tal como en
+// el formulario original.
+function campoFecha(doc: jsPDF, x: number, y: number, w: number, h: number, label: string, iso?: string): void {
+  etiquetaBox(doc, x, y, w, label);
+  const boxTop = y + LABEL_H;
+  const partes = partesFecha(iso);
+  const cw = w / 3;
+  doc.setLineWidth(0.15);
+  for (let i = 0; i < 3; i++) {
+    doc.rect(x + cw * i, boxTop, cw, h);
+    if (partes[i]) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(partes[i], x + cw * i + cw / 2, boxTop + h / 2 + 1.3, { align: 'center' });
+    }
+  }
 }
 
 function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked: boolean): number {
@@ -109,15 +137,17 @@ function checkboxOpcion(doc: jsPDF, x: number, y: number, label: string, checked
   return x + size + 1.3 + doc.getTextWidth(label) + 3;
 }
 
-function tituloSeccion(doc: jsPDF, x: number, w: number, y: number, texto: string): number {
-  doc.setFillColor(30, 58, 95);
-  doc.rect(x, y, w, 6, 'F');
+// Barra de titulo rellena (usada para el titulo principal y para las
+// secciones "oficiales": dependientes, uso exclusivo de la empresa).
+function tituloSeccion(doc: jsPDF, x: number, w: number, y: number, texto: string, alto = 6, fontSize = 9): number {
+  doc.setFillColor(51, 51, 51);
+  doc.rect(x, y, w, alto, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
+  doc.setFontSize(fontSize);
   doc.setFont('helvetica', 'bold');
-  doc.text(texto, x + w / 2, y + 4.2, { align: 'center' });
+  doc.text(texto, x + w / 2, y + alto - (alto - fontSize * 0.352) / 2 - 0.3, { align: 'center' });
   doc.setTextColor(0);
-  return y + 9;
+  return y + alto + 3;
 }
 
 export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: ProyectoPdfHeader): Promise<void> {
@@ -131,129 +161,143 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
     y = await drawPdfHeader(doc, proyecto, y, { marginLeft: m, marginRight: m });
     y += 4;
   }
-  y = tituloSeccion(doc, m, w, y, 'REGISTRO DE DATOS DE EMPLEADOS');
+  doc.setLineWidth(0.4);
+  doc.rect(m + w / 2 - 45, y, 90, 9);
+  doc.setFillColor(51, 51, 51);
+  doc.rect(m + w / 2 - 45, y, 90, 9, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Registro de Datos de Empleados', m + w / 2, y + 6, { align: 'center' });
+  doc.setTextColor(0);
+  y += 13;
+
+  doc.setLineWidth(0.2);
+  doc.line(m, y, m + w, y);
   y += 4;
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Instrucciones:', m, y);
+  const anchoLabelInstrucciones = doc.getTextWidth('Instrucciones: ');
+  doc.setFont('helvetica', 'normal');
+  const instrucciones = 'Complete de forma legible todos los campos, leyendo con atención. Este formulario hará parte del legajo del empleado en la empresa.';
+  doc.text(instrucciones, m + anchoLabelInstrucciones + 2, y, { maxWidth: w - anchoLabelInstrucciones - 2 });
+  y += 7;
+
   // Fila 1: Nro Documento | Tipo de Documento | Foto 3x4
-  const rowTop = y;
-  campo(doc, m, y, 55, 16, 'Nro. Documento', emp.nroDocumento);
+  campo(doc, m, y, 55, 12, 'Nro. Documento', emp.nroDocumento);
   const tipoDoc = normalizar(emp.tipoDocumento);
   const esVenezolano = incluye(tipoDoc, 'venezol');
   const esCI = !esVenezolano && (incluye(tipoDoc, 'c.i', 'ci paragua', 'cedula', 'cédula') || tipoDoc === 'ci');
   const esOtros = !!tipoDoc && !esVenezolano && !esCI;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(90);
-  doc.text('Tipo de Documento', m + 58, y);
-  doc.setTextColor(0);
-  checkboxOpcion(doc, m + 58, y + 3, 'C.I. Paraguaya', esCI);
-  checkboxOpcion(doc, m + 58, y + 8, 'Doc. Venezolano', esVenezolano);
-  checkboxOpcion(doc, m + 58, y + 13, esOtros ? `Otros (${emp.tipoDocumento})` : 'Otros', esOtros);
+  etiquetaBox(doc, m + 58, y, 68, 'Tipo de Documento');
+  checkboxOpcion(doc, m + 60, y + LABEL_H + 2, 'C.I. Paraguaya', esCI);
+  checkboxOpcion(doc, m + 60, y + LABEL_H + 6.5, 'Doc. Venezolano', esVenezolano);
+  checkboxOpcion(doc, m + 60, y + LABEL_H + 11, esOtros ? `Otros (${emp.tipoDocumento})` : 'Otros', esOtros);
   // Foto 3x4 (siempre vacia, no se registra foto en el sistema)
   const fotoX = m + w - 32;
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
-  doc.rect(fotoX, y, 32, 16);
+  doc.rect(fotoX, y, 32, 20);
   doc.setFontSize(7);
   doc.setTextColor(140);
-  doc.text('Foto 3x4', fotoX + 16, y + 9, { align: 'center' });
+  doc.text('Foto 3x4', fotoX + 16, y + 11, { align: 'center' });
   doc.setTextColor(0);
   doc.setDrawColor(0);
-  y = rowTop + 16 + 2;
+  y += LABEL_H + 12 + 3;
 
-  y = campo(doc, m, y, 90, 10, 'Nombres', emp.nombres) - 10;
-  campo(doc, m + 93, y, w - 93, 10, 'Apellidos', emp.apellidos);
-  y += 12;
+  campo(doc, m, y, 90, 10, 'Nombres del Profesional', emp.nombres);
+  campo(doc, m + 93, y, w - 93, 10, 'Apellidos del Profesional', emp.apellidos);
+  y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 52, 10, 'Ciudad de Nacimiento', emp.ciudadNacimiento);
-  campo(doc, m + 55, y, 33, 10, 'Fecha de Nacimiento', fechaISOaDMY(emp.fechaNacimiento));
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(90);
-  doc.text('Sexo', m + 91, y);
-  doc.setTextColor(0);
-  checkboxOpcion(doc, m + 91, y + 3, 'M', emp.sexo === 'M');
-  checkboxOpcion(doc, m + 91, y + 8, 'F', emp.sexo === 'F');
+  campoFecha(doc, m + 55, y, 33, 10, 'Fecha de Nacimiento', emp.fechaNacimiento);
+  etiquetaBox(doc, m + 91, y, 15, 'Sexo');
+  checkboxOpcion(doc, m + 92, y + LABEL_H + 1.5, 'Masculino', emp.sexo === 'M');
+  checkboxOpcion(doc, m + 92, y + LABEL_H + 6, 'Femenino', emp.sexo === 'F');
   const ec = normalizar(emp.estadoCivil);
-  doc.text('Estado Civil', m + 108, y);
-  let ecx = m + 108;
-  ecx = checkboxOpcion(doc, ecx, y + 3, 'Casado', incluye(ec, 'casad'));
-  ecx = checkboxOpcion(doc, ecx, y + 3, 'Concubinato', incluye(ec, 'concubin'));
-  checkboxOpcion(doc, ecx, y + 3, 'Divorciado', incluye(ec, 'divorci'));
-  checkboxOpcion(doc, m + 108, y + 8, 'Soltero', incluye(ec, 'solter'));
-  checkboxOpcion(doc, m + 108 + 22, y + 8, 'Viudo', incluye(ec, 'viud'));
-  y += 14;
+  etiquetaBox(doc, m + 109, y, w - 109, 'Estado Civil');
+  let ecx = m + 111;
+  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Casado', incluye(ec, 'casad'));
+  ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Concubinato', incluye(ec, 'concubin'));
+  checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Divorciado', incluye(ec, 'divorci'));
+  checkboxOpcion(doc, m + 111, y + LABEL_H + 6, 'Soltero', incluye(ec, 'solter'));
+  checkboxOpcion(doc, m + 111 + 25, y + LABEL_H + 6, 'Viudo', incluye(ec, 'viud'));
+  y += LABEL_H + 10 + 3;
 
-  y = campo(doc, m, y, 110, 10, 'Nombres y Apellidos del Padre', emp.nombrePadre) - 10;
+  campo(doc, m, y, 110, 10, 'Nombres y Apellidos del Padre', emp.nombrePadre);
   campo(doc, m + 113, y, w - 113, 10, 'Ocupación del Padre', emp.ocupacionPadre);
-  y += 12;
+  y += LABEL_H + 10 + 3;
 
-  y = campo(doc, m, y, 110, 10, 'Nombres y Apellidos de la Madre', emp.nombreMadre) - 10;
+  campo(doc, m, y, 110, 10, 'Nombres y Apellidos de la Madre', emp.nombreMadre);
   campo(doc, m + 113, y, w - 113, 10, 'Ocupación de la Madre', emp.ocupacionMadre);
-  y += 12;
+  y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 78, 10, 'Nombres y Apellidos del Cónyuge', emp.nombreConyuge);
-  campo(doc, m + 81, y, 55, 10, 'Ocupación de Cónyuge', emp.ocupacionConyuge);
-  campo(doc, m + 138, y, w - 138, 10, 'Fecha de Nacimiento', fechaISOaDMY(emp.fechaNacConyuge));
-  y += 13;
+  campo(doc, m + 81, y, 50, 10, 'Ocupación de Cónyuge', emp.ocupacionConyuge);
+  campoFecha(doc, m + 133, y, w - 133, 10, 'Fecha de Nacimiento', emp.fechaNacConyuge);
+  y += LABEL_H + 10 + 4;
 
-  campo(doc, m, y, 88, 10, 'Dirección - Calle Principal', emp.direccion);
-  campo(doc, m + 91, y, 17, 10, 'Nro.', emp.nro);
-  campo(doc, m + 110, y, 17, 10, 'Dpto.', emp.dpto);
-  campo(doc, m + 129, y, 17, 10, 'Piso', emp.piso);
-  campo(doc, m + 148, y, w - 148, 10, 'Barrio', emp.barrio);
-  y += 12;
+  // Separador grueso, como en el formulario original
+  doc.setLineWidth(0.7);
+  doc.line(m, y, m + w, y);
+  doc.setLineWidth(0.15);
+  y += 5;
+
+  campo(doc, m, y, 85, 10, 'Dirección - Nombre de la Calle Principal', emp.direccion);
+  campo(doc, m + 88, y, 17, 10, 'Nro.', emp.nro);
+  campo(doc, m + 107, y, 17, 10, 'Dpto.', emp.dpto);
+  campo(doc, m + 126, y, 17, 10, 'Piso', emp.piso);
+  campo(doc, m + 145, y, w - 145, 10, 'Barrio', emp.barrio);
+  y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 58, 10, 'Ciudad donde Vive', emp.ciudad);
   campo(doc, m + 61, y, 58, 10, 'Departamento Territorial', emp.departamentoTerritorial);
-  campo(doc, m + 122, y, w - 122, 10, 'Punto de Referencia', emp.puntoReferencia);
-  y += 12;
+  campo(doc, m + 122, y, w - 122, 10, 'Punto de Referencia de la Casa', emp.puntoReferencia);
+  y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 54, 10, 'Teléfono Celular', emp.telefonoCelular);
-  campo(doc, m + 57, y, 54, 10, 'Teléfono de Emergencia', emp.telefonoEmergencia);
+  campo(doc, m + 57, y, 54, 10, 'Teléfono de Emergencia / Familiar', emp.telefonoEmergencia);
   campo(doc, m + 114, y, w - 114, 10, 'E-mail', emp.email);
-  y += 14;
+  y += LABEL_H + 10 + 5;
 
   // Croquis (siempre vacio) | Grado de Instruccion | Tipo y Factor Sanguineo
-  const bottomTop = y;
   const croquisW = 55;
+  etiquetaBox(doc, m, y, croquisW, 'CROQUIS - UBICACIÓN DE LA CASA');
   doc.setLineWidth(0.15);
   doc.setDrawColor(160);
-  doc.rect(m, y + 3, croquisW, 26);
+  doc.rect(m, y + LABEL_H, croquisW, 46);
   doc.setDrawColor(0);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.text('CROQUIS - UBICACIÓN DE LA CASA', m, y);
 
-  const giX = m + croquisW + 4;
-  const giW = 70;
-  doc.text('GRADO DE INSTRUCCIÓN', giX, y);
+  const giX = m + croquisW + 5;
+  const giW = 68;
+  etiquetaBox(doc, giX, y, giW, 'GRADO DE INSTRUCCIÓN');
   const gi = normalizar(emp.gradoInstruccion);
-  checkboxOpcion(doc, giX, y + 4, 'Primaria', incluye(gi, 'primaria'));
-  checkboxOpcion(doc, giX, y + 9, 'Secundaria', incluye(gi, 'secundaria'));
-  checkboxOpcion(doc, giX, y + 14, 'Universidad', incluye(gi, 'universi'));
+  checkboxOpcion(doc, giX + 2, y + LABEL_H + 3, 'Primaria', incluye(gi, 'primaria'));
+  checkboxOpcion(doc, giX + 2, y + LABEL_H + 8, 'Secundaria', incluye(gi, 'secundaria'));
+  checkboxOpcion(doc, giX + 2, y + LABEL_H + 13, 'Universidad', incluye(gi, 'universi'));
   const ic = normalizar(emp.instruccionConcluida);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
-  doc.text('Concluido', giX + 40, y + 6.6);
-  checkboxOpcion(doc, giX + 40, y + 8, 'Sí', incluye(ic, 'si', 'sí'));
-  checkboxOpcion(doc, giX + 52, y + 8, 'No', incluye(ic, 'no'));
+  doc.text('Concluido', giX + 40, y + LABEL_H + 5.6);
+  checkboxOpcion(doc, giX + 40, y + LABEL_H + 7, 'Sí', incluye(ic, 'si', 'sí'));
+  checkboxOpcion(doc, giX + 52, y + LABEL_H + 7, 'No', incluye(ic, 'no'));
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.text('Carrera Universitaria:', giX, y + 21);
+  doc.text('Carrera Universitaria:', giX + 2, y + LABEL_H + 20);
   doc.setFontSize(7.5);
-  doc.text(emp.carreraUniversitaria || '', giX, y + 25, { maxWidth: giW });
+  doc.text(emp.carreraUniversitaria || '', giX + 2, y + LABEL_H + 25, { maxWidth: giW - 4 });
 
-  const tsX = giX + giW + 4;
+  const tsX = giX + giW + 5;
   const tsW = m + w - tsX;
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TIPO Y FACTOR SANGUÍNEO', tsX, y);
+  etiquetaBox(doc, tsX, y, tsW, 'Tipo y Factor Sanguíneo');
   const ts = parseTipoSangre(emp.tipoSangre);
   const tipos = ['A', 'B', 'AB', 'O'];
   tipos.forEach((tipo, i) => {
-    const ty = y + 4 + i * 5;
-    checkboxOpcion(doc, tsX, ty, `${tipo} (+)`, !!ts && ts.tipo === tipo && ts.positivo);
-    checkboxOpcion(doc, tsX + tsW / 2, ty, `${tipo} (-)`, !!ts && ts.tipo === tipo && ts.negativo);
+    const ty = y + LABEL_H + 3 + i * 6;
+    checkboxOpcion(doc, tsX + 2, ty, `${tipo} (+)`, !!ts && ts.tipo === tipo && ts.positivo);
+    checkboxOpcion(doc, tsX + 2 + tsW / 2, ty, `${tipo} (-)`, !!ts && ts.tipo === tipo && ts.negativo);
   });
 
   // ---- Pagina 2 ----
@@ -263,7 +307,7 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.text('Caso posea hijos, se listan abajo con sus respectivas fechas de nacimiento:', m, y);
-  y += 4;
+  y += 6;
 
   const hijos: Array<[string | undefined, string | undefined]> = [
     [emp.hijo1, emp.fechaNacHijo1],
@@ -273,20 +317,20 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   ];
   hijos.forEach(([nombre, fecha], i) => {
     campo(doc, m, y, 135, 10, `${i + 1}. Nombres y Apellidos`, nombre);
-    campo(doc, m + 138, y, w - 138, 10, 'Fecha de Nacimiento', fechaISOaDMY(fecha));
-    y += 12;
+    campoFecha(doc, m + 138, y, w - 138, 10, 'Fecha de Nacimiento', fecha);
+    y += LABEL_H + 10 + 3;
   });
-  y += 2;
+  y += 3;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.text('1. RELACIÓN DE PARENTESCO EN LA EMPRESA:', m, y);
-  y += 5;
+  y += 6;
   let px = m;
   ['Esposo (a)', 'Padre/Madre', 'Hijo (a)', 'Hermano (a)', 'Cuñado (a)', 'Primo (a)', 'Tío (a)', 'Nadie'].forEach(op => {
     px = checkboxOpcion(doc, px, y, op, false);
   });
-  y += 8;
+  y += 7;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
@@ -294,13 +338,13 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
   y += 6;
   let ex = m;
   ex = checkboxOpcion(doc, ex, y, 'Sí, bajo control médico', false);
-  checkboxOpcion(doc, ex + 6, y, 'No', false);
+  checkboxOpcion(doc, ex + 8, y, 'No', false);
   y += 8;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.text('DECLARACIÓN', m + w / 2, y, { align: 'center' });
-  y += 4;
+  y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.text(
@@ -317,39 +361,35 @@ export async function generarFichaEmpleadoPDF(emp: EmpleadoFicha, proyecto?: Pro
 
   y = tituloSeccion(doc, m, w, y, 'PARA USO EXCLUSIVO DE LA EMPRESA');
   campo(doc, m, y, w, 8, 'ID', emp.nroDocumento);
-  y += 10;
+  y += LABEL_H + 8 + 3;
   campo(doc, m, y, w, 10, 'Empresa', emp.empresa);
-  y += 12;
+  y += LABEL_H + 10 + 3;
   campo(doc, m, y, 95, 10, 'Cargo', emp.cargo);
   campo(doc, m + 98, y, w - 98, 10, 'Unidad - Cuenta Contable', emp.unidad);
-  y += 12;
+  y += LABEL_H + 10 + 3;
   campo(doc, m, y, 60, 10, 'Honorarios', emp.honorarios);
   const mon = normalizar(emp.moneda);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(90);
-  doc.text('Moneda', m + 63, y);
-  doc.setTextColor(0);
-  let mx = m + 63;
-  mx = checkboxOpcion(doc, mx, y + 3, 'GS.', incluye(mon, 'gs', 'guaran'));
-  checkboxOpcion(doc, mx, y + 3, 'USD.', incluye(mon, 'usd', 'dolar', 'dólar'));
+  etiquetaBox(doc, m + 63, y, 45, 'Moneda');
+  let mx = m + 65;
+  mx = checkboxOpcion(doc, mx, y + LABEL_H + 3, 'GS.', incluye(mon, 'gs', 'guaran'));
+  checkboxOpcion(doc, mx, y + LABEL_H + 3, 'USD.', incluye(mon, 'usd', 'dolar', 'dólar'));
   const reg = normalizar(emp.regimen);
-  doc.text('Régimen', m + 100, y);
-  let rx = m + 100;
-  rx = checkboxOpcion(doc, rx, y + 3, 'IPS.', incluye(reg, 'ips'));
-  checkboxOpcion(doc, rx, y + 3, 'IVA.', incluye(reg, 'iva'));
-  y += 14;
-  campo(doc, m, y, w, 16, 'Actividades a realizar', emp.actividades);
-  y += 18;
+  etiquetaBox(doc, m + 110, y, w - 110, 'Régimen');
+  let rx = m + 112;
+  rx = checkboxOpcion(doc, rx, y + LABEL_H + 3, 'IPS.', incluye(reg, 'ips'));
+  checkboxOpcion(doc, rx, y + LABEL_H + 3, 'IVA.', incluye(reg, 'iva'));
+  y += LABEL_H + 10 + 3;
+  campo(doc, m, y, w, 14, 'Actividades a realizar', emp.actividades);
+  y += LABEL_H + 14 + 4;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.text('VIGENCIA DE LA CONTRATACIÓN', m, y);
   y += 4;
-  campo(doc, m, y, 55, 10, 'Fecha de Inicio del Contrato', fechaISOaDMY(emp.fechaInicioContrato));
-  campo(doc, m + 58, y, 55, 10, 'Fecha de Término del Contrato', fechaISOaDMY(emp.fechaTerminoContrato));
-  checkboxOpcion(doc, m + 116, y + 4, 'Fecha indeterminada', !!emp.fechaInicioContrato && !emp.fechaTerminoContrato);
-  y += 16;
+  campoFecha(doc, m, y, 55, 10, 'Fecha de Inicio del Contrato', emp.fechaInicioContrato);
+  campoFecha(doc, m + 58, y, 55, 10, 'Fecha de Término del Contrato', emp.fechaTerminoContrato);
+  checkboxOpcion(doc, m + 116, y + LABEL_H + 4, 'Fecha indeterminada', !!emp.fechaInicioContrato && !emp.fechaTerminoContrato);
+  y += LABEL_H + 10 + 6;
 
   const firmaW = (w - 20) / 3;
   ['SUPERVISOR', 'DIRECTOR O GERENTE', 'GERENTE DE RECURSOS HUMANOS'].forEach((f, i) => {
