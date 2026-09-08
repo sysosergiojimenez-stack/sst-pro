@@ -269,8 +269,10 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   // con ella, ya que ahora Foto ocupa toda la altura de ambas filas.
   const nombresH = 7;
   const fotoX = m + w - 32;
-  campo(doc, m, y, 90, nombresH, 'Nombres del Profesional', emp.nombres);
-  campo(doc, m + 93, y, fotoX - 3 - (m + 93), nombresH, 'Apellidos del Profesional', emp.apellidos);
+  const gapNombresApellidos = 3;
+  const anchoNombresApellidos = (fotoX - 3 - m - gapNombresApellidos) / 2;
+  campo(doc, m, y, anchoNombresApellidos, nombresH, 'Nombres del Profesional', emp.nombres);
+  campo(doc, m + anchoNombresApellidos + gapNombresApellidos, y, anchoNombresApellidos, nombresH, 'Apellidos del Profesional', emp.apellidos);
   const filaNombresBottom = y + LABEL_H + nombresH;
   y += LABEL_H + nombresH + 3;
 
