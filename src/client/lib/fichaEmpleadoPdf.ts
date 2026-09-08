@@ -285,10 +285,11 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
   etiquetaBox(doc, m + 109, y, w - 109, 'Estado Civil');
   let ecx = m + 111;
   ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Casado', incluye(ec, 'casad'), true);
+  const xConcubinato = ecx;
   ecx = checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Concubinato', incluye(ec, 'concubin'), true);
   checkboxOpcion(doc, ecx, y + LABEL_H + 1.5, 'Divorciado', incluye(ec, 'divorci'), true);
   checkboxOpcion(doc, m + 111, y + LABEL_H + 6, 'Soltero', incluye(ec, 'solter'), true);
-  checkboxOpcion(doc, m + 111 + 25, y + LABEL_H + 6, 'Viudo', incluye(ec, 'viud'), true);
+  checkboxOpcion(doc, xConcubinato, y + LABEL_H + 6, 'Viudo', incluye(ec, 'viud'), true);
   y += LABEL_H + 10 + 3;
 
   campo(doc, m, y, 110, 10, 'Nombres y Apellidos del Padre', emp.nombrePadre);
@@ -384,12 +385,12 @@ export function generarFichaEmpleadoPDF(emp: EmpleadoFicha): void {
     doc.setLineDashPattern([], 0);
   }
 
-  // Tipo y Factor Sanguineo: posicionado abajo a la derecha (no alineado
-  // arriba con Grado de Instruccion), con el casillero ANTES de la
-  // etiqueta, como en el original.
+  // Tipo y Factor Sanguineo: alineado arriba con Grado de Instruccion
+  // (a pedido del usuario, para mayor prolijidad visual), con el
+  // casillero ANTES de la etiqueta, como en el original.
   const tsX = giX + giW + 5;
   const tsW = m + w - tsX;
-  const tsY = giBoxTop + giValueH - 27;
+  const tsY = y + 5;
   etiquetaBox(doc, tsX, tsY, tsW, 'Tipo y Factor Sanguíneo');
   const tsBoxTop = tsY + LABEL_H;
   const tsBoxH = 27;
