@@ -1100,13 +1100,14 @@ export interface Proyecto {
   denominacion: string;
   ubicacion: string;
   logo: string;
+  fechaInicioObra: string;
 }
 
 export async function getProyectos(): Promise<Proyecto[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'PROYECTO!A2:F',
+      range: 'PROYECTO!A2:G',
     });
     const rows = response.data.values || [];
     return rows.map((row, index) => ({
@@ -1117,6 +1118,7 @@ export async function getProyectos(): Promise<Proyecto[]> {
       denominacion: row[3] || '',
       ubicacion: row[4] || '',
       logo: row[5] || '',
+      fechaInicioObra: row[6] || '',
     }));
   } catch (error) {
     console.error('Error reading proyectos:', error);
@@ -1141,10 +1143,11 @@ export async function appendProyecto(
       proyecto.denominacion,
       proyecto.ubicacion,
       proyecto.logo || '',
+      proyecto.fechaInicioObra || '',
     ]];
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'PROYECTO!A2:F',
+      range: 'PROYECTO!A2:G',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values },
@@ -1182,6 +1185,9 @@ export async function updateProyecto(
     }
     if (proyecto.logo !== undefined) {
       updates.push({ range: `PROYECTO!F${rowIndex}`, values: [[proyecto.logo]] });
+    }
+    if (proyecto.fechaInicioObra !== undefined) {
+      updates.push({ range: `PROYECTO!G${rowIndex}`, values: [[proyecto.fechaInicioObra]] });
     }
     if (updates.length === 0) {
       console.log('No hay campos para actualizar');

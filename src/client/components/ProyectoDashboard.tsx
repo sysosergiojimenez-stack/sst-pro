@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert, BarChart3 } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert, BarChart3, FileBarChart } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import EPP from './EPP';
@@ -8,6 +8,7 @@ import Bitacora from './Bitacora';
 import Inspecciones from './Inspecciones';
 import MedidasDisciplinarias from './MedidasDisciplinarias';
 import Indicadores from './Indicadores';
+import InformeMensual from './InformeMensual';
 import { apiFetch } from '../lib/api';
 
 interface Proyecto {
@@ -18,13 +19,14 @@ interface Proyecto {
   denominacion: string;
   ubicacion: string;
   logo: string;
+  fechaInicioObra: string;
 }
 
 interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
 
 interface StatsProyecto {
   empleados: number;
@@ -254,6 +256,20 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     );
   }
 
+  if (moduloActivo === 'informe-mensual') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <InformeMensual proyecto={proyecto} />
+      </div>
+    );
+  }
+
   // OVERVIEW
   return (
     <div className="space-y-6 animate-fade-in-up max-w-7xl mx-auto">
@@ -429,6 +445,21 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               </div>
               <h4 className="font-semibold text-base">Indicadores de SST</h4>
               <p className="text-sm text-muted-foreground mt-1">Dashboard consolidado (SST-IND-01) con semáforo de cumplimiento</p>
+            </button>
+
+            {/* Informe Mensual */}
+            <button
+              onClick={() => setModuloActivo('informe-mensual')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                  <FileBarChart size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Informe Mensual</h4>
+              <p className="text-sm text-muted-foreground mt-1">Genera el informe mensual de seguridad e higiene en obra en PDF</p>
             </button>
           </div>
         </div>
