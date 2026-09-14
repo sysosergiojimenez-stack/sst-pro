@@ -333,7 +333,7 @@ function EditarEmpleadoForm({ empleado, onSuccess, empresasExistentes }: any) {
     setIsSaving(true); 
     setError('');
     try {
-      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, {
+      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.docId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -898,7 +898,7 @@ function ConfirmarEliminarModal({ empleado, onSuccess, onCancel }: any) {
     setIsDeleting(true);
     setError('');
     try {
-      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.nroDocumento)}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/empleados/${encodeURIComponent(empleado.docId)}`, { method: 'DELETE' });
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || 'Error al eliminar');

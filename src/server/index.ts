@@ -7,21 +7,11 @@ import { appRouter } from './routers/index.js';
 import { createContext } from './trpc';
 import { serve } from '@hono/node-server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-import { 
-  extraerDatosConGemini, 
-  appendEmpleado, 
-  subirPDFAGCS, 
+import {
+  extraerDatosConGemini,
+  subirPDFAGCS,
   eliminarDeGCS,
-  updateEmpleado, 
-  deleteEmpleado, 
-  getEmpleadoByDocumento,
-  getEmpleados,
-  getEstadisticas,
-  getObras,
-  getEmpresas,
-  getCargos,
   extraerPlanillaIPSConGemini,
-  actualizarEmpleadosIPS,
 } from './lib/googleSheets';
 import { sheets, SPREADSHEET_ID, auth, GCS_BUCKET_NAME } from './lib/googleSheets';
 import {
@@ -31,6 +21,19 @@ import {
   updateProyecto,
   deleteProyecto,
 } from './lib/firestore_proyectos';
+import {
+  appendEmpleado,
+  updateEmpleado,
+  deleteEmpleado,
+  getEmpleadoByDocumento,
+  getEmpleadoById,
+  getEmpleados,
+  getEstadisticas,
+  getObras,
+  getEmpresas,
+  getCargos,
+  actualizarEmpleadosIPS,
+} from './lib/firestore_empleados';
 import {
   getAllCapacitaciones, getCapacitacionesByProyecto,
   appendCapacitacion, updateCapacitacion, deleteCapacitacion,
@@ -182,7 +185,7 @@ function filtrarPorAsignados<T>(c: Context<{ Variables: Variables }>, items: T[]
 }
 
 const app = new Hono<{ Variables: Variables }>();
-const pendingEmployeeCreations = new Map<string, Promise<{ success: boolean; id: number; rowIndex: number; existing?: boolean }>>();
+const pendingEmployeeCreations = new Map<string, Promise<{ success: boolean; id: string; rowIndex: number; existing?: boolean }>>();
 const clientCandidates = [
   path.resolve(process.cwd(), '../client'),
   path.resolve(process.cwd(), 'dist/client'),
@@ -268,8 +271,8 @@ app.post('/api/empleados', async (c) => {
         console.log('Empleado activo ya existe para este documento y empresa; ignorando duplicado:', docKey, empresaKey);
         return c.json({
           success: true,
-          id: existing.rowIndex,
-          rowIndex: existing.rowIndex,
+          id: existing.docId,
+          rowIndex: 0,
           existing: true,
         });
       }
@@ -282,9 +285,9 @@ app.post('/api/empleados', async (c) => {
 
       const creationPromise = (async () => {
         try {
-          const rowIndex = await appendEmpleado(body);
-          console.log('Empleado creado en fila:', rowIndex);
-          return { success: true, id: rowIndex, rowIndex };
+          const docId = await appendEmpleado(body);
+          console.log('Empleado creado:', docId);
+          return { success: true, id: docId, rowIndex: 0 };
         } finally {
           pendingEmployeeCreations.delete(dedupKey);
         }
@@ -294,9 +297,9 @@ app.post('/api/empleados', async (c) => {
       return c.json(await creationPromise);
     }
 
-    const rowIndex = await appendEmpleado(body);
-    console.log('Empleado creado en fila:', rowIndex);
-    return c.json({ success: true, id: rowIndex, rowIndex });
+    const docId = await appendEmpleado(body);
+    console.log('Empleado creado:', docId);
+    return c.json({ success: true, id: docId, rowIndex: 0 });
   } catch (error: any) {
     console.error('Error POST /api/empleados:', error.message);
     return c.json({ error: error.message }, 500);
@@ -304,20 +307,20 @@ app.post('/api/empleados', async (c) => {
 });
 
 // API REST - Actualizar empleado
-app.put('/api/empleados/:rowIndex', async (c) => {
+app.put('/api/empleados/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    
-    console.log('PUT /api/empleados/:rowIndex - Row:', rowIndex);
+
+    console.log('PUT /api/empleados/:id - ID:', id);
     console.log('Datos:', JSON.stringify(body, null, 2));
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await updateEmpleado(rowIndex, body);
-    
+    await updateEmpleado(id, body);
+
     return c.json({ success: true, message: 'Empleado actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/empleados:', error.message);
@@ -326,18 +329,18 @@ app.put('/api/empleados/:rowIndex', async (c) => {
 });
 
 // API REST - Eliminar empleado
-app.delete('/api/empleados/:rowIndex', async (c) => {
+app.delete('/api/empleados/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    
-    console.log('DELETE /api/empleados/:rowIndex - Row:', rowIndex);
+    const id = c.req.param('id');
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    console.log('DELETE /api/empleados/:id - ID:', id);
+
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await deleteEmpleado(rowIndex);
-    
+    await deleteEmpleado(id);
+
     return c.json({ success: true, message: 'Empleado eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/empleados:', error.message);
@@ -1040,7 +1043,7 @@ app.post('/api/declaraciones-ips', async (c) => {
         const mov = cicsMap.get(normalizarDocumento(e.nroDocumento)) || '';
         const periodo = extraido.periodo || '';
         return {
-          rowIndex: e.rowIndex,
+          docId: e.docId,
           ultimaDeclaracionIPS: mov ? `${periodo}-${mov}` : periodo,
           ipsDocumentoUrl: urlPDF,
         };
@@ -1083,7 +1086,7 @@ app.post('/api/declaraciones-ips/reprocesar', async (c) => {
         const mov = cicsMap.get(normalizarDocumento(e.nroDocumento)) || '';
         const periodo = declaracion.periodo || '';
         return {
-          rowIndex: e.rowIndex,
+          docId: e.docId,
           ultimaDeclaracionIPS: mov ? `${periodo}-${mov}` : periodo,
           ipsDocumentoUrl: declaracion.urlPDF,
         };

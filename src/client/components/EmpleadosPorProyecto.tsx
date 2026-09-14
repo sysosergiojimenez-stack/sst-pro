@@ -39,6 +39,7 @@ interface Proyecto {
 }
 
 interface Empleado {
+  docId: string;
   rowIndex: number;
   nroDocumento: string;
   fechaHora?: string;
@@ -436,7 +437,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [showIPSForm, setShowIPSForm] = useState(false);
   const [ipsPdfFile, setIpsPdfFile] = useState<File | null>(null);
   const [ipsLoading, setIpsLoading] = useState(false);
-  const [editingFecha, setEditingFecha] = useState<{ rowIndex: number | null; value: string }>({ rowIndex: null, value: '' });
+  const [editingFecha, setEditingFecha] = useState<{ docId: string | null; value: string }>({ docId: null, value: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchData(); }, [proyecto.denominacion]);
@@ -896,7 +897,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     e.preventDefault();
     try {
       const empleadoEditando = editingEmpleado || filaExpandida;
-      const url = empleadoEditando ? `/api/empleados/${empleadoEditando.rowIndex}` : '/api/empleados';
+      const url = empleadoEditando ? `/api/empleados/${empleadoEditando.docId}` : '/api/empleados';
       const method = empleadoEditando ? 'PUT' : 'POST';
 
       let scanDocumentos: string | undefined;
@@ -910,7 +911,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       }
 
       const body = empleadoEditando
-        ? { ...form, obra: proyecto.denominacion, rowIndex: empleadoEditando.rowIndex }
+        ? { ...form, obra: proyecto.denominacion }
         : { ...form, obra: proyecto.denominacion, ...(scanDocumentos ? { scanDocumentos } : {}) };
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
@@ -922,7 +923,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const handleDelete = async (empleado: Empleado) => {
     if (!confirm(`Eliminar empleado "${empleado.nombres} ${empleado.apellidos}"?`)) return;
     try {
-      const response = await apiFetch(`/api/empleados/${empleado.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/empleados/${empleado.docId}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -933,7 +934,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     const nuevoEstado = estadoActual === 'inactivo' ? 'Activo' : 'Inactivo';
     if (!confirm(`Marcar a "${empleado.nombres} ${empleado.apellidos}" como ${nuevoEstado}?`)) return;
     try {
-      const response = await apiFetch(`/api/empleados/${empleado.rowIndex}`, {
+      const response = await apiFetch(`/api/empleados/${empleado.docId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
@@ -942,29 +943,29 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const handleGuardarFechaInicio = async (rowIndex: number) => {
-    if (editingFecha.rowIndex !== rowIndex) return;
+  const handleGuardarFechaInicio = async (docId: string) => {
+    if (editingFecha.docId !== docId) return;
     try {
-      const response = await apiFetch(`/api/empleados/${rowIndex}`, {
+      const response = await apiFetch(`/api/empleados/${docId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fechaInicioContrato: editingFecha.value }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setEditingFecha({ rowIndex: null, value: '' });
+      setEditingFecha({ docId: null, value: '' });
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
   const renderFechaInicioCell = (emp: Empleado) => {
-    const isEditing = editingFecha.rowIndex === emp.rowIndex;
+    const isEditing = editingFecha.docId === emp.docId;
     return (
       <td
         className="py-3 px-4 text-sm text-muted-foreground block sm:table-cell cursor-pointer"
         onClick={(e) => {
           if (isEditing) return;
           e.stopPropagation();
-          setEditingFecha({ rowIndex: emp.rowIndex, value: emp.fechaInicioContrato || '' });
+          setEditingFecha({ docId: emp.docId, value: emp.fechaInicioContrato || '' });
         }}
       >
         <span className="text-muted-foreground/60 sm:hidden">Fecha Inicio Contrato: </span>
@@ -974,12 +975,12 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             value={editingFecha.value}
             autoFocus
             onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setEditingFecha({ rowIndex: emp.rowIndex, value: e.target.value })}
-            onBlur={() => handleGuardarFechaInicio(emp.rowIndex)}
+            onChange={(e) => setEditingFecha({ docId: emp.docId, value: e.target.value })}
+            onBlur={() => handleGuardarFechaInicio(emp.docId)}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === 'Enter') handleGuardarFechaInicio(emp.rowIndex);
-              if (e.key === 'Escape') setEditingFecha({ rowIndex: null, value: '' });
+              if (e.key === 'Enter') handleGuardarFechaInicio(emp.docId);
+              if (e.key === 'Escape') setEditingFecha({ docId: null, value: '' });
             }}
             className="w-full bg-secondary border border-border rounded-lg px-2 py-1 text-sm"
           />
@@ -1730,10 +1731,10 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                 <tr><td colSpan={10} className="py-4 px-4 text-sm text-muted-foreground text-center">No hay empleados activos</td></tr>
               )}
               {activosOrdenados.map((emp) => (
-                <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
+                <Fragment key={emp.docId}>
                   <tr
                     onClick={() => {
-                      if (filaExpandida?.rowIndex === emp.rowIndex) {
+                      if (filaExpandida?.docId === emp.docId) {
                         setFilaExpandida(null);
                       } else {
                         setShowForm(false);
@@ -1771,7 +1772,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                       </div>
                     </td>
                   </tr>
-                  {filaExpandida?.rowIndex === emp.rowIndex && (
+                  {filaExpandida?.docId === emp.docId && (
                     <tr className="border-b border-border bg-card">
                       <td colSpan={10} className="p-4 sm:p-6">
                         <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
@@ -1787,10 +1788,10 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                     <td colSpan={10} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactivos ({inactivosOrdenados.length})</td>
                   </tr>
                   {inactivosOrdenados.map((emp) => (
-                    <Fragment key={`${emp.rowIndex}-${emp.nroDocumento}`}>
+                    <Fragment key={emp.docId}>
                       <tr
                         onClick={() => {
-                          if (filaExpandida?.rowIndex === emp.rowIndex) {
+                          if (filaExpandida?.docId === emp.docId) {
                             setFilaExpandida(null);
                           } else {
                             setShowForm(false);
@@ -1828,7 +1829,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                           </div>
                         </td>
                       </tr>
-                      {filaExpandida?.rowIndex === emp.rowIndex && (
+                      {filaExpandida?.docId === emp.docId && (
                         <tr className="border-b border-border bg-card">
                           <td colSpan={10} className="p-4 sm:p-6">
                             <h3 className="text-lg font-semibold mb-4">Editar Empleado</h3>
