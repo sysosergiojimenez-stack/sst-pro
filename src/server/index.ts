@@ -20,15 +20,17 @@ import {
   getObras,
   getEmpresas,
   getCargos,
+  extraerPlanillaIPSConGemini,
+  actualizarEmpleadosIPS,
+} from './lib/googleSheets';
+import { sheets, SPREADSHEET_ID, auth, GCS_BUCKET_NAME } from './lib/googleSheets';
+import {
   getProyectos,
   getProyectoById,
   appendProyecto,
   updateProyecto,
   deleteProyecto,
-  extraerPlanillaIPSConGemini,
-  actualizarEmpleadosIPS,
-} from './lib/googleSheets';
-import { sheets, SPREADSHEET_ID, auth, GCS_BUCKET_NAME } from './lib/googleSheets';
+} from './lib/firestore_proyectos';
 import {
   getAllCapacitaciones, getCapacitacionesByProyecto,
   appendCapacitacion, updateCapacitacion, deleteCapacitacion,
@@ -624,9 +626,9 @@ app.get('/api/proyectos/:id', async (c) => {
 app.post('/api/proyectos', async (c) => {
   try {
     const body = await c.req.json();
-    const rowIndex = await appendProyecto(body);
-    console.log('Proyecto creado en fila:', rowIndex);
-    return c.json({ success: true, id: rowIndex, rowIndex });
+    const idRegistro = await appendProyecto(body);
+    console.log('Proyecto creado:', idRegistro);
+    return c.json({ success: true, id: idRegistro, rowIndex: 0 });
   } catch (error: any) {
     console.error('Error POST /api/proyectos:', error.message);
     return c.json({ error: error.message }, 500);
@@ -665,7 +667,7 @@ app.put('/api/proyectos/:id', async (c) => {
       return c.json({ error: 'Proyecto no encontrado' }, 404);
     }
 
-    await updateProyecto(proyecto.rowIndex, body);
+    await updateProyecto(idRegistro, body);
     return c.json({ success: true, message: 'Proyecto actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/proyectos:', error.message);
@@ -684,7 +686,7 @@ app.delete('/api/proyectos/:id', async (c) => {
       return c.json({ error: 'Proyecto no encontrado' }, 404);
     }
 
-    await deleteProyecto(proyecto.rowIndex);
+    await deleteProyecto(idRegistro);
     return c.json({ success: true, message: 'Proyecto eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/proyectos:', error.message);

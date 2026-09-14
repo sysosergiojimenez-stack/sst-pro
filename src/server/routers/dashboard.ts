@@ -1,11 +1,12 @@
 import { router, publicProcedure } from '../trpc';
-import { db } from '../lib/firebaseAdmin';
+import { getDb } from '../lib/firebaseAdmin';
 
 export const dashboardRouter = router({
   get: publicProcedure.query(async () => {
+    const db = getDb();
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     // Obtener todas las colecciones
     const inspeccionesSnap = await db.collection('inspecciones').get();
     const inspecciones = inspeccionesSnap.docs.map((d: any) => d.data());

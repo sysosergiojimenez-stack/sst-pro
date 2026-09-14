@@ -1,5 +1,5 @@
 import { router, publicProcedure } from '../trpc';
-import { db } from '../lib/firebaseAdmin';
+import { getDb } from '../lib/firebaseAdmin';
 import { z } from 'zod';
 
 export const inspeccionesRouter = router({
@@ -11,6 +11,7 @@ export const inspeccionesRouter = router({
     .query(async ({ input }) => {
       console.log('Consultando inspecciones...');
       try {
+        const db = getDb();
         let query = db.collection('inspecciones').orderBy('fecha', 'desc');
         if (input?.plantaId) {
           query = query.where('plantaId', '==', input.plantaId);
@@ -52,6 +53,7 @@ export const inspeccionesRouter = router({
   byId: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
+      const db = getDb();
       const doc = await db.collection('inspecciones').doc(input.id).get();
       if (!doc.exists) throw new Error('No encontrado');
       const data = doc.data();
@@ -85,6 +87,7 @@ export const inspeccionesRouter = router({
       observaciones: z.string().default(''),
     }))
     .mutation(async ({ input }) => {
+      const db = getDb();
       const ref = db.collection('inspecciones').doc();
       
       const riesgoMap = { bajo: 1, medio: 2, alto: 3, critico: 4 };
