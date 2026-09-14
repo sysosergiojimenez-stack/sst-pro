@@ -71,6 +71,7 @@ interface InformeMensualProps {
 }
 
 const CLASIFICACIONES_ACCIDENTE_GRAVE = ['Moderado', 'Grave', 'Fatal'];
+const TIPOS_ACCIDENTE = ['Accidente con baja', 'Accidente sin baja'];
 const CLASIFICACIONES_EPP = ['CASCO', 'GAFAS', 'GUANTES', 'BOTAS', 'ARNÉS', 'ARNES', 'PROTECCION AUDITIVA', 'PROTECCION RESPIRATORIA', 'ROPA DE TRABAJO'];
 
 function nombreMes(mes: string): string {
@@ -160,7 +161,7 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
   };
   const productosStockBajo = productos.filter(p => isStockBajo(p));
 
-  const incidentesAccidente = incidentes.filter(i => i.tipo === 'Accidente');
+  const incidentesAccidente = incidentes.filter(i => TIPOS_ACCIDENTE.includes(i.tipo));
   const totalAccidentes = incidentesAccidente.length;
   const diasPerdidosTotal = incidentesAccidente.reduce((sum, i) => sum + parseInt(i.diasPerdidos || '0'), 0);
   const incidentesGraves = incidentesAccidente.filter(i => CLASIFICACIONES_ACCIDENTE_GRAVE.includes(i.clasificacion));

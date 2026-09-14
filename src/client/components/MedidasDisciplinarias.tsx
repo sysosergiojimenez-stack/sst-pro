@@ -3,6 +3,7 @@ import { ShieldAlert, Plus, Pencil, Trash2, X, Save, Search, FileDown, Calendar,
 import jsPDF from 'jspdf';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, type ProyectoPdfHeader } from '../lib/pdfHeader';
+import { dibujarCheckbox, dibujarCheckboxLinea } from '../lib/pdfWidgets';
 
 interface Amonestacion {
   rowIndex: number;
@@ -782,32 +783,6 @@ async function generarPDFAmonestacion(a: Amonestacion, proyecto?: ProyectoPdfHea
 
   const nombreArchivo = `SST-FOR-12_${(a.nombreApellido || 'amonestacion').replace(/\s+/g, '_')}_${a.fechaNotificacion || ''}.pdf`;
   doc.save(nombreArchivo);
-}
-
-function dibujarCheckbox(doc: jsPDF, x: number, y: number, label: string, marcado: boolean): number {
-  const size = 4;
-  doc.setDrawColor(0, 0, 0);
-  doc.rect(x, y - size + 1, size, size);
-  if (marcado) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('X', x + 0.6, y);
-    doc.setFont('helvetica', 'normal');
-  }
-  doc.text(label, x + size + 2, y);
-  return x + size + 2 + doc.getTextWidth(label) + 10;
-}
-
-function dibujarCheckboxLinea(doc: jsPDF, x: number, y: number, label: string, marcado: boolean, maxWidth: number) {
-  const size = 4;
-  doc.setDrawColor(0, 0, 0);
-  doc.rect(x, y - size + 1, size, size);
-  if (marcado) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('X', x + 0.6, y);
-    doc.setFont('helvetica', 'normal');
-  }
-  const lineas = doc.splitTextToSize(label, maxWidth - size - 3);
-  doc.text(lineas, x + size + 3, y);
 }
 
 function formatearFecha(fecha: string): string {

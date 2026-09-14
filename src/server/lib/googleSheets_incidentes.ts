@@ -38,6 +38,16 @@ export interface Incidente {
   fechaCierre: string;
   diasPerdidos: string;
   costoEstimado: string;
+  causaOtraDetalle: string;
+  nombreTrabajador: string;
+  cedulaTrabajador: string;
+  empresaTrabajador: string;
+  cargoTrabajador: string;
+  lesionDano: string;
+  notificadoIPS: string;
+  fechaNotificacionIPS: string;
+  notificadoMTESS: string;
+  fechaNotificacionMTESS: string;
 }
 
 function rowToIncidente(row: any[], index: number): Incidente {
@@ -65,13 +75,23 @@ function rowToIncidente(row: any[], index: number): Incidente {
     fechaCierre: row[19] || '',
     diasPerdidos: row[20] || '',
     costoEstimado: row[21] || '',
+    causaOtraDetalle: row[22] || '',
+    nombreTrabajador: row[23] || '',
+    cedulaTrabajador: row[24] || '',
+    empresaTrabajador: row[25] || '',
+    cargoTrabajador: row[26] || '',
+    lesionDano: row[27] || '',
+    notificadoIPS: row[28] || '',
+    fechaNotificacionIPS: row[29] || '',
+    notificadoMTESS: row[30] || '',
+    fechaNotificacionMTESS: row[31] || '',
   };
 }
 
 export async function getAllIncidentes(): Promise<Incidente[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A2:V`,
+    range: `${SHEET_NAME}!A2:AF`,
   });
   const rows = response.data.values || [];
   return rows.map((row, index) => rowToIncidente(row, index));
@@ -90,7 +110,7 @@ export async function getIncidenteById(idRegistro: string): Promise<Incidente | 
 export async function getIncidenteByRowIndex(rowIndex: number): Promise<Incidente | null> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowIndex}:V${rowIndex}`,
+    range: `${SHEET_NAME}!A${rowIndex}:AF${rowIndex}`,
   });
   const rows = response.data.values || [];
   if (rows.length === 0) return null;
@@ -121,10 +141,20 @@ export async function appendIncidente(incidente: Omit<Incidente, 'rowIndex'>): P
     incidente.fechaCierre,
     incidente.diasPerdidos,
     incidente.costoEstimado,
+    incidente.causaOtraDetalle,
+    incidente.nombreTrabajador,
+    incidente.cedulaTrabajador,
+    incidente.empresaTrabajador,
+    incidente.cargoTrabajador,
+    incidente.lesionDano,
+    incidente.notificadoIPS,
+    incidente.fechaNotificacionIPS,
+    incidente.notificadoMTESS,
+    incidente.fechaNotificacionMTESS,
   ];
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:V`,
+    range: `${SHEET_NAME}!A:AF`,
     valueInputOption: 'RAW',
     requestBody: { values: [values] },
   });
@@ -158,6 +188,16 @@ export async function updateIncidente(
     fechaCierre: 'T',
     diasPerdidos: 'U',
     costoEstimado: 'V',
+    causaOtraDetalle: 'W',
+    nombreTrabajador: 'X',
+    cedulaTrabajador: 'Y',
+    empresaTrabajador: 'Z',
+    cargoTrabajador: 'AA',
+    lesionDano: 'AB',
+    notificadoIPS: 'AC',
+    fechaNotificacionIPS: 'AD',
+    notificadoMTESS: 'AE',
+    fechaNotificacionMTESS: 'AF',
   };
 
   for (const [key, col] of Object.entries(fields)) {
@@ -179,7 +219,7 @@ export async function updateIncidente(
 export async function deleteIncidente(rowIndex: number): Promise<void> {
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowIndex}:V${rowIndex}`,
+    range: `${SHEET_NAME}!A${rowIndex}:AF${rowIndex}`,
   });
   console.log('Incidente eliminado en fila:', rowIndex);
 }

@@ -167,7 +167,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <Incidentes proyecto={proyecto.denominacion} />
+        <Incidentes proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
       </div>
     );
   }

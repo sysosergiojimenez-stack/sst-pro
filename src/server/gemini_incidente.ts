@@ -24,18 +24,29 @@ Devuelve EXACTAMENTE este formato JSON (sin markdown, sin backticks, solo el JSO
   "fechaIncidente": "YYYY-MM-DD",
   "horaIncidente": "HH:MM",
   "lugar": "lugar exacto donde ocurrio",
-  "tipo": "uno de: Accidente, Enfermedad Laboral, Casi Accidente, Incidente Ambiental, Incidente de Seguridad, Incidente de Salud, Otro",
+  "tipo": "uno de: Accidente con baja, Accidente sin baja, Incidente o cuasi accidente, Enfermedad profesional",
   "clasificacion": "uno de: Leve, Moderado, Grave, Fatal",
   "descripcion": "descripcion detallada de lo que ocurrio",
-  "personasInvolucradas": "nombres y documentos de las personas involucradas",
-  "causasInmediatas": "causas inmediatas identificadas",
+  "nombreTrabajador": "nombre y apellido del trabajador afectado",
+  "cedulaTrabajador": "numero de cedula del trabajador afectado",
+  "empresaTrabajador": "empresa (propia o subcontratista) del trabajador afectado",
+  "cargoTrabajador": "cargo del trabajador afectado",
+  "lesionDano": "lesion o dano sufrido, si aplica",
+  "personasInvolucradas": "nombres y documentos de los testigos",
+  "causasInmediatas": "causas identificadas separadas por coma, cada una debe ser exactamente uno de: Acto inseguro, Condicion insegura, Falta o uso incorrecto de EPP, Falta de capacitacion, Falla o desperfecto de equipo, Otra",
+  "causaOtraDetalle": "detalle de la causa si se marco Otra",
   "causasRaiz": "analisis de causas raiz (5 porques)",
   "accionesCorrectivas": "acciones correctivas propuestas",
   "responsableAcciones": "persona responsable de ejecutar las acciones",
   "fechaCompromiso": "YYYY-MM-DD",
+  "fechaCierre": "YYYY-MM-DD de cierre de las acciones, si consta",
   "diasPerdidos": "numero de dias de incapacidad",
   "costoEstimado": "costo estimado del incidente",
-  "investigador": "nombre del investigador"
+  "investigador": "nombre del investigador del area de SSO",
+  "notificadoIPS": "'true' si se notifico al IPS, si no string vacio",
+  "fechaNotificacionIPS": "YYYY-MM-DD",
+  "notificadoMTESS": "'true' si se notifico al MTESS, si no string vacio",
+  "fechaNotificacionMTESS": "YYYY-MM-DD"
 }
 
 Si algun campo no aparece en el documento, dejalo como string vacio.`;

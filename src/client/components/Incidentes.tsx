@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Pencil, Trash2, X, Save, Search, Brain, FileText, Calendar, Clock, MapPin, Users, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AlertTriangle, Plus, Pencil, Trash2, X, Save, Search, Brain, FileText, Calendar, Clock, MapPin, Users, CheckCircle2, AlertCircle, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { apiFetch } from '../lib/api';
+import { drawPdfHeader, type ProyectoPdfHeader } from '../lib/pdfHeader';
+import { dibujarCheckbox, dibujarCheckboxLinea } from '../lib/pdfWidgets';
 
 interface Incidente {
   rowIndex: number;
@@ -26,17 +29,29 @@ interface Incidente {
   fechaCierre: string;
   diasPerdidos: string;
   costoEstimado: string;
+  causaOtraDetalle: string;
+  nombreTrabajador: string;
+  cedulaTrabajador: string;
+  empresaTrabajador: string;
+  cargoTrabajador: string;
+  lesionDano: string;
+  notificadoIPS: string;
+  fechaNotificacionIPS: string;
+  notificadoMTESS: string;
+  fechaNotificacionMTESS: string;
 }
 
 interface IncidentesProps {
   proyecto?: string;
+  proyectoLogo?: string;
 }
 
-const tiposIncidente = ['Accidente', 'Enfermedad Laboral', 'Casi Accidente', 'Incidente Ambiental', 'Incidente de Seguridad', 'Incidente de Salud', 'Otro'];
+const tiposIncidente = ['Accidente con baja', 'Accidente sin baja', 'Incidente o cuasi accidente', 'Enfermedad profesional'];
 const clasificaciones = ['Leve', 'Moderado', 'Grave', 'Fatal'];
 const estados = ['Abierto', 'En Investigacion', 'Acciones Pendientes', 'Cerrado'];
+const causasOpciones = ['Acto inseguro', 'Condición insegura', 'Falta o uso incorrecto de EPP', 'Falta de capacitación', 'Falla o desperfecto de equipo', 'Otra'];
 
-export default function Incidentes({ proyecto }: IncidentesProps) {
+export default function Incidentes({ proyecto, proyectoLogo }: IncidentesProps) {
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [incidentesFiltrados, setIncidentesFiltrados] = useState<Incidente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +73,17 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
     causasInmediatas: '', causasRaiz: '', accionesCorrectivas: '', responsableAcciones: '',
     fechaCompromiso: '', estado: 'Abierto', evidencias: '', investigador: '',
     diasPerdidos: '', costoEstimado: '',
+    causaOtraDetalle: '', nombreTrabajador: '', cedulaTrabajador: '', empresaTrabajador: '', cargoTrabajador: '',
+    lesionDano: '', notificadoIPS: '', fechaNotificacionIPS: '', notificadoMTESS: '', fechaNotificacionMTESS: '',
+    fechaCierre: '',
   });
+
+  const causasSeleccionadas = form.causasInmediatas ? form.causasInmediatas.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const toggleCausa = (causa: string) => {
+    const set = new Set(causasSeleccionadas);
+    if (set.has(causa)) set.delete(causa); else set.add(causa);
+    setForm({ ...form, causasInmediatas: Array.from(set).join(',') });
+  };
 
   const fetchIncidentes = async () => {
     setLoading(true);
@@ -132,6 +157,12 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
       responsableAcciones: incidente.responsableAcciones, fechaCompromiso: incidente.fechaCompromiso,
       estado: incidente.estado, evidencias: incidente.evidencias, investigador: incidente.investigador,
       diasPerdidos: incidente.diasPerdidos, costoEstimado: incidente.costoEstimado,
+      causaOtraDetalle: incidente.causaOtraDetalle || '', nombreTrabajador: incidente.nombreTrabajador || '',
+      cedulaTrabajador: incidente.cedulaTrabajador || '', empresaTrabajador: incidente.empresaTrabajador || '',
+      cargoTrabajador: incidente.cargoTrabajador || '', lesionDano: incidente.lesionDano || '',
+      notificadoIPS: incidente.notificadoIPS || '', fechaNotificacionIPS: incidente.fechaNotificacionIPS || '',
+      notificadoMTESS: incidente.notificadoMTESS || '', fechaNotificacionMTESS: incidente.fechaNotificacionMTESS || '',
+      fechaCierre: incidente.fechaCierre || '',
     });
     setShowForm(true);
   };
@@ -143,6 +174,9 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
       causasInmediatas: '', causasRaiz: '', accionesCorrectivas: '', responsableAcciones: '',
       fechaCompromiso: '', estado: 'Abierto', evidencias: '', investigador: '',
       diasPerdidos: '', costoEstimado: '',
+      causaOtraDetalle: '', nombreTrabajador: '', cedulaTrabajador: '', empresaTrabajador: '', cargoTrabajador: '',
+      lesionDano: '', notificadoIPS: '', fechaNotificacionIPS: '', notificadoMTESS: '', fechaNotificacionMTESS: '',
+      fechaCierre: '',
     });
   };
 
@@ -313,14 +347,53 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
               <label className="block text-sm font-medium mb-2">Descripcion *</label>
               <textarea value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} rows={3} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required />
             </div>
+
+            <div className="pt-2">
+              <p className="text-sm font-semibold text-muted-foreground mb-3">Datos del trabajador afectado</p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nombre y Apellido</label>
+                  <input type="text" value={form.nombreTrabajador} onChange={(e) => setForm({...form, nombreTrabajador: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">N° de Cédula</label>
+                  <input type="text" value={form.cedulaTrabajador} onChange={(e) => setForm({...form, cedulaTrabajador: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Empresa</label>
+                  <input type="text" value={form.empresaTrabajador} onChange={(e) => setForm({...form, empresaTrabajador: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" placeholder="Propia / subcontratista" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Cargo</label>
+                  <input type="text" value={form.cargoTrabajador} onChange={(e) => setForm({...form, cargoTrabajador: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium mb-2">Personas Involucradas</label>
+              <label className="block text-sm font-medium mb-2">Lesión o Daño (si aplica)</label>
+              <textarea value={form.lesionDano} onChange={(e) => setForm({...form, lesionDano: e.target.value})} rows={2} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Testigos</label>
               <input type="text" value={form.personasInvolucradas} onChange={(e) => setForm({...form, personasInvolucradas: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" placeholder="Nombres y documentos separados por coma" />
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Causas Inmediatas</label>
-                <textarea value={form.causasInmediatas} onChange={(e) => setForm({...form, causasInmediatas: e.target.value})} rows={2} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                <label className="block text-sm font-medium mb-2">Causas Identificadas</label>
+                <div className="grid grid-cols-1 gap-2 bg-secondary border border-border rounded-xl px-4 py-3">
+                  {causasOpciones.map(c => (
+                    <label key={c} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={causasSeleccionadas.includes(c)} onChange={() => toggleCausa(c)} className="w-4 h-4 rounded border-border" />
+                      {c}
+                    </label>
+                  ))}
+                  {causasSeleccionadas.includes('Otra') && (
+                    <input type="text" value={form.causaOtraDetalle} onChange={(e) => setForm({...form, causaOtraDetalle: e.target.value})} placeholder="Especificar otra causa" className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Causas Raiz (5 Porques)</label>
@@ -337,10 +410,14 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
                 <input type="text" value={form.responsableAcciones} onChange={(e) => setForm({...form, responsableAcciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Fecha Compromiso</label>
                 <input type="date" value={form.fechaCompromiso} onChange={(e) => setForm({...form, fechaCompromiso: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Fecha de Cierre</label>
+                <input type="date" value={form.fechaCierre} onChange={(e) => setForm({...form, fechaCierre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Estado</label>
@@ -349,8 +426,32 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Investigador</label>
+                <label className="block text-sm font-medium mb-2">Investigador (Área SSO)</label>
                 <input type="text" value={form.investigador} onChange={(e) => setForm({...form, investigador: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <p className="text-sm font-semibold text-muted-foreground mb-3">Notificación</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" checked={form.notificadoIPS === 'true'} onChange={(e) => setForm({...form, notificadoIPS: e.target.checked ? 'true' : ''})} className="w-4 h-4 rounded border-border" />
+                    Notificado al IPS (plazo 8 días)
+                  </label>
+                  {form.notificadoIPS === 'true' && (
+                    <input type="date" value={form.fechaNotificacionIPS} onChange={(e) => setForm({...form, fechaNotificacionIPS: e.target.value})} className="flex-1 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" checked={form.notificadoMTESS === 'true'} onChange={(e) => setForm({...form, notificadoMTESS: e.target.checked ? 'true' : ''})} className="w-4 h-4 rounded border-border" />
+                    Notificado al MTESS
+                  </label>
+                  {form.notificadoMTESS === 'true' && (
+                    <input type="date" value={form.fechaNotificacionMTESS} onChange={(e) => setForm({...form, fechaNotificacionMTESS: e.target.value})} className="flex-1 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -476,6 +577,7 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => generarPDFIncidente(incidente, proyecto ? { denominacion: proyecto, logo: proyectoLogo } : undefined)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Exportar SST-FOR-08 (PDF)"><FileDown size={16} /></button>
                   <button onClick={() => startEdit(incidente)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                   <button onClick={() => handleDelete(incidente)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                 </div>
@@ -511,4 +613,187 @@ export default function Incidentes({ proyecto }: IncidentesProps) {
       )}
     </div>
   );
+}
+
+async function generarPDFIncidente(incidente: Incidente, proyecto?: ProyectoPdfHeader) {
+  const doc = new jsPDF('portrait', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 15;
+  const marginRight = 15;
+  const contentWidth = pageWidth - marginLeft - marginRight;
+  let y = 15;
+
+  const checkPageBreak = (needed: number) => {
+    if (y + needed > pageHeight - 20) {
+      doc.addPage();
+      y = 15;
+    }
+  };
+
+  y = await drawPdfHeader(doc, proyecto || { denominacion: incidente.proyecto }, y, { marginLeft, marginRight });
+  y += 6;
+
+  doc.setFillColor(30, 58, 95);
+  doc.rect(marginLeft, y, contentWidth, 16, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SST-FOR-08   REPORTE DE INVESTIGACIÓN DE ACCIDENTE / INCIDENTE', marginLeft + 3, y + 10);
+  doc.setTextColor(0, 0, 0);
+  y += 22;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'italic');
+  const subtitulo = doc.splitTextToSize(
+    'Se completa dentro de las 48 horas posteriores a todo accidente, incidente o cuasi accidente, conforme al Reglamento Interno (SST-REG-01, Título VIII)',
+    contentWidth
+  );
+  doc.text(subtitulo, marginLeft, y);
+  y += subtitulo.length * 4 + 4;
+
+  const colWidth = contentWidth / 2 - 3;
+
+  const campoDoble = (label1: string, val1: string, label2: string, val2: string) => {
+    checkPageBreak(15);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(label1, marginLeft, y);
+    doc.text(label2, marginLeft + colWidth + 6, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text(val1 || '-', marginLeft, y);
+    doc.text(val2 || '-', marginLeft + colWidth + 6, y);
+    y += 3;
+    doc.setDrawColor(180, 180, 180);
+    doc.line(marginLeft, y, marginLeft + colWidth, y);
+    doc.line(marginLeft + colWidth + 6, y, marginLeft + contentWidth, y);
+    y += 7;
+  };
+
+  const seccionBoxeada = (titulo: string, contenido: string, minLineas: number) => {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(titulo, marginLeft, y);
+    y += 3;
+    const texto = contenido || '';
+    const lineas = doc.splitTextToSize(texto, contentWidth - 4);
+    const numLineas = Math.max(minLineas, lineas.length);
+    const altoBox = numLineas * 5 + 4;
+    checkPageBreak(altoBox + 8);
+    doc.setDrawColor(180, 180, 180);
+    doc.rect(marginLeft, y, contentWidth, altoBox);
+    doc.setFont('helvetica', 'normal');
+    doc.text(lineas, marginLeft + 2, y + 5);
+    y += altoBox + 6;
+  };
+
+  campoDoble('Obra:', incidente.proyecto, 'Fecha y hora del evento:', `${formatearFecha(incidente.fechaIncidente)} ${incidente.horaIncidente || ''}`.trim());
+  campoDoble('Fecha del reporte:', formatearFecha(incidente.fechaHoraRegistro), 'Investigador (Área de SSO):', incidente.investigador);
+
+  checkPageBreak(16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Tipo de evento', marginLeft, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  let xTipo = marginLeft;
+  for (const t of tiposIncidente) {
+    if (xTipo > marginLeft + contentWidth - 40) { xTipo = marginLeft; y += 7; }
+    xTipo = dibujarCheckbox(doc, xTipo, y, t, incidente.tipo === t);
+  }
+  y += 9;
+
+  checkPageBreak(10);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Datos del trabajador afectado', marginLeft, y);
+  y += 6;
+  campoDoble('Nombre y apellido:', incidente.nombreTrabajador, 'N° de cédula:', incidente.cedulaTrabajador);
+  campoDoble('Empresa (propia / subcontratista):', incidente.empresaTrabajador, 'Cargo:', incidente.cargoTrabajador);
+
+  seccionBoxeada('Descripción del evento', incidente.descripcion, 4);
+  seccionBoxeada('Lesión o daño (si aplica)', incidente.lesionDano, 2);
+  seccionBoxeada('Testigos', incidente.personasInvolucradas, 1);
+
+  checkPageBreak(16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Causas identificadas', marginLeft, y);
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  const causasMarcadas = incidente.causasInmediatas ? incidente.causasInmediatas.split(',').map(s => s.trim()).filter(Boolean) : [];
+  for (const c of causasOpciones) {
+    checkPageBreak(7);
+    const label = c === 'Otra' ? `Otra (especificar): ${causasMarcadas.includes('Otra') ? (incidente.causaOtraDetalle || '______') : '______'}` : c;
+    dibujarCheckboxLinea(doc, marginLeft, y, label, causasMarcadas.includes(c), contentWidth);
+    y += 7;
+  }
+  y += 2;
+
+  seccionBoxeada('Análisis de causa raíz', incidente.causasRaiz, 3);
+
+  checkPageBreak(10);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Acciones correctivas', marginLeft, y);
+  y += 6;
+  campoDoble('Acción correctiva:', incidente.accionesCorrectivas, 'Responsable:', incidente.responsableAcciones);
+  campoDoble('Plazo:', formatearFecha(incidente.fechaCompromiso), 'Fecha de cierre:', formatearFecha(incidente.fechaCierre));
+
+  checkPageBreak(20);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Notificación', marginLeft, y);
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  dibujarCheckboxLinea(
+    doc, marginLeft, y,
+    `Notificado al IPS dentro del plazo de 8 días (Decreto Ley N° 1.860/50, Art. 51) — Fecha: ${incidente.notificadoIPS === 'true' ? formatearFecha(incidente.fechaNotificacionIPS) : '___________'}`,
+    incidente.notificadoIPS === 'true', contentWidth
+  );
+  y += 7;
+  dibujarCheckboxLinea(
+    doc, marginLeft, y,
+    `Notificado al MTESS, si corresponde — Fecha: ${incidente.notificadoMTESS === 'true' ? formatearFecha(incidente.fechaNotificacionMTESS) : '___________'}`,
+    incidente.notificadoMTESS === 'true', contentWidth
+  );
+  y += 12;
+
+  checkPageBreak(30);
+  const firmaAncho = contentWidth / 3 - 4;
+  const firmas = [
+    { x: marginLeft, label: 'Firma del investigador (Área de SSO)' },
+    { x: marginLeft + firmaAncho + 6, label: 'Firma del Jefe de Obra' },
+    { x: marginLeft + (firmaAncho + 6) * 2, label: 'Firma de representante CIPA (si participó)' },
+  ];
+  doc.setDrawColor(0, 0, 0);
+  for (const f of firmas) {
+    doc.line(f.x, y, f.x + firmaAncho, y);
+  }
+  y += 5;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  for (const f of firmas) {
+    const lineas = doc.splitTextToSize(f.label, firmaAncho);
+    doc.text(lineas, f.x + firmaAncho / 2, y, { align: 'center' });
+  }
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    'Formulario SST-FOR-08 — Sistema de Gestión de SST — Conservar archivado en el legajo de la obra / del trabajador según corresponda.',
+    marginLeft, pageHeight - 10
+  );
+
+  const nombreArchivo = `SST-FOR-08_${incidente.idRegistro || 'incidente'}_${incidente.fechaIncidente || ''}.pdf`;
+  doc.save(nombreArchivo);
+}
+
+function formatearFecha(fecha: string): string {
+  if (!fecha) return '-';
+  const d = new Date(fecha + (fecha.length === 10 ? 'T00:00:00' : ''));
+  if (isNaN(d.getTime())) return fecha;
+  return d.toLocaleDateString('es-PY');
 }

@@ -70,8 +70,18 @@ app.post('/api/incidentes', async (c) => {
       fechaCierre: body.fechaCierre || '',
       diasPerdidos: body.diasPerdidos || '',
       costoEstimado: body.costoEstimado || '',
+      causaOtraDetalle: body.causaOtraDetalle || '',
+      nombreTrabajador: body.nombreTrabajador || '',
+      cedulaTrabajador: body.cedulaTrabajador || '',
+      empresaTrabajador: body.empresaTrabajador || '',
+      cargoTrabajador: body.cargoTrabajador || '',
+      lesionDano: body.lesionDano || '',
+      notificadoIPS: body.notificadoIPS || '',
+      fechaNotificacionIPS: body.fechaNotificacionIPS || '',
+      notificadoMTESS: body.notificadoMTESS || '',
+      fechaNotificacionMTESS: body.fechaNotificacionMTESS || '',
     });
-    
+
     return c.json({ success: true, message: 'Incidente registrado', idRegistro });
   } catch (error: any) {
     console.error('Error POST /api/incidentes:', error.message);
