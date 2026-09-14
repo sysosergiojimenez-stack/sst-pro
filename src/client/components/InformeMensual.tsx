@@ -143,9 +143,8 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
 
   const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === EMPRESA_DOTACION);
   const dotacionActivos = empleadosDotacion.filter(e => (e.estado || 'Activo') !== 'Inactivo').sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
-  const dotacionInactivos = empleadosDotacion.filter(e => (e.estado || 'Activo') === 'Inactivo').sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
-  const dotacionesVencidas = [...dotacionActivos, ...dotacionInactivos].filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Vencido').length;
-  const dotacionesProximas = [...dotacionActivos, ...dotacionInactivos].filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Proximo a vencer').length;
+  const dotacionesVencidas = dotacionActivos.filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Vencido').length;
+  const dotacionesProximas = dotacionActivos.filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Proximo a vencer').length;
 
   const totalEntradasByProducto = (codigo: string) => entradas.filter(e => e.codigo === codigo).reduce((sum, e) => sum + parseInt(e.cantidad || '0'), 0);
   const totalSalidasByProducto = (codigo: string) => salidas.filter(s => s.refItem === codigo).reduce((sum, s) => sum + parseInt(s.cantidad || '0'), 0);
@@ -316,17 +315,11 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
       doc.text('Dotación de Indumentaria', marginLeft, y);
       y += 8;
 
-      const dotacionHeaders = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta', 'Estado'];
-      const dotacionRows = [
-        ...dotacionActivos.map(emp => {
-          const d = calcularDotacion(emp, salidas, productos, notasSalida);
-          return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Activo'];
-        }),
-        ...dotacionInactivos.map(emp => {
-          const d = calcularDotacion(emp, salidas, productos, notasSalida);
-          return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Inactivo'];
-        }),
-      ];
+      const dotacionHeaders = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta'];
+      const dotacionRows = dotacionActivos.map(emp => {
+        const d = calcularDotacion(emp, salidas, productos, notasSalida);
+        return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK'];
+      });
 
       autoTable(doc, {
         head: [dotacionHeaders],
