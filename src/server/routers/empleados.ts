@@ -1,5 +1,6 @@
 import { router, publicProcedure } from '../trpc';
-import { getEmpleados, getEmpleadoByDocumento, buscarEmpleados, appendEmpleado, extraerDatosConGemini } from '../lib/googleSheets';
+import { extraerDatosConGemini } from '../lib/googleSheets';
+import { getEmpleados, appendEmpleado } from '../lib/firestore_empleados';
 
 export const empleadosRouter = router({
   list: publicProcedure
@@ -11,7 +12,7 @@ export const empleadosRouter = router({
   byObra: publicProcedure
     .query(async ({ input }: any) => {
       const obra = input?.json?.obra || input?.obra || '';
-      const empleados = await buscarEmpleados({ obra });
+      const empleados = (await getEmpleados()).filter(e => e.obra === obra);
       return empleados;
     }),
 
@@ -78,8 +79,8 @@ export const empleadosRouter = router({
         estado: data.estado || 'Activo',
       };
       
-      const rowIndex = await appendEmpleado(empleadoData);
-      return { id: rowIndex, rowIndex, ...empleadoData };
+      const docId = await appendEmpleado(empleadoData);
+      return { id: docId, docId, ...empleadoData };
     }),
 
   extraerConGemini: publicProcedure
