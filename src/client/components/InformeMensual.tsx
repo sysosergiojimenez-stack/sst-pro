@@ -70,7 +70,6 @@ interface InformeMensualProps {
   proyecto: Proyecto;
 }
 
-const CLASIFICACIONES_ACCIDENTE_GRAVE = ['Moderado', 'Grave', 'Fatal'];
 const TIPOS_ACCIDENTE = ['Accidente con baja', 'Accidente sin baja'];
 const CLASIFICACIONES_EPP = ['CASCO', 'GAFAS', 'GUANTES', 'BOTAS', 'ARNÉS', 'ARNES', 'PROTECCION AUDITIVA', 'PROTECCION RESPIRATORIA', 'ROPA DE TRABAJO'];
 
@@ -164,12 +163,12 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
   const incidentesAccidente = incidentes.filter(i => TIPOS_ACCIDENTE.includes(i.tipo));
   const totalAccidentes = incidentesAccidente.length;
   const diasPerdidosTotal = incidentesAccidente.reduce((sum, i) => sum + parseInt(i.diasPerdidos || '0'), 0);
-  const incidentesGraves = incidentesAccidente.filter(i => CLASIFICACIONES_ACCIDENTE_GRAVE.includes(i.clasificacion));
+  const incidentesConBaja = incidentesAccidente.filter(i => i.tipo === 'Accidente con baja');
   const incidentesAbiertos = incidentes.length;
 
   let fechaUltimoAccidente: Date | null = null;
   let fechaUltimoAccidenteStr = '';
-  for (const i of incidentesGraves) {
+  for (const i of incidentesConBaja) {
     if (!i.fechaIncidente) continue;
     const d = new Date(i.fechaIncidente + (i.fechaIncidente.length === 10 ? 'T00:00:00' : ''));
     if (!isNaN(d.getTime()) && (!fechaUltimoAccidente || d > fechaUltimoAccidente)) {
@@ -353,7 +352,7 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
       const boxesInfo = [
         { label: 'Fecha Inicio Obra', value: proyecto.fechaInicioObra ? formatearFecha(proyecto.fechaInicioObra) : '-' },
         { label: 'Fecha Actual', value: formatearFecha(fechaLocalISO(new Date())) },
-        { label: 'Último Accidente', value: fechaUltimoAccidenteStr ? formatearFecha(fechaUltimoAccidenteStr) : 'Sin registros' },
+        { label: 'Último Accidente con Baja', value: fechaUltimoAccidenteStr ? formatearFecha(fechaUltimoAccidenteStr) : 'Sin registros' },
       ];
       let bx = marginLeft;
       boxesInfo.forEach(b => {
@@ -383,7 +382,7 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
       doc.setTextColor(255, 255, 255);
       doc.text(diasSinAccidentes === null ? '-' : String(diasSinAccidentes), pageWidth / 2, y + 24, { align: 'center' });
       doc.setFontSize(11);
-      doc.text('DÍAS SIN ACCIDENTES', pageWidth / 2, y + 34, { align: 'center' });
+      doc.text('DÍAS SIN ACCIDENTES CON BAJA', pageWidth / 2, y + 34, { align: 'center' });
       doc.setTextColor(0, 0, 0);
       y += 50;
 
