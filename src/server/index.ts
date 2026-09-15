@@ -84,7 +84,7 @@ import type { Usuario } from './lib/googleSheets_usuarios';
 import {
   getAllDeclaracionesIPS,
   appendDeclaracionIPS
-} from './lib/googleSheets_declaraciones_ips';
+} from './lib/firestore_declaraciones_ips';
 import {
   getAllAmonestaciones, getAmonestacionesByProyecto, getAmonestacionById,
   appendAmonestacion, updateAmonestacion, deleteAmonestacion
