@@ -79,12 +79,12 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
 
   const [showGestionChecklist, setShowGestionChecklist] = useState(false);
   const [nuevoItemTexto, setNuevoItemTexto] = useState('');
-  const [editandoTemplateId, setEditandoTemplateId] = useState<number | null>(null);
+  const [editandoTemplateId, setEditandoTemplateId] = useState<string | null>(null);
   const [editandoTemplateTexto, setEditandoTemplateTexto] = useState('');
   const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState('');
   const [grupoGestion, setGrupoGestion] = useState<string | null>(null);
   const [itemsGrupoGestion, setItemsGrupoGestion] = useState<TemplateItem[]>([]);
-  const [editandoGrupoId, setEditandoGrupoId] = useState<number | null>(null);
+  const [editandoGrupoId, setEditandoGrupoId] = useState<string | null>(null);
   const [editandoGrupoNombre, setEditandoGrupoNombre] = useState('');
 
   const [deletingId, setDeletingId] = useState<Inspeccion | null>(null);
@@ -192,7 +192,7 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: checklistItems }),
       });
-      await apiFetch(`/api/inspecciones/${showChecklistForm.rowIndex}`, {
+      await apiFetch(`/api/inspecciones/${showChecklistForm.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
@@ -367,7 +367,7 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
     if (!editingInspeccion) return;
     setGuardandoEdicion(true);
     try {
-      await apiFetch(`/api/inspecciones/${editingInspeccion.rowIndex}`, {
+      await apiFetch(`/api/inspecciones/${editingInspeccion.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
@@ -383,7 +383,7 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
   const confirmarEliminar = async () => {
     if (!deletingId) return;
     try {
-      await apiFetch(`/api/inspecciones/${deletingId.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/inspecciones/${deletingId.idRegistro}`, { method: 'DELETE' });
       setDeletingId(null);
       fetchData();
     } catch (err: any) {
@@ -405,9 +405,9 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
     }
   };
 
-  const handleGuardarEdicionGrupo = async (rowIndex: number) => {
+  const handleGuardarEdicionGrupo = async (id: string) => {
     try {
-      await apiFetch(`/api/checklist-templates/${rowIndex}`, {
+      await apiFetch(`/api/checklist-templates/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre: editandoGrupoNombre }),
       });
@@ -418,10 +418,10 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
     }
   };
 
-  const handleEliminarGrupo = async (rowIndex: number) => {
+  const handleEliminarGrupo = async (id: string) => {
     if (!confirm('Eliminar este checklist? Tambien se pierden sus items.')) return;
     try {
-      await apiFetch(`/api/checklist-templates/${rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/checklist-templates/${id}`, { method: 'DELETE' });
       if (grupoGestion) setGrupoGestion(null);
       fetchData();
     } catch (err: any) {
@@ -466,9 +466,9 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
     }
   };
 
-  const handleGuardarEdicionTemplate = async (rowIndex: number) => {
+  const handleGuardarEdicionTemplate = async (id: string) => {
     try {
-      await apiFetch(`/api/checklist-template/${rowIndex}`, {
+      await apiFetch(`/api/checklist-template/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texto: editandoTemplateTexto }),
       });
@@ -479,9 +479,9 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
     }
   };
 
-  const handleEliminarTemplateItem = async (rowIndex: number) => {
+  const handleEliminarTemplateItem = async (id: string) => {
     try {
-      await apiFetch(`/api/checklist-template/${rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/checklist-template/${id}`, { method: 'DELETE' });
       abrirItemsDeGrupoRefresh();
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -648,12 +648,12 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
 
           <div className="space-y-2 mb-4">
             {templateGroups.map((g) => (
-              <div key={g.rowIndex}>
+              <div key={g.id}>
                 <div className="flex items-center gap-2 bg-secondary/30 p-2.5 rounded-xl text-sm">
-                  {editandoGrupoId === g.rowIndex ? (
+                  {editandoGrupoId === g.id ? (
                     <>
                       <input type="text" value={editandoGrupoNombre} onChange={(e) => setEditandoGrupoNombre(e.target.value)} className="flex-1 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                      <button onClick={() => handleGuardarEdicionGrupo(g.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
+                      <button onClick={() => handleGuardarEdicionGrupo(g.id)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
                       <button onClick={() => setEditandoGrupoId(null)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
                     </>
                   ) : (
@@ -662,26 +662,26 @@ export default function Inspecciones({ proyecto, proyectoLogo }: InspeccionesPro
                         {grupoGestion === g.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         {g.nombre}
                       </button>
-                      <button onClick={() => { setEditandoGrupoId(g.rowIndex); setEditandoGrupoNombre(g.nombre); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
-                      <button onClick={() => handleEliminarGrupo(g.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
+                      <button onClick={() => { setEditandoGrupoId(g.id); setEditandoGrupoNombre(g.nombre); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
+                      <button onClick={() => handleEliminarGrupo(g.id)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
                     </>
                   )}
                 </div>
                 {grupoGestion === g.id && (
                   <div className="ml-4 mt-2 mb-2 space-y-2 border-l-2 border-border pl-4">
                     {itemsGrupoGestion.map((t) => (
-                      <div key={t.rowIndex} className="flex items-center gap-2 bg-secondary/20 p-3 sm:p-2 rounded-lg text-sm">
-                        {editandoTemplateId === t.rowIndex ? (
+                      <div key={t.id} className="flex items-center gap-2 bg-secondary/20 p-3 sm:p-2 rounded-lg text-sm">
+                        {editandoTemplateId === t.id ? (
                           <>
                             <input type="text" value={editandoTemplateTexto} onChange={(e) => setEditandoTemplateTexto(e.target.value)} className="flex-1 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
-                            <button onClick={() => handleGuardarEdicionTemplate(t.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
+                            <button onClick={() => handleGuardarEdicionTemplate(t.id)} className="p-2.5 sm:p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Save size={14} /></button>
                             <button onClick={() => setEditandoTemplateId(null)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X size={14} /></button>
                           </>
                         ) : (
                           <>
                             <span className="flex-1">{t.texto}</span>
-                            <button onClick={() => { setEditandoTemplateId(t.rowIndex); setEditandoTemplateTexto(t.texto); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
-                            <button onClick={() => handleEliminarTemplateItem(t.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
+                            <button onClick={() => { setEditandoTemplateId(t.id); setEditandoTemplateTexto(t.texto); }} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary"><Pencil size={14} /></button>
+                            <button onClick={() => handleEliminarTemplateItem(t.id)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400"><Trash2 size={14} /></button>
                           </>
                         )}
                       </div>

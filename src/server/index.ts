@@ -51,13 +51,13 @@ import {
 import {
   getAllInspecciones, getInspeccionesByProyecto,
   appendInspeccion, updateInspeccion, deleteInspeccion,
-  getAllInspeccionItems, getItemsByInspeccion,
+  getItemsByInspeccion,
   appendInspeccionItemsBatch, deleteItemsByInspeccion,
   getChecklistTemplate, appendChecklistTemplateItem,
   updateChecklistTemplateItem, deleteChecklistTemplateItem,
   getChecklistTemplateGroups, appendChecklistTemplateGroup,
   updateChecklistTemplateGroup, deleteChecklistTemplateGroup
-} from './lib/googleSheets_inspecciones';
+} from './lib/firestore_inspecciones';
 import {
   getAllIncidentes,
   getIncidentesByProyecto,
@@ -2422,11 +2422,11 @@ app.post('/api/inspecciones', async (c) => {
   }
 });
 
-app.put('/api/inspecciones/:rowIndex', async (c) => {
+app.put('/api/inspecciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    await updateInspeccion(rowIndex, body);
+    await updateInspeccion(id, body);
     return c.json({ success: true, message: 'Inspeccion actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/inspecciones:', error.message);
@@ -2434,10 +2434,10 @@ app.put('/api/inspecciones/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/inspecciones/:rowIndex', async (c) => {
+app.delete('/api/inspecciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    await deleteInspeccion(rowIndex);
+    const id = c.req.param('id');
+    await deleteInspeccion(id);
     return c.json({ success: true, message: 'Inspeccion eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/inspecciones:', error.message);
@@ -2534,11 +2534,11 @@ app.post('/api/checklist-templates', async (c) => {
   }
 });
 
-app.put('/api/checklist-templates/:rowIndex', async (c) => {
+app.put('/api/checklist-templates/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    await updateChecklistTemplateGroup(rowIndex, body);
+    await updateChecklistTemplateGroup(id, body);
     return c.json({ success: true, message: 'Template actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/checklist-templates:', error.message);
@@ -2546,10 +2546,10 @@ app.put('/api/checklist-templates/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/checklist-templates/:rowIndex', async (c) => {
+app.delete('/api/checklist-templates/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    await deleteChecklistTemplateGroup(rowIndex);
+    const id = c.req.param('id');
+    await deleteChecklistTemplateGroup(id);
     return c.json({ success: true, message: 'Template eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/checklist-templates:', error.message);
@@ -2582,11 +2582,11 @@ app.post('/api/checklist-template', async (c) => {
   }
 });
 
-app.put('/api/checklist-template/:rowIndex', async (c) => {
+app.put('/api/checklist-template/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    await updateChecklistTemplateItem(rowIndex, body);
+    await updateChecklistTemplateItem(id, body);
     return c.json({ success: true, message: 'Item actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/checklist-template:', error.message);
@@ -2594,10 +2594,10 @@ app.put('/api/checklist-template/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/checklist-template/:rowIndex', async (c) => {
+app.delete('/api/checklist-template/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    await deleteChecklistTemplateItem(rowIndex);
+    const id = c.req.param('id');
+    await deleteChecklistTemplateItem(id);
     return c.json({ success: true, message: 'Item eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/checklist-template:', error.message);
