@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 
-import { getAllIncidentes, getIncidentesByProyecto, getIncidenteById, getIncidenteByRowIndex, appendIncidente, updateIncidente, deleteIncidente } from './lib/googleSheets_incidentes';
+import { getAllIncidentes, getIncidentesByProyecto, getIncidenteById, appendIncidente, updateIncidente, deleteIncidente } from './lib/firestore_incidentes';
 
 const app = new Hono();
 
@@ -90,20 +90,17 @@ app.post('/api/incidentes', async (c) => {
 });
 
 // PUT - Actualizar incidente
-app.put('/api/incidentes/:rowIndex', async (c) => {
+app.put('/api/incidentes/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    
-    console.log('PUT /api/incidentes/:rowIndex - Row:', rowIndex);
-    console.log('Datos:', JSON.stringify(body, null, 2));
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await updateIncidente(rowIndex, body);
-    
+    await updateIncidente(id, body);
+
     return c.json({ success: true, message: 'Incidente actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/incidentes:', error.message);
@@ -112,18 +109,16 @@ app.put('/api/incidentes/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar incidente
-app.delete('/api/incidentes/:rowIndex', async (c) => {
+app.delete('/api/incidentes/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    
-    console.log('DELETE /api/incidentes/:rowIndex - Row:', rowIndex);
+    const id = c.req.param('id');
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await deleteIncidente(rowIndex);
-    
+    await deleteIncidente(id);
+
     return c.json({ success: true, message: 'Incidente eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/incidentes:', error.message);

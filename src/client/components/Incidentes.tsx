@@ -126,9 +126,9 @@ export default function Incidentes({ proyecto, proyectoLogo }: IncidentesProps) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editing ? `/api/incidentes/${editing.rowIndex}` : '/api/incidentes';
+      const url = editing ? `/api/incidentes/${encodeURIComponent(editing.idRegistro)}` : '/api/incidentes';
       const method = editing ? 'PUT' : 'POST';
-      const body = editing ? { ...form, rowIndex: editing.rowIndex } : { ...form, fechaHoraRegistro: new Date().toISOString() };
+      const body = editing ? { ...form } : { ...form, fechaHoraRegistro: new Date().toISOString() };
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowForm(false); setEditing(null);
@@ -140,7 +140,7 @@ export default function Incidentes({ proyecto, proyectoLogo }: IncidentesProps) 
   const handleDelete = async (incidente: Incidente) => {
     if (!confirm(`Eliminar incidente "${incidente.idRegistro}"?`)) return;
     try {
-      const response = await apiFetch(`/api/incidentes/${incidente.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/incidentes/${encodeURIComponent(incidente.idRegistro)}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchIncidentes();
     } catch (err: any) { setError(err.message); }
