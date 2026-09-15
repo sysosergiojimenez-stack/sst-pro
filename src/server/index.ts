@@ -95,7 +95,7 @@ import {
   getAllIndicadoresMensual, getIndicadoresMensualByProyecto,
   appendIndicadorMensual, updateIndicadorMensual, deleteIndicadorMensual,
   getAllIndicadoresMetas, updateIndicadorMeta
-} from './lib/googleSheets_indicadores';
+} from './lib/firestore_indicadores';
 import { INDICADORES_DEF, calcularDashboard } from './lib/indicadoresCalc';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -1160,16 +1160,16 @@ app.post('/api/indicadores/mensual', async (c) => {
 });
 
 // PUT - Actualizar carga mensual
-app.put('/api/indicadores/mensual/:rowIndex', async (c) => {
+app.put('/api/indicadores/mensual/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await updateIndicadorMensual(rowIndex, body);
+    await updateIndicadorMensual(id, body);
     return c.json({ success: true, message: 'Carga mensual actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/indicadores/mensual:', error.message);
@@ -1178,13 +1178,13 @@ app.put('/api/indicadores/mensual/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar carga mensual
-app.delete('/api/indicadores/mensual/:rowIndex', async (c) => {
+app.delete('/api/indicadores/mensual/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteIndicadorMensual(rowIndex);
+    await deleteIndicadorMensual(id);
     return c.json({ success: true, message: 'Carga mensual eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/indicadores/mensual:', error.message);

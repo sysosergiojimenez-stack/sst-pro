@@ -153,10 +153,10 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editing ? `/api/indicadores/mensual/${editing.rowIndex}` : '/api/indicadores/mensual';
+      const url = editing ? `/api/indicadores/mensual/${editing.idRegistro}` : '/api/indicadores/mensual';
       const method = editing ? 'PUT' : 'POST';
       const body = editing
-        ? { ...form, rowIndex: editing.rowIndex }
+        ? { ...form }
         : { ...form, userEmail: userEmail || 'sistema' };
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
@@ -168,7 +168,7 @@ export default function Indicadores({ proyecto, userEmail }: IndicadoresProps) {
   const handleDelete = async (r: IndicadorMensual) => {
     if (!confirm(`Eliminar la carga de "${r.proyecto}" — ${r.mes}?`)) return;
     try {
-      const response = await apiFetch(`/api/indicadores/mensual/${r.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/indicadores/mensual/${r.idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchMensual();
     } catch (err: any) { setError(err.message); }
