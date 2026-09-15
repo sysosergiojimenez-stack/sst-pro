@@ -207,10 +207,10 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
       const fotosUrls = await subirFotosAmonestacion(fotosNuevas, idRegistro);
       const fotosGuardar = JSON.stringify([...fotosExistentes, ...fotosUrls]);
 
-      const url = editing ? `/api/amonestaciones/${editing.rowIndex}` : '/api/amonestaciones';
+      const url = editing ? `/api/amonestaciones/${editing.idRegistro}` : '/api/amonestaciones';
       const method = editing ? 'PUT' : 'POST';
       const body = editing
-        ? { ...form, fotos: fotosGuardar, rowIndex: editing.rowIndex }
+        ? { ...form, fotos: fotosGuardar }
         : { ...form, idRegistro, fotos: fotosGuardar, userEmail: userEmail || 'sistema' };
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
@@ -222,7 +222,7 @@ export default function MedidasDisciplinarias({ proyecto, userEmail }: MedidasDi
   const handleDelete = async (a: Amonestacion) => {
     if (!confirm(`Eliminar la notificacion de "${a.nombreApellido}"?`)) return;
     try {
-      const response = await apiFetch(`/api/amonestaciones/${a.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/amonestaciones/${a.idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchAmonestaciones();
     } catch (err: any) { setError(err.message); }

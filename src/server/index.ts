@@ -90,7 +90,7 @@ import {
 import {
   getAllAmonestaciones, getAmonestacionesByProyecto, getAmonestacionById,
   appendAmonestacion, updateAmonestacion, deleteAmonestacion
-} from './lib/googleSheets_amonestaciones';
+} from './lib/firestore_amonestaciones';
 import {
   getAllIndicadoresMensual, getIndicadoresMensualByProyecto,
   appendIndicadorMensual, updateIndicadorMensual, deleteIndicadorMensual,
@@ -936,16 +936,16 @@ app.post('/api/amonestaciones', async (c) => {
 });
 
 // PUT - Actualizar amonestacion
-app.put('/api/amonestaciones/:rowIndex', async (c) => {
+app.put('/api/amonestaciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
 
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
 
-    await updateAmonestacion(rowIndex, body);
+    await updateAmonestacion(id, body);
     return c.json({ success: true, message: 'Amonestacion actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/amonestaciones:', error.message);
@@ -954,13 +954,13 @@ app.put('/api/amonestaciones/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar amonestacion
-app.delete('/api/amonestaciones/:rowIndex', async (c) => {
+app.delete('/api/amonestaciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteAmonestacion(rowIndex);
+    await deleteAmonestacion(id);
     return c.json({ success: true, message: 'Amonestacion eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/amonestaciones:', error.message);
