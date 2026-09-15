@@ -1,4 +1,4 @@
-import type { IndicadorMensual } from './googleSheets_indicadores';
+import type { IndicadorMensual } from './firestore_indicadores';
 
 // Formulas y metas de referencia segun SST-IND-01 (Matriz_Indicadores_SST.xlsx,
 // hojas "Matriz de Indicadores" y "Dashboard"). Solo la Meta es editable por
