@@ -9,6 +9,7 @@ import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader'
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
 
 interface Producto {
+  docId: string;
   rowIndex: number;
   codigo: string;
   proyecto: string;
@@ -542,7 +543,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     e.preventDefault();
     if (!showProductoEdit) return;
     try {
-      const response = await apiFetch(`/api/epp/productos/${showProductoEdit.rowIndex}`, {
+      const response = await apiFetch(`/api/epp/productos/${showProductoEdit.docId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingProductoForm),
       });
@@ -556,7 +557,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const handleDeleteProducto = async (producto: Producto) => {
     if (!confirm(`Eliminar producto "${producto.nombre}"? Esto no borra las entradas/salidas ya registradas con este codigo.`)) return;
     try {
-      const response = await apiFetch(`/api/epp/productos/${producto.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/epp/productos/${producto.docId}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -618,7 +619,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     if (!confirm(`Eliminar ${productosSeleccionados.size} producto(s) seleccionado(s)? Esto no borra las entradas/salidas ya registradas.`)) return;
     try {
       const aEliminar = productos.filter(p => productosSeleccionados.has(p.codigo));
-      await Promise.all(aEliminar.map(p => apiFetch(`/api/epp/productos/${p.rowIndex}`, { method: 'DELETE' })));
+      await Promise.all(aEliminar.map(p => apiFetch(`/api/epp/productos/${p.docId}`, { method: 'DELETE' })));
       setProductosSeleccionados(new Set());
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -746,7 +747,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const handleDeleteRemision = async (remision: Remision) => {
     if (!confirm(`Eliminar remision "${remision.numeracion}"?`)) return;
     try {
-      const response = await apiFetch(`/api/epp/remisiones/${remision.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/epp/remisiones/${remision.idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -773,7 +774,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     if (!confirm(`Eliminar ${remisionesSeleccionadas.size} remision(es) seleccionada(s)?`)) return;
     try {
       const aEliminar = remisiones.filter(r => remisionesSeleccionadas.has(r.idRegistro));
-      await Promise.all(aEliminar.map(r => apiFetch(`/api/epp/remisiones/${r.rowIndex}`, { method: 'DELETE' })));
+      await Promise.all(aEliminar.map(r => apiFetch(`/api/epp/remisiones/${r.idRegistro}`, { method: 'DELETE' })));
       const cantidad = aEliminar.length;
       setRemisionesSeleccionadas(new Set());
       fetchData();
@@ -785,7 +786,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     e.preventDefault();
     if (!showRemisionEdit) return;
     try {
-      const response = await apiFetch(`/api/epp/remisiones/${showRemisionEdit.rowIndex}`, {
+      const response = await apiFetch(`/api/epp/remisiones/${showRemisionEdit.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingRemisionForm),
       });
@@ -813,9 +814,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     try {
       const salidasRelacionadas = salidasByNota(nota.idRegistro);
       for (const salida of salidasRelacionadas) {
-        await apiFetch(`/api/epp/salidas/${salida.rowIndex}`, { method: 'DELETE' });
+        await apiFetch(`/api/epp/salidas/${salida.idRegistro}`, { method: 'DELETE' });
       }
-      await apiFetch(`/api/epp/notas-salida/${nota.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/epp/notas-salida/${nota.idRegistro}`, { method: 'DELETE' });
       fetchData();
       alert('Nota y salidas relacionadas eliminadas');
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -845,9 +846,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       for (const nota of aEliminar) {
         const salidasRelacionadas = salidasByNota(nota.idRegistro);
         for (const salida of salidasRelacionadas) {
-          await apiFetch(`/api/epp/salidas/${salida.rowIndex}`, { method: 'DELETE' });
+          await apiFetch(`/api/epp/salidas/${salida.idRegistro}`, { method: 'DELETE' });
         }
-        await apiFetch(`/api/epp/notas-salida/${nota.rowIndex}`, { method: 'DELETE' });
+        await apiFetch(`/api/epp/notas-salida/${nota.idRegistro}`, { method: 'DELETE' });
       }
       const cantidad = aEliminar.length;
       setNotasSeleccionadas(new Set());
@@ -856,9 +857,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const handleUpdateCantidadSalida = async (rowIndex: number, nuevaCantidad: string) => {
+  const handleUpdateCantidadSalida = async (idRegistro: string, nuevaCantidad: string) => {
     try {
-      const response = await apiFetch(`/api/epp/salidas/${rowIndex}`, {
+      const response = await apiFetch(`/api/epp/salidas/${idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cantidad: nuevaCantidad }),
       });
@@ -867,10 +868,10 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const handleEliminarSalidaDeNota = async (rowIndex: number) => {
+  const handleEliminarSalidaDeNota = async (idRegistro: string) => {
     if (!confirm('Eliminar este item de la nota?')) return;
     try {
-      const response = await apiFetch(`/api/epp/salidas/${rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/epp/salidas/${idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -885,7 +886,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       return;
     }
     try {
-      const response = await apiFetch(`/api/epp/notas-salida/${showNotaEdit.rowIndex}`, {
+      const response = await apiFetch(`/api/epp/notas-salida/${showNotaEdit.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...editingNotaForm, quienRetira: quienRetiraFinal }),
       });
@@ -943,14 +944,14 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       const prod = productos.find(p => p.codigo === s.refItem);
       return s.refItem.toLowerCase().includes(termBusqueda) || prod?.nombre.toLowerCase().includes(termBusqueda);
     });
-  }).sort((a, b) => b.rowIndex - a.rowIndex);
+  }).sort((a, b) => b.fechaHora.localeCompare(a.fechaHora));
 
   const solicitudesFiltradas = solicitudes.filter(s =>
     s.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.supervisor.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.actividad.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => b.rowIndex - a.rowIndex);
+  ).sort((a, b) => b.fechaHora.localeCompare(a.fechaHora));
 
   const startNewSolicitud = () => {
     setEditingSolicitud(null);
@@ -1010,7 +1011,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         userEmail: 'sistema',
         idRegistro: editingSolicitud ? editingSolicitud.idRegistro : `SOL-${Date.now()}`,
       };
-      const url = editingSolicitud ? `/api/epp/solicitudes-suministro/${editingSolicitud.rowIndex}` : '/api/epp/solicitudes-suministro';
+      const url = editingSolicitud ? `/api/epp/solicitudes-suministro/${editingSolicitud.idRegistro}` : '/api/epp/solicitudes-suministro';
       const method = editingSolicitud ? 'PUT' : 'POST';
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
@@ -1022,7 +1023,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const handleDeleteSolicitud = async (s: SolicitudSuministro) => {
     if (!confirm(`Eliminar solicitud Nº ${s.numero}?`)) return;
     try {
-      const response = await apiFetch(`/api/epp/solicitudes-suministro/${s.rowIndex}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/epp/solicitudes-suministro/${s.idRegistro}`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
@@ -1033,7 +1034,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const idx = estados.indexOf(s.estado || 'Pendiente');
     const nuevoEstado = estados[(idx + 1) % estados.length];
     try {
-      const response = await apiFetch(`/api/epp/solicitudes-suministro/${s.rowIndex}`, {
+      const response = await apiFetch(`/api/epp/solicitudes-suministro/${s.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
@@ -2236,11 +2237,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                         <input
                                           type="number"
                                           defaultValue={s.cantidad}
-                                          onBlur={(e) => { if (e.target.value !== s.cantidad && e.target.value.trim() !== '') handleUpdateCantidadSalida(s.rowIndex, e.target.value); }}
+                                          onBlur={(e) => { if (e.target.value !== s.cantidad && e.target.value.trim() !== '') handleUpdateCantidadSalida(s.idRegistro, e.target.value); }}
                                           className="w-20 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm text-center input-glow focus:outline-none focus:border-primary/50"
                                           min="1"
                                         />
-                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.rowIndex)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
+                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.idRegistro)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
                                       </div>
                                     );
                                   })}

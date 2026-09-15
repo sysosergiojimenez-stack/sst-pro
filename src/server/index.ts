@@ -67,16 +67,18 @@ import {
   deleteIncidente,
 } from './lib/firestore_incidentes';
 import {
-  getAllProductos, getProductosByProyecto, getProductoByCodigo, getProductoByRowIndex, appendProducto, updateProducto, deleteProducto,
-  getAllRemisiones, getRemisionesByProyecto, getRemisionById, getRemisionByNumeracion, appendRemision, updateRemision, deleteRemision,
+  getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
+} from './lib/googleSheets_epp';
+import {
+  getAllProductos, getProductosByProyecto, getProductoByCodigo, getProductoById, appendProducto, updateProducto, deleteProducto,
+  getAllRemisiones, getRemisionesByProyecto, getRemisionById, appendRemision, updateRemision, deleteRemision,
   getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
   getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida,
-  getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
-  getAllSolicitudesSuministro, getSolicitudesSuministroByProyecto, getSolicitudSuministroById, getNextNumeroSolicitud, appendSolicitudSuministro, updateSolicitudSuministro, deleteSolicitudSuministro,
+  getAllSolicitudesSuministro, getSolicitudesSuministroByProyecto, getNextNumeroSolicitud, appendSolicitudSuministro, updateSolicitudSuministro, deleteSolicitudSuministro,
   getAllAjustesStock, getAjustesStockByProyecto, appendAjusteStock, updateAjusteStock, deleteAjusteStock,
-  updateEntradasCodigo, updateSalidasRefItem, updateAjustesCodigoProducto
-} from './lib/googleSheets_epp';
+  updateEntradasCodigo, updateSalidasRefItem, updateAjustesCodigoProducto,
+} from './lib/firestore_epp';
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
 } from './lib/googleSheets_usuarios';
@@ -1398,21 +1400,17 @@ app.post('/api/epp/remisiones', async (c) => {
 });
 
 // DELETE - Eliminar remision (y sus entradas relacionadas)
-app.delete('/api/epp/remisiones/:rowIndex', async (c) => {
+app.delete('/api/epp/remisiones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    const remisiones = await getAllRemisiones();
-    const remision = remisiones.find(r => r.rowIndex === rowIndex);
-    if (remision) {
-      const entradasRelacionadas = await getEntradasByRemisionId(remision.idRegistro);
-      for (const entrada of entradasRelacionadas) {
-        await deleteEntrada(entrada.rowIndex);
-      }
+    const entradasRelacionadas = await getEntradasByRemisionId(id);
+    for (const entrada of entradasRelacionadas) {
+      await deleteEntrada(entrada.idRegistro);
     }
-    await deleteRemision(rowIndex);
+    await deleteRemision(id);
     return c.json({ success: true, message: 'Remision y entradas relacionadas eliminadas' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/remisiones:', error.message);
@@ -1421,15 +1419,15 @@ app.delete('/api/epp/remisiones/:rowIndex', async (c) => {
 });
 
 // PUT - Actualizar remision
-app.put('/api/epp/remisiones/:rowIndex', async (c) => {
+app.put('/api/epp/remisiones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    
-    await updateRemision(rowIndex, body);
+
+    await updateRemision(id, body);
     return c.json({ success: true, message: 'Remision actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/remisiones:', error.message);
@@ -1502,16 +1500,13 @@ app.post('/api/epp/entradas/batch', async (c) => {
   }
 });
 // DELETE - Eliminar entrada
-app.delete('/api/epp/entradas/:rowIndex', async (c) => {
+app.delete('/api/epp/entradas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `Entradas!A${rowIndex}:H${rowIndex}`,
-    });
+    await deleteEntrada(id);
     return c.json({ success: true, message: 'Entrada eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/entradas:', error.message);
@@ -1725,14 +1720,14 @@ app.post('/api/epp/notas-salida', async (c) => {
 });
 
 // PUT - Actualizar nota de salida
-app.put('/api/epp/notas-salida/:rowIndex', async (c) => {
+app.put('/api/epp/notas-salida/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await updateNotaSalida(rowIndex, body);
+    await updateNotaSalida(id, body);
     return c.json({ success: true, message: 'Nota de salida actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/notas-salida:', error.message);
@@ -1741,13 +1736,13 @@ app.put('/api/epp/notas-salida/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar nota de salida
-app.delete('/api/epp/notas-salida/:rowIndex', async (c) => {
+app.delete('/api/epp/notas-salida/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteNotaSalida(rowIndex);
+    await deleteNotaSalida(id);
     return c.json({ success: true, message: 'Nota de salida eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/notas-salida:', error.message);
@@ -1810,14 +1805,14 @@ app.post('/api/epp/solicitudes-suministro', async (c) => {
 });
 
 // PUT - Actualizar solicitud de suministro
-app.put('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
+app.put('/api/epp/solicitudes-suministro/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await updateSolicitudSuministro(rowIndex, body);
+    await updateSolicitudSuministro(id, body);
     return c.json({ success: true, message: 'Solicitud de suministro actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/solicitudes-suministro:', error.message);
@@ -1826,13 +1821,13 @@ app.put('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar solicitud de suministro
-app.delete('/api/epp/solicitudes-suministro/:rowIndex', async (c) => {
+app.delete('/api/epp/solicitudes-suministro/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteSolicitudSuministro(rowIndex);
+    await deleteSolicitudSuministro(id);
     return c.json({ success: true, message: 'Solicitud de suministro eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/solicitudes-suministro:', error.message);
@@ -1887,14 +1882,14 @@ app.post('/api/epp/ajustes-stock', async (c) => {
 });
 
 // PUT - Actualizar ajuste de stock
-app.put('/api/epp/ajustes-stock/:rowIndex', async (c) => {
+app.put('/api/epp/ajustes-stock/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await updateAjusteStock(rowIndex, body);
+    await updateAjusteStock(id, body);
     return c.json({ success: true, message: 'Ajuste de stock actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/epp/ajustes-stock:', error.message);
@@ -1903,13 +1898,13 @@ app.put('/api/epp/ajustes-stock/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar ajuste de stock
-app.delete('/api/epp/ajustes-stock/:rowIndex', async (c) => {
+app.delete('/api/epp/ajustes-stock/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteAjusteStock(rowIndex);
+    await deleteAjusteStock(id);
     return c.json({ success: true, message: 'Ajuste de stock eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/ajustes-stock:', error.message);
@@ -2052,14 +2047,14 @@ app.put('/api/marcaciones-biometricas/:rowIndex', async (c) => {
 });
 
 // PUT - Editar salida
-app.put('/api/epp/salidas/:rowIndex', async (c) => {
+app.put('/api/epp/salidas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
     const body = await c.req.json();
-    await updateSalida(rowIndex, {
+    await updateSalida(id, {
       refItem: body.refItem,
       cantidad: body.cantidad,
       trabajadorRetira: body.trabajadorRetira,
@@ -2072,13 +2067,13 @@ app.put('/api/epp/salidas/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar salida
-app.delete('/api/epp/salidas/:rowIndex', async (c) => {
+app.delete('/api/epp/salidas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteSalida(rowIndex);
+    await deleteSalida(id);
     return c.json({ success: true, message: 'Salida eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/salidas:', error.message);
@@ -2087,15 +2082,15 @@ app.delete('/api/epp/salidas/:rowIndex', async (c) => {
 });
 
 // PUT - Actualizar producto (codigo, nombre, proveedor, clasificacion, stock minimo)
-app.put('/api/epp/productos/:rowIndex', async (c) => {
+app.put('/api/epp/productos/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    const oldProducto = await getProductoByRowIndex(rowIndex);
-    await updateProducto(rowIndex, body);
+    const oldProducto = await getProductoById(id);
+    await updateProducto(id, body);
     if (oldProducto && body.codigo && body.codigo !== oldProducto.codigo) {
       await Promise.all([
         updateEntradasCodigo(oldProducto.codigo, body.codigo),
@@ -2110,13 +2105,13 @@ app.put('/api/epp/productos/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/epp/productos/:rowIndex', async (c) => {
+app.delete('/api/epp/productos/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteProducto(rowIndex);
+    await deleteProducto(id);
     return c.json({ success: true, message: 'Producto eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/epp/productos:', error.message);
