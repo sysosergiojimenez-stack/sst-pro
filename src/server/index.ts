@@ -42,12 +42,10 @@ import {
 } from './lib/firestore_capacitaciones';
 import {
   getAllBitacora, getBitacoraByProyecto,
-  appendBitacora, updateBitacora, deleteBitacora
-} from './lib/googleSheets_bitacora';
-import {
+  appendBitacora, updateBitacora, deleteBitacora,
   getAllTareas, getTareasByProyecto, getTareasByBitacora,
-  getTareaByRowIndex, appendTarea, updateTarea, deleteTarea
-} from './lib/googleSheets_bitacora_tareas.js';
+  getTareaById, appendTarea, updateTarea, deleteTarea
+} from './lib/firestore_bitacora';
 import {
   getAllInspecciones, getInspeccionesByProyecto,
   appendInspeccion, updateInspeccion, deleteInspeccion,
@@ -2217,11 +2215,11 @@ app.post('/api/bitacora', async (c) => {
   }
 });
 
-app.put('/api/bitacora/:rowIndex', async (c) => {
+app.put('/api/bitacora/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    await updateBitacora(rowIndex, body);
+    await updateBitacora(id, body);
     return c.json({ success: true, message: 'Entrada actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/bitacora:', error.message);
@@ -2229,10 +2227,10 @@ app.put('/api/bitacora/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/bitacora/:rowIndex', async (c) => {
+app.delete('/api/bitacora/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    await deleteBitacora(rowIndex);
+    const id = c.req.param('id');
+    await deleteBitacora(id);
     return c.json({ success: true, message: 'Entrada eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/bitacora:', error.message);
@@ -2314,17 +2312,17 @@ app.post('/api/bitacora/tareas', async (c) => {
   }
 });
 
-app.put('/api/bitacora/tareas/:rowIndex', async (c) => {
+app.put('/api/bitacora/tareas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
     const body = await c.req.json();
 
     // Si se vuelve a pendiente, eliminar fotos "despues" de GCS y limpiar datos de completado
     if (body.estado === 'pendiente') {
-      const tareaActual = await getTareaByRowIndex(rowIndex);
+      const tareaActual = await getTareaById(id);
       if (tareaActual && tareaActual.estado === 'completada') {
         const fotosDespues = JSON.parse(tareaActual.fotosDespues || '[]') as string[];
         for (const url of fotosDespues) {
@@ -2336,7 +2334,7 @@ app.put('/api/bitacora/tareas/:rowIndex', async (c) => {
       }
     }
 
-    await updateTarea(rowIndex, body);
+    await updateTarea(id, body);
     return c.json({ success: true, message: 'Tarea actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/bitacora/tareas:', error.message);
@@ -2344,13 +2342,13 @@ app.put('/api/bitacora/tareas/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/bitacora/tareas/:rowIndex', async (c) => {
+app.delete('/api/bitacora/tareas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteTarea(rowIndex);
+    await deleteTarea(id);
     return c.json({ success: true, message: 'Tarea eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/bitacora/tareas:', error.message);

@@ -564,7 +564,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
     setGuardando(true);
     try {
       if (editingEntrada) {
-        await apiFetch(`/api/bitacora/${editingEntrada.rowIndex}`, {
+        await apiFetch(`/api/bitacora/${editingEntrada.idRegistro}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         });
@@ -587,7 +587,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
   const confirmarEliminar = async () => {
     if (!deletingId) return;
     try {
-      await apiFetch(`/api/bitacora/${deletingId.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/bitacora/${deletingId.idRegistro}`, { method: 'DELETE' });
       setDeletingId(null);
       fetchData();
     } catch (err: any) {
@@ -643,7 +643,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
   const handleEliminarTarea = async (tarea: BitacoraTarea) => {
     if (!confirm('¿Eliminar esta tarea?')) return;
     try {
-      await apiFetch(`/api/bitacora/tareas/${tarea.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/bitacora/tareas/${tarea.idRegistro}`, { method: 'DELETE' });
       fetchData();
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -654,7 +654,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
     if (tarea.estado === 'completada') {
       // Volver a pendiente; el backend elimina las fotos "despues" de GCS y limpia los datos de completado
       try {
-        await apiFetch(`/api/bitacora/tareas/${tarea.rowIndex}`, {
+        await apiFetch(`/api/bitacora/tareas/${tarea.idRegistro}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ estado: 'pendiente' }),
         });
@@ -697,7 +697,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
       for (const nombre of nombres) {
         historial.push({ nombre, fecha: ahora });
       }
-      await apiFetch(`/api/bitacora/tareas/${completarTarea.rowIndex}`, {
+      await apiFetch(`/api/bitacora/tareas/${completarTarea.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'completada',
@@ -762,7 +762,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
     setGuardandoTarea(true);
     try {
       const fotosNuevasUrls = await subirFotosTarea(editarTareaFotosAntesNuevas, editandoTarea.idRegistro);
-      await apiFetch(`/api/bitacora/tareas/${editandoTarea.rowIndex}`, {
+      await apiFetch(`/api/bitacora/tareas/${editandoTarea.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           descripcion: editarTareaDescripcion.trim(),
@@ -790,7 +790,7 @@ export default function Bitacora({ proyecto }: BitacoraProps) {
     }
     setGuardandoTarea(true);
     try {
-      await apiFetch(`/api/bitacora/tareas/${moviendoTarea.rowIndex}`, {
+      await apiFetch(`/api/bitacora/tareas/${moviendoTarea.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idBitacora: nuevaUbicacionId }),
       });
