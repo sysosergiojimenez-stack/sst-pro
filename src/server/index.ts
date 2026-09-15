@@ -39,7 +39,7 @@ import {
   appendCapacitacion, updateCapacitacion, deleteCapacitacion,
   getAsistenciasByCapacitacion, getAsistenciasByEmpleado,
   appendAsistenciasBatch, deleteAsistenciasByCapacitacion
-} from './lib/googleSheets_capacitaciones';
+} from './lib/firestore_capacitaciones';
 import {
   getAllBitacora, getBitacoraByProyecto,
   appendBitacora, updateBitacora, deleteBitacora
@@ -2792,14 +2792,14 @@ Extrae TODOS los nombres que veas, sin omitir ninguno.`;
   }
 });
 
-app.put('/api/capacitaciones/:rowIndex', async (c) => {
+app.put('/api/capacitaciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await updateCapacitacion(rowIndex, body);
+    await updateCapacitacion(id, body);
     return c.json({ success: true, message: 'Charla actualizada' });
   } catch (error: any) {
     console.error('Error PUT /api/capacitaciones:', error.message);
@@ -2807,13 +2807,13 @@ app.put('/api/capacitaciones/:rowIndex', async (c) => {
   }
 });
 
-app.delete('/api/capacitaciones/:rowIndex', async (c) => {
+app.delete('/api/capacitaciones/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteCapacitacion(rowIndex);
+    await deleteCapacitacion(id);
     return c.json({ success: true, message: 'Charla eliminada' });
   } catch (error: any) {
     console.error('Error DELETE /api/capacitaciones:', error.message);

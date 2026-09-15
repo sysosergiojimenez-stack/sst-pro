@@ -132,7 +132,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
     e.preventDefault();
     try {
       if (editingCharla) {
-        await apiFetch(`/api/capacitaciones/${editingCharla.rowIndex}`, {
+        await apiFetch(`/api/capacitaciones/${editingCharla.idRegistro}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         });
@@ -167,7 +167,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
   const handleDelete = async (cap: Capacitacion) => {
     if (!confirm(`Eliminar charla "${cap.titulo}"?`)) return;
     try {
-      await apiFetch(`/api/capacitaciones/${cap.rowIndex}`, { method: 'DELETE' });
+      await apiFetch(`/api/capacitaciones/${cap.idRegistro}`, { method: 'DELETE' });
       fetchData();
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -289,7 +289,7 @@ export default function CapacitacionesCharlas({ proyecto }: CapacitacionesCharla
       const batchData = await batchRes.json();
 
       // 6. Actualizar la charla (la columna vieja de "asistentes" ya no se usa)
-      await apiFetch(`/api/capacitaciones/${showRealizarForm.rowIndex}`, {
+      await apiFetch(`/api/capacitaciones/${showRealizarForm.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: 'Realizada',
