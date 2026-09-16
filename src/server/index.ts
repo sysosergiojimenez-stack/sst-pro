@@ -3,10 +3,7 @@ import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { appRouter } from './routers/index.js';
-import { createContext } from './trpc';
 import { serve } from '@hono/node-server';
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import {
   extraerDatosConGemini,
   subirPDFAGCS,
@@ -1264,18 +1261,6 @@ app.get('/api/indicadores/dashboard', async (c) => {
     console.error('Error GET /api/indicadores/dashboard:', error.message);
     return c.json({ error: error.message }, 500);
   }
-});
-
-
-  
-app.use('/trpc/*', async (c) => {
-  return fetchRequestHandler({
-    endpoint: '/trpc',
-    req: c.req.raw,
-    router: appRouter,
-    createContext: () => createContext({ req: c.req }),
-    batching: { enabled: true },
-  });
 });
 
 // Servir frontend estatico

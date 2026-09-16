@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpBatchLink } from '@trpc/client';
-import { trpc } from './lib/trpc';
 import { Sun, Moon, Building2, Shield, Menu, X, ChevronLeft, LogOut, UserCircle, HardHat, ChevronDown, WifiOff, Plus, Calculator } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import AdminUsuarios from './components/AdminUsuarios';
 import Proyectos from './components/Proyectos';
 import ProyectoDashboard from './components/ProyectoDashboard';
-
-const queryClient = new QueryClient();
-const trpcClient = trpc.createClient({
-  links: [httpBatchLink({ url: '/trpc' })],
-});
 
 type View = 'proyectos' | 'admin' | 'calculadora';
 
@@ -89,8 +81,6 @@ export default function App() {
   ];
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
         <div className="min-h-screen bg-background text-foreground flex">
           {!online && (
             <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white text-xs font-medium py-2 px-4 flex items-center justify-center gap-2 shadow-lg">
@@ -294,7 +284,5 @@ export default function App() {
             </div>
           </main>
         </div>
-      </QueryClientProvider>
-    </trpc.Provider>
   );
 }
