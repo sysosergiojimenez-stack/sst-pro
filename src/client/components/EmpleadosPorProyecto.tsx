@@ -572,7 +572,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     horasExtras: number;
     horasAusentes: number;
     estado: string;
-    rowIndex?: number;
+    docId?: string;
     modificado: boolean;
   };
   const [filasControlHoras, setFilasControlHoras] = useState<FilaControlHoras[]>([]);
@@ -668,7 +668,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       horasExtras,
       horasAusentes,
       estado,
-      rowIndex: fila.rowIndex,
+      docId: fila.docId,
       modificado: fila.modificado || false,
     };
   };
@@ -698,7 +698,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         nombreDia,
         horaEntrada: m?.horaEntrada || '',
         horaSalida: m?.horaSalida || '',
-        rowIndex: m?.rowIndex,
+        docId: m?.docId,
       }, fechaISO, diaSemana, esFeriado));
     }
     setFilasControlHoras(nuevasFilas);
@@ -721,7 +721,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   };
 
   const guardarCambiosHoras = async () => {
-    const filasModificadas = filasControlHoras.filter(f => f.modificado && f.rowIndex);
+    const filasModificadas = filasControlHoras.filter(f => f.modificado && f.docId);
     if (filasModificadas.length === 0) {
       alert('No hay cambios para guardar.');
       return;
@@ -729,7 +729,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     setGuardandoHoras(true);
     try {
       for (const fila of filasModificadas) {
-        await apiFetch(`/api/marcaciones-biometricas/${fila.rowIndex}`, {
+        await apiFetch(`/api/marcaciones-biometricas/${encodeURIComponent(fila.docId!)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

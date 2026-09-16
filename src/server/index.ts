@@ -66,7 +66,7 @@ import {
 } from './lib/firestore_incidentes';
 import {
   getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
-} from './lib/googleSheets_epp';
+} from './lib/firestore_marcaciones';
 import {
   getAllProductos, getProductosByProyecto, getProductoByCodigo, getProductoById, appendProducto, updateProducto, deleteProducto,
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, appendRemision, updateRemision, deleteRemision,
@@ -2025,14 +2025,14 @@ app.post('/api/marcaciones-biometricas/importar', async (c) => {
 });
 
 // PUT - Editar marcacion biometrica
-app.put('/api/marcaciones-biometricas/:rowIndex', async (c) => {
+app.put('/api/marcaciones-biometricas/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
     const body = await c.req.json();
-    await updateMarcacionBiometrica(rowIndex, {
+    await updateMarcacionBiometrica(id, {
       horaEntrada: body.horaEntrada,
       horaSalida: body.horaSalida,
       horasRaw: body.horasRaw,
