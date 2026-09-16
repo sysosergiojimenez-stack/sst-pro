@@ -85,7 +85,7 @@ export default function AdminUsuarios() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editingUser ? `/api/usuarios/${editingUser.rowIndex}` : '/api/usuarios';
+      const url = editingUser ? `/api/usuarios/${editingUser.idRegistro}` : '/api/usuarios';
       const method = editingUser ? 'PUT' : 'POST';
 
       const body: any = { ...form };
@@ -118,7 +118,7 @@ export default function AdminUsuarios() {
   const handleDelete = async (u: Usuario) => {
     if (!confirm(`Eliminar usuario ${u.nombres} ${u.apellidos}?`)) return;
     try {
-      const res = await apiFetch(`/api/usuarios/${u.rowIndex}`, {
+      const res = await apiFetch(`/api/usuarios/${u.idRegistro}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

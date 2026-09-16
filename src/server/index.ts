@@ -79,8 +79,8 @@ import {
 } from './lib/firestore_epp';
 import {
   getAllUsuarios, getUsuarioByCorreo, getUsuarioById, appendUsuario, updateUsuario, deleteUsuario
-} from './lib/googleSheets_usuarios';
-import type { Usuario } from './lib/googleSheets_usuarios';
+} from './lib/firestore_usuarios';
+import type { Usuario } from './lib/firestore_usuarios';
 import {
   getAllDeclaracionesIPS,
   appendDeclaracionIPS
@@ -1627,14 +1627,14 @@ app.post('/api/usuarios', async (c) => {
 });
 
 // PUT - Actualizar usuario
-app.put('/api/usuarios/:rowIndex', async (c) => {
+app.put('/api/usuarios/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
+    const id = c.req.param('id');
     const body = await c.req.json();
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    
+
     const updates: any = {};
     if (body.rol) updates.rol = body.rol;
     if (body.nombres) updates.nombres = body.nombres;
@@ -1643,7 +1643,7 @@ app.put('/api/usuarios/:rowIndex', async (c) => {
     if (body.contrasena) updates.contrasena = hashPassword(body.contrasena);
     if (Array.isArray(body.proyectosAsignados)) updates.proyectosAsignados = body.proyectosAsignados;
 
-    await updateUsuario(rowIndex, updates);
+    await updateUsuario(id, updates);
     return c.json({ success: true, message: 'Usuario actualizado' });
   } catch (error: any) {
     console.error('Error PUT /api/usuarios:', error.message);
@@ -1652,13 +1652,13 @@ app.put('/api/usuarios/:rowIndex', async (c) => {
 });
 
 // DELETE - Eliminar usuario
-app.delete('/api/usuarios/:rowIndex', async (c) => {
+app.delete('/api/usuarios/:id', async (c) => {
   try {
-    const rowIndex = parseInt(c.req.param('rowIndex'));
-    if (isNaN(rowIndex) || rowIndex <= 0) {
-      return c.json({ error: 'rowIndex invalido' }, 400);
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
     }
-    await deleteUsuario(rowIndex);
+    await deleteUsuario(id);
     return c.json({ success: true, message: 'Usuario eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/usuarios:', error.message);
