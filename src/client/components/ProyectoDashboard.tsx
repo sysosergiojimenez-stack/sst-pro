@@ -3,6 +3,7 @@ import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, Ch
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import PermisosTrabajo from './PermisosTrabajo';
+import EquiposCriticos from './EquiposCriticos';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
 import Bitacora from './Bitacora';
@@ -27,7 +28,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'permisos' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'permisos' | 'equipos-criticos' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
 
 interface StatsProyecto {
   empleados: number;
@@ -37,6 +38,8 @@ interface StatsProyecto {
   incidentesCerrados: number;
   permisosAbiertos: number;
   permisosCerrados: number;
+  equiposActivos: number;
+  equiposDeBaja: number;
   eppItems: number;
   eppBajoStock: number;
   capacitacionesPendientes: number;
@@ -50,6 +53,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     empleados: 0, empleadosActivos: 0, empleadosInactivos: 0,
     incidentesAbiertos: 0, incidentesCerrados: 0,
     permisosAbiertos: 0, permisosCerrados: 0,
+    equiposActivos: 0, equiposDeBaja: 0,
     eppItems: 0, eppBajoStock: 0,
     capacitacionesPendientes: 0, capacitacionesRealizadas: 0
   });
@@ -103,6 +107,13 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         const permisosAbiertos = permisos.filter((p: any) => (p.estado || '').toLowerCase() === 'abierto').length;
         const permisosCerrados = permisos.length - permisosAbiertos;
 
+        // Fetch equipos criticos
+        const eqRes = await apiFetch(`/api/equipos-criticos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const eqData = eqRes.ok ? await eqRes.json() : { data: [] };
+        const equiposCriticos = eqData.data || [];
+        const equiposDeBaja = equiposCriticos.filter((e: any) => (e.estado || '').toLowerCase() === 'de baja').length;
+        const equiposActivos = equiposCriticos.length - equiposDeBaja;
+
         // Fetch EPP productos
         const eppRes = await apiFetch(`/api/epp/productos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const eppData = eppRes.ok ? await eppRes.json() : { data: [] };
@@ -142,6 +153,8 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           incidentesCerrados: cerrados,
           permisosAbiertos,
           permisosCerrados,
+          equiposActivos,
+          equiposDeBaja,
           eppItems: productos.length,
           eppBajoStock: bajoStock,
           capacitacionesPendientes: capPendientes,
@@ -195,6 +208,20 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
         <PermisosTrabajo proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
+      </div>
+    );
+  }
+
+  if (moduloActivo === 'equipos-criticos') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <EquiposCriticos proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
       </div>
     );
   }
@@ -382,6 +409,32 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                     {stats.permisosAbiertos > 0 && <span className="badge badge-danger">{stats.permisosAbiertos} abiertos</span>}
                     {stats.permisosCerrados > 0 && <span className="badge badge-muted">{stats.permisosCerrados} cerrados</span>}
                     {(stats.permisosAbiertos + stats.permisosCerrados) === 0 && <span className="badge badge-muted">Sin permisos</span>}
+                  </>
+                )}
+              </div>
+            </button>
+
+            {/* Equipos Criticos */}
+            <button
+              onClick={() => setModuloActivo('equipos-criticos')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg">
+                  <HardHat size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-orange-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Equipos Críticos</h4>
+              <p className="text-sm text-muted-foreground mt-1">Arneses, eslingas y paneles con historial de inspección</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    {stats.equiposActivos > 0 && <span className="badge badge-success">{stats.equiposActivos} activos</span>}
+                    {stats.equiposDeBaja > 0 && <span className="badge badge-muted">{stats.equiposDeBaja} de baja</span>}
+                    {(stats.equiposActivos + stats.equiposDeBaja) === 0 && <span className="badge badge-muted">Sin equipos</span>}
                   </>
                 )}
               </div>

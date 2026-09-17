@@ -70,6 +70,14 @@ import {
   deletePermiso,
 } from './lib/firestore_permisos';
 import {
+  getAllEquiposCriticos,
+  getEquiposCriticosByProyecto,
+  getEquipoCriticoById,
+  appendEquipoCritico,
+  updateEquipoCritico,
+  deleteEquipoCritico,
+} from './lib/firestore_equipos_criticos';
+import {
   getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
 } from './lib/firestore_marcaciones';
 import {
@@ -930,6 +938,110 @@ app.delete('/api/permisos/:id', async (c) => {
     return c.json({ success: true, message: 'Permiso eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/permisos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - EQUIPOS CRITICOS (SST-FOR-04 / 09 / 14)
+// ============================================
+
+// GET - Listar todos los equipos criticos
+app.get('/api/equipos-criticos', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getEquiposCriticosByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllEquiposCriticos(), e => e.proyecto);
+    }
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/equipos-criticos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Obtener un equipo critico por ID
+app.get('/api/equipos-criticos/:id', async (c) => {
+  try {
+    const idRegistro = c.req.param('id');
+    const equipo = await getEquipoCriticoById(idRegistro);
+    if (!equipo) {
+      return c.json({ error: 'Equipo no encontrado' }, 404);
+    }
+    return c.json({ success: true, data: equipo });
+  } catch (error: any) {
+    console.error('Error GET /api/equipos-criticos/:id:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear equipo critico
+app.post('/api/equipos-criticos', async (c) => {
+  try {
+    const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
+    const idRegistro = body.idRegistro || `EQC-${Date.now()}`;
+
+    await appendEquipoCritico({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      categoria: body.categoria || '',
+      identificador: body.identificador || '',
+      tipo: body.tipo || '',
+      marcaModelo: body.marcaModelo || '',
+      capacidadNominal: body.capacidadNominal || '',
+      fechaFabricacion: body.fechaFabricacion || '',
+      fechaPrimerUso: body.fechaPrimerUso || '',
+      ubicacionAsignada: body.ubicacionAsignada || '',
+      estado: body.estado || 'Activo',
+      fechaBaja: body.fechaBaja || '',
+      motivoBaja: body.motivoBaja || '',
+      autorizanteBaja: body.autorizanteBaja || '',
+      inspecciones: Array.isArray(body.inspecciones) ? body.inspecciones : [],
+    });
+
+    return c.json({ success: true, message: 'Equipo registrado', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/equipos-criticos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar equipo critico
+app.put('/api/equipos-criticos/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
+    }
+    await updateEquipoCritico(id, body);
+    return c.json({ success: true, message: 'Equipo actualizado' });
+  } catch (error: any) {
+    console.error('Error PUT /api/equipos-criticos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar equipo critico
+app.delete('/api/equipos-criticos/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
+    }
+    await deleteEquipoCritico(id);
+    return c.json({ success: true, message: 'Equipo eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/equipos-criticos:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
