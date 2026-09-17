@@ -315,6 +315,69 @@
   }
   .btn-pdf:hover{ filter:brightness(1.08); }
 
+  /* Checklist SST-FOR-16 + guardado */
+  .check-row{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+    line-height:1.4;
+  }
+  .check-row:last-child{ border-bottom:none; }
+  .check-row input[type=checkbox]{
+    width:18px; height:18px;
+    margin-top:1px;
+    flex-shrink:0;
+    accent-color: var(--navy);
+  }
+  .panel-full{ grid-column: 1 / -1; }
+  .save-bar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-top:18px;
+  }
+  .btn-save{
+    padding:11px 22px;
+    border-radius:8px;
+    border:none;
+    background: var(--navy);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn-save:hover{ filter:brightness(1.12); }
+  .btn-save:disabled{ opacity:.5; cursor:not-allowed; }
+  .save-msg{ font-size:13px; }
+  .save-msg.ok{ color:var(--ok); }
+  .save-msg.bad{ color:var(--bad); }
+  .firma-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px 16px;
+    margin-top:14px;
+  }
+  @media (max-width:600px){ .firma-grid{ grid-template-columns:1fr; } }
+  .saved-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+    margin-top:8px;
+  }
+  .saved-table th, .saved-table td{
+    border:1px solid var(--line);
+    padding:7px 9px;
+    text-align:left;
+  }
+  .saved-table th{ background:#FAF9F6; color:var(--navy); font-weight:700; }
+  .saved-table .del-btn{
+    background:none; border:none; color:var(--bad); cursor:pointer; font-size:12px; font-weight:700;
+  }
+
   .print-header{ display:none; }
 
   @page{ margin:10mm; }
@@ -342,6 +405,7 @@
        se pasa a flexbox, que sí corta cada columna de forma prolija entre hojas. */
     .wrap{
       display:flex;
+      flex-wrap:wrap;
       gap:14px;
       align-items:flex-start;
       padding:16px 18px 30px;
@@ -354,6 +418,9 @@
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
     }
+    .panel-full{ flex-basis:100%; break-before:page; }
+    .check-row{ break-inside:avoid; padding:5px 0; }
+    .firma-grid{ break-inside:avoid; }
     .panel h2{ margin-bottom:10px; padding-bottom:6px; }
 
     .field{ margin-bottom:8px; }
@@ -404,8 +471,20 @@
 
   <div class="head-id-row no-print">
     <div class="head-id-field">
+      <label for="obraFachada">Obra / fachada <span class="req">*</span></label>
+      <input type="text" id="obraFachada" placeholder="Nombre de la obra" autocomplete="off">
+    </div>
+    <div class="head-id-field">
       <label for="identificacionAndamio">Identificación del andamio <span class="req">*</span></label>
       <input type="text" id="identificacionAndamio" placeholder="Ej: AND-01 · Fachada Norte" autocomplete="off">
+    </div>
+    <div class="head-id-field">
+      <label for="responsableCalculo">Responsable del cálculo</label>
+      <input type="text" id="responsableCalculo" placeholder="Área técnica" autocomplete="off">
+    </div>
+    <div class="head-id-field">
+      <label for="fechaCalculo">Fecha</label>
+      <input type="date" id="fechaCalculo">
     </div>
     <button type="button" class="btn-pdf" onclick="exportarPDF()">⭳ Exportar PDF</button>
   </div>
@@ -556,6 +635,43 @@
     </table>
   </div>
 
+  <!-- CHECKLIST + AUTORIZACION (SST-FOR-16, seccion 4 y "Resultado y autorizacion") -->
+  <div class="panel panel-full">
+    <h2>4. Checklist de puntos críticos</h2>
+    <div id="checklistBox"></div>
+
+    <div class="divider"></div>
+
+    <h2 style="margin-top:0;">Resultado y autorización</h2>
+    <div id="statusFinal" class="status neutral">
+      <strong>Resultado</strong>
+      Completá el checklist para ver el resultado.
+    </div>
+
+    <div class="firma-grid">
+      <div class="field">
+        <label>Firma del área técnica / ingeniería de obra</label>
+        <input type="text" id="firmaAreaTecnica" placeholder="Nombre y apellido">
+      </div>
+      <div class="field">
+        <label>Firma del Jefe de Obra</label>
+        <input type="text" id="firmaJefeObra" placeholder="Nombre y apellido">
+      </div>
+    </div>
+
+    <div class="save-bar no-print">
+      <button type="button" class="btn-save" id="btnGuardar" onclick="guardarRegistro()">Guardar registro (SST-FOR-16)</button>
+      <span class="save-msg" id="saveMsg"></span>
+    </div>
+  </div>
+
+</div>
+
+<div class="wrap no-print" style="padding-top:0;">
+  <div class="panel panel-full">
+    <h2>Registros guardados</h2>
+    <div id="registrosGuardadosBox" style="font-size:13px; color:var(--muted);">Cargando...</div>
+  </div>
 </div>
 
 <div class="foot-note">
@@ -579,6 +695,7 @@ const tabla = [
 ];
 
 const $ = id => document.getElementById(id);
+let ultimoResultado = {};
 const fmt = n => Number.isFinite(n) ? n.toLocaleString('es-PY', {maximumFractionDigits:1}) : '—';
 
 function nearest(arr, val){
@@ -747,6 +864,14 @@ function calcular(){
   }
 
   drawBalance(contrapesoReal>0 ? contrapesoReal*b : G*b, F*a);
+
+  const n = (contrapesoReal > 0 && F > 0 && a > 0) ? (contrapesoReal * b) / (F * a) : 0;
+  const cargaMax = (contrapesoReal > 0 && a > 0 && b > 0) ? (contrapesoReal * b) / (2 * a) - pesoBase : 0;
+  ultimoResultado = {
+    F, G, n, cargaMax,
+    resultadoEstabilidad: (contrapesoReal >= G && n >= 2 && contrapesoReal > 0) ? 'Conforme' : 'No conforme',
+  };
+  actualizarChecklistAuto();
 }
 
 function actualizarPrintHeader(){
@@ -776,11 +901,201 @@ $('identificacionAndamio').addEventListener('input', () => {
   $('identificacionAndamio').classList.remove('invalid');
 });
 
+// ============================================
+// Checklist de puntos criticos (SST-FOR-16, seccion 4) + guardado
+// ============================================
+
+const CHECKLIST_ITEMS = [
+  'Extensión frontal (a) dentro del rango del fabricante (1,3 a 1,7 m)',
+  'Distancia entre bases (b) corresponde a la extensión utilizada (4,6 m para 1,3-1,5 m; 4,4 m para 1,7 m)',
+  'Longitud de la plataforma no supera el máximo del fabricante (7,5 m)',
+  'Ancho de la plataforma no menor a 80 cm (Art. 24°, num. 2, Decreto N° 14.390/92)',
+  'Plataforma fijada al mecanismo de suspensión con al menos 2 pernos de 1/2" o 3 pernos de 3/8", por mecanismo',
+  'Altura del mecanismo de suspensión dentro del rango del fabricante (1,265 a 1,825 m)',
+  'Contrapeso real colocado es igual o mayor al contrapeso mínimo calculado (G)',
+  'Coeficiente de seguridad resultante n es igual o mayor a 2',
+  'Carga de trabajo prevista no supera la carga permitida de la tabla del fabricante para esta configuración',
+  'Cuerda de acero verificada: estructura 4×31W+IWS, diámetro 8,6 mm, sin daño visible',
+  'Mecanismo de seguridad anti-inclinación configurado para activar entre 3° y 8°',
+  'Sin líneas eléctricas de alto voltaje dentro de los 10 metros del área de trabajo',
+  'Condiciones climáticas dentro de los límites del fabricante (viento menor a grado 5 / 8,3 m/s; temperatura entre -20°C y +40°C)',
+];
+
+// Items que se pre-marcan solos segun el resultado del calculo (el resto
+// los confirma a mano quien completa el formulario).
+const CHECKLIST_AUTO = {
+  6: () => ultimoResultado.G > 0 && ultimoResultado.n ? (($('contrapesoReal').value || 0) >= ultimoResultado.G) : false,
+  7: () => (ultimoResultado.n || 0) >= 2,
+};
+
+function renderChecklist(){
+  const box = $('checklistBox');
+  box.innerHTML = CHECKLIST_ITEMS.map((texto, i) => `
+    <label class="check-row">
+      <input type="checkbox" data-idx="${i}" class="checklist-check">
+      <span>${texto}</span>
+    </label>
+  `).join('');
+  box.querySelectorAll('.checklist-check').forEach(chk => chk.addEventListener('change', actualizarStatusFinal));
+}
+
+function actualizarChecklistAuto(){
+  Object.entries(CHECKLIST_AUTO).forEach(([idx, fn]) => {
+    const chk = document.querySelector(`.checklist-check[data-idx="${idx}"]`);
+    if (chk && !chk.dataset.tocado) chk.checked = fn();
+  });
+  actualizarStatusFinal();
+}
+
+function actualizarStatusFinal(){
+  const boxes = Array.from(document.querySelectorAll('.checklist-check'));
+  const todasMarcadas = boxes.length > 0 && boxes.every(b => b.checked);
+  const st = $('statusFinal');
+  if (boxes.every(b => !b.checked)) {
+    st.className = 'status neutral';
+    st.innerHTML = '<strong>Resultado</strong>Completá el checklist para ver el resultado.';
+  } else if (todasMarcadas && ultimoResultado.resultadoEstabilidad === 'Conforme') {
+    st.className = 'status ok';
+    st.innerHTML = '<strong>Autorizado</strong>Todos los ítems son conformes y n ≥ 2 — se autoriza continuar con la instalación conforme al Procedimiento SST-PRO-08.';
+  } else {
+    st.className = 'status bad';
+    st.innerHTML = '<strong>No autorizado</strong>Hay ítems sin marcar o no conformes, o el coeficiente n no alcanza el mínimo. No se autoriza la instalación hasta resolver la desviación.';
+  }
+}
+
+document.addEventListener('change', (e) => {
+  if (e.target.classList && e.target.classList.contains('checklist-check')) e.target.dataset.tocado = '1';
+});
+
+function resultadoFinalTexto(){
+  const boxes = Array.from(document.querySelectorAll('.checklist-check'));
+  const todasMarcadas = boxes.length > 0 && boxes.every(b => b.checked);
+  return (todasMarcadas && ultimoResultado.resultadoEstabilidad === 'Conforme') ? 'Autorizado' : 'No autorizado';
+}
+
+async function guardarRegistro(){
+  const obra = $('obraFachada').value.trim();
+  const id = $('identificacionAndamio').value.trim();
+  const msg = $('saveMsg');
+  if (!obra || !id) {
+    msg.className = 'save-msg bad';
+    msg.textContent = 'Completá Obra/fachada e Identificación del andamio antes de guardar.';
+    return;
+  }
+  const token = localStorage.getItem('token');
+  if (!token) {
+    msg.className = 'save-msg bad';
+    msg.textContent = 'Iniciá sesión en sst-pro (en otra pestaña) para poder guardar el registro.';
+    return;
+  }
+
+  const checklist = CHECKLIST_ITEMS.map((texto, i) => ({
+    texto, marcado: !!document.querySelector(`.checklist-check[data-idx="${i}"]`)?.checked,
+  }));
+
+  const payload = {
+    obra,
+    fecha: $('fechaCalculo').value || new Date().toISOString().slice(0, 10),
+    responsableCalculo: $('responsableCalculo').value.trim(),
+    identificacionAndamio: id,
+    cargaTrabajo: $('cargaTrabajo').value,
+    contrapesoReal: $('contrapesoReal').value,
+    cantidadTramos: $('cantidadTramos').value,
+    pesoMecanismo: $('pesoMecanismo').value,
+    alturaTrabajo: $('alturaTrabajo').value,
+    pesoCables: $('pesoCables').value,
+    pesoTensores: $('pesoTensores').value,
+    extension: $('extension').value,
+    distanciaBases: $('distanciaBases').value,
+    pesoTotalF: fmt(ultimoResultado.F),
+    contrapesoMinimoG: fmt(ultimoResultado.G),
+    coeficienteN: fmt(ultimoResultado.n),
+    cargaMaximaAdmisible: fmt(ultimoResultado.cargaMax),
+    resultadoEstabilidad: ultimoResultado.resultadoEstabilidad || '',
+    checklist,
+    resultadoFinal: resultadoFinalTexto(),
+    firmaAreaTecnica: $('firmaAreaTecnica').value.trim(),
+    firmaJefeObra: $('firmaJefeObra').value.trim(),
+  };
+
+  const btn = $('btnGuardar');
+  btn.disabled = true;
+  msg.className = 'save-msg';
+  msg.textContent = 'Guardando...';
+  try {
+    const res = await fetch('/api/registros-zlp800', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Error al guardar');
+    msg.className = 'save-msg ok';
+    msg.textContent = `Registro ${data.idRegistro} guardado.`;
+    cargarRegistrosGuardados();
+  } catch (err) {
+    msg.className = 'save-msg bad';
+    msg.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function cargarRegistrosGuardados(){
+  const box = $('registrosGuardadosBox');
+  const token = localStorage.getItem('token');
+  if (!token) {
+    box.innerHTML = 'Iniciá sesión en sst-pro (en otra pestaña) para ver los registros guardados.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/registros-zlp800', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Error');
+    const registros = (data.data || []).slice().sort((a, b) => (b.fechaHoraRegistro || '').localeCompare(a.fechaHoraRegistro || ''));
+    if (registros.length === 0) {
+      box.innerHTML = 'Todavía no hay registros guardados.';
+      return;
+    }
+    box.innerHTML = `
+      <table class="saved-table">
+        <thead><tr><th>Fecha</th><th>Obra</th><th>Andamio</th><th>n</th><th>Resultado</th><th></th></tr></thead>
+        <tbody>
+          ${registros.map(r => `
+            <tr>
+              <td>${r.fecha || '-'}</td>
+              <td>${r.obra || '-'}</td>
+              <td>${r.identificacionAndamio || '-'}</td>
+              <td>${r.coeficienteN || '-'}</td>
+              <td>${r.resultadoFinal || '-'}</td>
+              <td><button class="del-btn" onclick="eliminarRegistro('${r.idRegistro}')">Eliminar</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    box.innerHTML = 'Error al cargar los registros guardados: ' + err.message;
+  }
+}
+
+async function eliminarRegistro(id){
+  if (!confirm('Eliminar este registro guardado?')) return;
+  const token = localStorage.getItem('token');
+  await fetch(`/api/registros-zlp800/${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` },
+  });
+  cargarRegistrosGuardados();
+}
+
 document.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { actualizarTramos(); actualizarCable(); actualizarTensores(); calcular(); }));
+$('fechaCalculo').value = new Date().toISOString().slice(0, 10);
+renderChecklist();
 actualizarTramos();
 actualizarCable();
 actualizarTensores();
 calcular();
+cargarRegistrosGuardados();
 </script>
 
 </body>

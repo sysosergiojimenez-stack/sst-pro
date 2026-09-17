@@ -78,6 +78,12 @@ import {
   deleteEquipoCritico,
 } from './lib/firestore_equipos_criticos';
 import {
+  getAllRegistrosZLP800,
+  getRegistroZLP800ById,
+  appendRegistroZLP800,
+  deleteRegistroZLP800,
+} from './lib/firestore_registros_zlp800';
+import {
   getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
 } from './lib/firestore_marcaciones';
 import {
@@ -1042,6 +1048,83 @@ app.delete('/api/equipos-criticos/:id', async (c) => {
     return c.json({ success: true, message: 'Equipo eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/equipos-criticos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - REGISTROS DE CONTRAPESOS ZLP800 (SST-FOR-16)
+// ============================================
+// No se filtra por proyecto/asignados: la calculadora es una herramienta
+// global del area tecnica, sin selector de proyecto en su UI actual.
+
+app.get('/api/registros-zlp800', async (c) => {
+  try {
+    const data = await getAllRegistrosZLP800();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/registros-zlp800:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/registros-zlp800/:id', async (c) => {
+  try {
+    const registro = await getRegistroZLP800ById(c.req.param('id'));
+    if (!registro) return c.json({ error: 'Registro no encontrado' }, 404);
+    return c.json({ success: true, data: registro });
+  } catch (error: any) {
+    console.error('Error GET /api/registros-zlp800/:id:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/registros-zlp800', async (c) => {
+  try {
+    const body = await c.req.json();
+    const idRegistro = body.idRegistro || `ZLP-${Date.now()}`;
+    await appendRegistroZLP800({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      obra: body.obra || '',
+      fecha: body.fecha || '',
+      responsableCalculo: body.responsableCalculo || '',
+      identificacionAndamio: body.identificacionAndamio || '',
+      cargaTrabajo: body.cargaTrabajo || '',
+      contrapesoReal: body.contrapesoReal || '',
+      cantidadTramos: body.cantidadTramos || '',
+      pesoMecanismo: body.pesoMecanismo || '',
+      alturaTrabajo: body.alturaTrabajo || '',
+      pesoCables: body.pesoCables || '',
+      pesoTensores: body.pesoTensores || '',
+      extension: body.extension || '',
+      distanciaBases: body.distanciaBases || '',
+      pesoTotalF: body.pesoTotalF || '',
+      contrapesoMinimoG: body.contrapesoMinimoG || '',
+      coeficienteN: body.coeficienteN || '',
+      cargaMaximaAdmisible: body.cargaMaximaAdmisible || '',
+      resultadoEstabilidad: body.resultadoEstabilidad || '',
+      checklist: Array.isArray(body.checklist) ? body.checklist : [],
+      resultadoFinal: body.resultadoFinal || '',
+      firmaAreaTecnica: body.firmaAreaTecnica || '',
+      firmaJefeObra: body.firmaJefeObra || '',
+    });
+    return c.json({ success: true, message: 'Registro guardado', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/registros-zlp800:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/registros-zlp800/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    if (!id) return c.json({ error: 'id invalido' }, 400);
+    await deleteRegistroZLP800(id);
+    return c.json({ success: true, message: 'Registro eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/registros-zlp800:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
