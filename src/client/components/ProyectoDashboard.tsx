@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert, BarChart3, FileBarChart } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
+import PermisosTrabajo from './PermisosTrabajo';
 import EPP from './EPP';
 import CapacitacionesCharlas from './CapacitacionesCharlas';
 import Bitacora from './Bitacora';
@@ -26,7 +27,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'permisos' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
 
 interface StatsProyecto {
   empleados: number;
@@ -34,6 +35,8 @@ interface StatsProyecto {
   empleadosInactivos: number;
   incidentesAbiertos: number;
   incidentesCerrados: number;
+  permisosAbiertos: number;
+  permisosCerrados: number;
   eppItems: number;
   eppBajoStock: number;
   capacitacionesPendientes: number;
@@ -46,6 +49,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
   const [stats, setStats] = useState<StatsProyecto>({
     empleados: 0, empleadosActivos: 0, empleadosInactivos: 0,
     incidentesAbiertos: 0, incidentesCerrados: 0,
+    permisosAbiertos: 0, permisosCerrados: 0,
     eppItems: 0, eppBajoStock: 0,
     capacitacionesPendientes: 0, capacitacionesRealizadas: 0
   });
@@ -92,6 +96,13 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         const abiertos = incidentes.filter((i: any) => (i.estado || '').toLowerCase() === 'abierto').length;
         const cerrados = incidentes.length - abiertos;
 
+        // Fetch permisos de trabajo de alto riesgo
+        const perRes = await apiFetch(`/api/permisos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
+        const perData = perRes.ok ? await perRes.json() : { data: [] };
+        const permisos = perData.data || [];
+        const permisosAbiertos = permisos.filter((p: any) => (p.estado || '').toLowerCase() === 'abierto').length;
+        const permisosCerrados = permisos.length - permisosAbiertos;
+
         // Fetch EPP productos
         const eppRes = await apiFetch(`/api/epp/productos?proyecto=${encodeURIComponent(proyecto.denominacion)}`);
         const eppData = eppRes.ok ? await eppRes.json() : { data: [] };
@@ -129,6 +140,8 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           empleadosInactivos: inactivos,
           incidentesAbiertos: abiertos,
           incidentesCerrados: cerrados,
+          permisosAbiertos,
+          permisosCerrados,
           eppItems: productos.length,
           eppBajoStock: bajoStock,
           capacitacionesPendientes: capPendientes,
@@ -168,6 +181,20 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
         <Incidentes proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
+      </div>
+    );
+  }
+
+  if (moduloActivo === 'permisos') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <PermisosTrabajo proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
       </div>
     );
   }
@@ -329,6 +356,32 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                     <span className="badge badge-success"><CheckCircle2 size={10} />{stats.incidentesAbiertos} abiertos</span>
                     {stats.incidentesCerrados > 0 && <span className="badge badge-muted">{stats.incidentesCerrados} cerrados</span>}
                     {(stats.incidentesAbiertos + stats.incidentesCerrados) === 0 && <span className="badge badge-muted">Sin incidentes</span>}
+                  </>
+                )}
+              </div>
+            </button>
+
+            {/* Permisos de Trabajo de Alto Riesgo */}
+            <button
+              onClick={() => setModuloActivo('permisos')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg">
+                  <ShieldCheck size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Permisos de Alto Riesgo</h4>
+              <p className="text-sm text-muted-foreground mt-1">Autorización previa a trabajos de alto riesgo (SST-FOR-02)</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    {stats.permisosAbiertos > 0 && <span className="badge badge-danger">{stats.permisosAbiertos} abiertos</span>}
+                    {stats.permisosCerrados > 0 && <span className="badge badge-muted">{stats.permisosCerrados} cerrados</span>}
+                    {(stats.permisosAbiertos + stats.permisosCerrados) === 0 && <span className="badge badge-muted">Sin permisos</span>}
                   </>
                 )}
               </div>

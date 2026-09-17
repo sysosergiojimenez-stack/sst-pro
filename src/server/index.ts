@@ -62,6 +62,14 @@ import {
   deleteIncidente,
 } from './lib/firestore_incidentes';
 import {
+  getAllPermisos,
+  getPermisosByProyecto,
+  getPermisoById,
+  appendPermiso,
+  updatePermiso,
+  deletePermiso,
+} from './lib/firestore_permisos';
+import {
   getAllMarcacionesBiometricas, importarMarcacionesBiometricas, updateMarcacionBiometrica,
 } from './lib/firestore_marcaciones';
 import {
@@ -810,6 +818,118 @@ app.delete('/api/incidentes/:id', async (c) => {
     return c.json({ success: true, message: 'Incidente eliminado' });
   } catch (error: any) {
     console.error('Error DELETE /api/incidentes:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============================================
+// API REST - PERMISOS DE TRABAJO DE ALTO RIESGO (SST-FOR-02)
+// ============================================
+
+// GET - Listar todos los permisos
+app.get('/api/permisos', async (c) => {
+  try {
+    const proyecto = c.req.query('proyecto');
+    let data;
+    if (proyecto) {
+      const authError = authorizeProyecto(c, proyecto);
+      if (authError) return authError;
+      data = await getPermisosByProyecto(proyecto);
+    } else {
+      data = filtrarPorAsignados(c, await getAllPermisos(), p => p.proyecto);
+    }
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error GET /api/permisos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Obtener un permiso por ID
+app.get('/api/permisos/:id', async (c) => {
+  try {
+    const idRegistro = c.req.param('id');
+    const permiso = await getPermisoById(idRegistro);
+    if (!permiso) {
+      return c.json({ error: 'Permiso no encontrado' }, 404);
+    }
+    return c.json({ success: true, data: permiso });
+  } catch (error: any) {
+    console.error('Error GET /api/permisos/:id:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Crear permiso
+app.post('/api/permisos', async (c) => {
+  try {
+    const body = await c.req.json();
+    const authError = authorizeProyecto(c, body?.proyecto);
+    if (authError) return authError;
+    const idRegistro = body.idRegistro || `PER-${Date.now()}`;
+
+    await appendPermiso({
+      idRegistro,
+      fechaHoraRegistro: new Date().toISOString(),
+      userEmail: body.userEmail || 'sistema',
+      proyecto: body.proyecto || '',
+      fecha: body.fecha || '',
+      horaInicio: body.horaInicio || '',
+      horaFinPrevista: body.horaFinPrevista || '',
+      frente: body.frente || '',
+      empresaEjecutante: body.empresaEjecutante || '',
+      descripcionTarea: body.descripcionTarea || '',
+      tiposTrabajo: Array.isArray(body.tiposTrabajo) ? body.tiposTrabajo : [],
+      tipoOtroDetalle: body.tipoOtroDetalle || '',
+      condRiesgosComunicados: !!body.condRiesgosComunicados,
+      condEppVerificado: !!body.condEppVerificado,
+      condEquiposInspeccionados: !!body.condEquiposInspeccionados,
+      condAreaSenalizada: !!body.condAreaSenalizada,
+      condPlanRescateConfirmado: !!body.condPlanRescateConfirmado,
+      condClimaApto: !!body.condClimaApto,
+      trabajadores: body.trabajadores || '',
+      autorizanteJefeObra: body.autorizanteJefeObra || '',
+      autorizanteResponsableSSO: body.autorizanteResponsableSSO || '',
+      estado: body.estado || 'Abierto',
+      cierreFecha: body.cierreFecha || '',
+      cierreHora: body.cierreHora || '',
+      cierreResponsable: body.cierreResponsable || '',
+    });
+
+    return c.json({ success: true, message: 'Permiso registrado', idRegistro });
+  } catch (error: any) {
+    console.error('Error POST /api/permisos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT - Actualizar permiso
+app.put('/api/permisos/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
+    }
+    await updatePermiso(id, body);
+    return c.json({ success: true, message: 'Permiso actualizado' });
+  } catch (error: any) {
+    console.error('Error PUT /api/permisos:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Eliminar permiso
+app.delete('/api/permisos/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
+    }
+    await deletePermiso(id);
+    return c.json({ success: true, message: 'Permiso eliminado' });
+  } catch (error: any) {
+    console.error('Error DELETE /api/permisos:', error.message);
     return c.json({ error: error.message }, 500);
   }
 });
