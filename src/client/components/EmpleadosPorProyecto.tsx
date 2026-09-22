@@ -361,7 +361,7 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Empresa</label><input type="text" list="dl-empresa" value={form.empresa} onChange={(e) => setForm({...form, empresa: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Cargo</label><input type="text" list="dl-cargo" value={form.cargo} onChange={(e) => setForm({...form, cargo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Unidad</label><input type="text" value={form.unidad} onChange={(e) => setForm({...form, unidad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Unidad</label><input type="text" list="dl-unidad" value={form.unidad} onChange={(e) => setForm({...form, unidad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Honorarios</label><input type="text" value={form.honorarios} onChange={(e) => setForm({...form, honorarios: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Moneda</label><input type="text" list="dl-moneda" value={form.moneda} onChange={(e) => setForm({...form, moneda: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Régimen</label><input type="text" list="dl-regimen" value={form.regimen} onChange={(e) => setForm({...form, regimen: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
@@ -471,6 +471,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       instruccionConcluida: unicos(todosEmpleados.map(e => e.instruccionConcluida)),
       carreraUniversitaria: unicos(todosEmpleados.map(e => e.carreraUniversitaria)),
       cargo: unicos(todosEmpleados.map(e => e.cargo)),
+      unidad: unicos(todosEmpleados.map(e => e.unidad)),
       moneda: unicos(todosEmpleados.map(e => e.moneda)),
       regimen: unicos(todosEmpleados.map(e => e.regimen)),
       calce: unicos(todosEmpleados.map(e => e.calce)),
@@ -1364,6 +1365,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       <datalist id="dl-instruccionConcluida">{sugerencias.instruccionConcluida.map(v => <option key={v} value={v} />)}</datalist>
       <datalist id="dl-carreraUniversitaria">{sugerencias.carreraUniversitaria.map(v => <option key={v} value={v} />)}</datalist>
       <datalist id="dl-cargo">{sugerencias.cargo.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-unidad">{sugerencias.unidad.map(v => <option key={v} value={v} />)}</datalist>
       <datalist id="dl-moneda">{sugerencias.moneda.map(v => <option key={v} value={v} />)}</datalist>
       <datalist id="dl-regimen">{sugerencias.regimen.map(v => <option key={v} value={v} />)}</datalist>
       <datalist id="dl-calce">{sugerencias.calce.map(v => <option key={v} value={v} />)}</datalist>
