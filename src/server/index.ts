@@ -10,6 +10,7 @@ import {
   eliminarDeGCS,
   extraerPlanillaIPSConGemini,
 } from './lib/googleSheets';
+import { normalizarFichaEmpleado } from './lib/fichaMime';
 import { sheets, SPREADSHEET_ID, auth, GCS_BUCKET_NAME } from './lib/googleSheets';
 import {
   getProyectos,
@@ -366,13 +367,18 @@ app.delete('/api/empleados/:id', async (c) => {
   }
 });
 
-// API REST - Gemini + Guardar PDF en GCS
+// API REST - Gemini + Guardar ficha (PDF o imagen) en GCS
 app.post('/api/gemini', async (c) => {
   try {
     const body = await c.req.json();
     
     if (!body.pdfBase64 || body.pdfBase64.length < 100) {
-      return c.json({ error: 'PDF vacio o corrupto. Length: ' + (body.pdfBase64?.length || 0) }, 400);
+      return c.json({ error: 'Archivo vacio o corrupto. Length: ' + (body.pdfBase64?.length || 0) }, 400);
+    }
+
+    const archivo = normalizarFichaEmpleado(body.mimeType);
+    if (!archivo) {
+      return c.json({ error: 'Formato no admitido. Usa PDF, JPG, PNG, WEBP o HEIC.' }, 400);
     }
 
     // Validar que GEMINI_API_KEY esté configurada
@@ -381,12 +387,12 @@ app.post('/api/gemini', async (c) => {
       return c.json({ error: 'GEMINI_API_KEY no configurada en el servidor' }, 500);
     }
 
-    console.log('[GEMINI] Procesando PDF, length:', body.pdfBase64.length);
-    const datos = await extraerDatosConGemini(body.pdfBase64, body.mimeType || 'application/pdf');
+    console.log('[GEMINI] Procesando ficha, mime:', archivo.mime, 'length:', body.pdfBase64.length);
+    const datos = await extraerDatosConGemini(body.pdfBase64, archivo.mime);
     console.log('[GEMINI] Datos extraidos:', JSON.stringify(datos).substring(0, 200));
 
-    const nombreArchivo = `FICHA_${datos.nroDocumento || 'SIN_DOC'}_${datos.nombres || 'SIN_NOMBRE'}_${Date.now()}.pdf`;
-    const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, body.mimeType || 'application/pdf');
+    const nombreArchivo = `FICHA_${datos.nroDocumento || 'SIN_DOC'}_${datos.nombres || 'SIN_NOMBRE'}_${Date.now()}.${archivo.extension}`;
+    const gcsUrl = await subirPDFAGCS(body.pdfBase64, nombreArchivo, archivo.mime);
 
     const resultado = {
       ...datos,

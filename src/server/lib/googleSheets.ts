@@ -153,9 +153,9 @@ export async function extraerDatosConGemini(
   console.log('Usando gemini-2.5-flash...');
   console.log('Base64 length:', base64PDF.length);
   if (!base64PDF || base64PDF.length < 100) {
-    throw new Error('PDF vacio o base64 invalido. Length: ' + (base64PDF?.length || 0));
+    throw new Error('Archivo vacio o base64 invalido. Length: ' + (base64PDF?.length || 0));
   }
-  const prompt = `Analiza este documento, que puede contener VARIAS paginas o imagenes correspondientes a un mismo trabajador. Pueden aparecer los siguientes tipos de documentos, todos OPCIONALES (puede venir solo uno, o varios juntos). Segui estas reglas ESTRICTAMENTE sobre de que documento sacar cada dato:
+  const prompt = `Analiza este archivo. Puede ser un PDF de varias paginas o una foto (JPG, PNG, WEBP o HEIC) de los documentos de un mismo trabajador. Pueden aparecer los siguientes tipos de documentos, todos OPCIONALES (puede venir solo uno, o varios juntos). Segui estas reglas ESTRICTAMENTE sobre de que documento sacar cada dato:
 
 1. CEDULA DE IDENTIDAD (Republica del Paraguay): esta es la UNICA fuente para NOMBRES, APELLIDOS, NUMERO DE DOCUMENTO y FECHA DE NACIMIENTO. Usa solamente este documento para esos 4 campos, salvo que no este presente o no sea legible (ver REGLA DE RESPALDO).
 

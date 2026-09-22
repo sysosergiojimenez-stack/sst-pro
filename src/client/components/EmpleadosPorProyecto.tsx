@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, ImageIcon, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { generarFichaEmpleadoPDF } from '../lib/fichaEmpleadoPdf';
+import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
 
 type GeminiItem = {
   id: string;
@@ -1006,6 +1007,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
       const nuevos: GeminiItem[] = selectedFiles.slice(0, espacioDisponible)
         .filter(f => {
           if (f.size > MAX_ARCHIVO_BYTES) { setGeminiError(`"${f.name}" supera el tamaño máximo de 10MB y fue omitido.`); return false; }
+          if (!mimeFichaEmpleado(f)) { setGeminiError(`"${f.name}" no es un PDF ni una imagen admitida (JPG, PNG, WEBP o HEIC).`); return false; }
           return true;
         })
         .map(f => ({ id: `${f.name}-${f.size}-${f.lastModified}`, file: f, status: 'pendiente', datosExtraidos: null, error: '' }));
@@ -1019,8 +1021,10 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const procesarGeminiItem = async (item: GeminiItem) => {
     setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
     try {
+      const mimeType = mimeFichaEmpleado(item.file);
+      if (!mimeType) throw new Error('Formato no admitido. Usa PDF, JPG, PNG, WEBP o HEIC.');
       const base64 = await fileToBase64(item.file);
-      const response = await apiFetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pdfBase64: base64, mimeType: item.file.type }) });
+      const response = await apiFetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pdfBase64: base64, mimeType }) });
       const data = await response.json();
       if (!data.success) throw new Error(data.error || 'Error');
       setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'ok', datosExtraidos: data.data } : it));
@@ -1517,14 +1521,18 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             <button onClick={() => setShowGeminiForm(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
           <div className="space-y-4">
-            <div><label className="block text-sm font-medium mb-1">Subir ficha(s) en PDF (una por empleado)</label><input type="file" accept=".pdf" multiple onChange={handleGeminiFileChange} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Subir ficha en PDF o foto (una por empleado)</label>
+              <input type="file" accept={ACCEPT_FICHA_EMPLEADO} multiple onChange={handleGeminiFileChange} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+              <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG, WEBP o HEIC. Cada archivo corresponde a un empleado.</p>
+            </div>
 
             {geminiItems.length > 0 && (
               <div className="space-y-2">
                 {geminiItems.map(item => (
                   <div key={item.id} className="flex items-center justify-between bg-secondary/50 p-3 rounded-lg">
                     <div className="flex items-center gap-3 min-w-0">
-                      <FileText size={20} className="text-primary flex-shrink-0" />
+                      {mimeFichaEmpleado(item.file)?.startsWith('image/') ? <ImageIcon size={20} className="text-primary flex-shrink-0" /> : <FileText size={20} className="text-primary flex-shrink-0" />}
                       <div className="text-left min-w-0">
                         <div className="text-sm font-medium truncate">{item.file.name}</div>
                         {item.status === 'ok' && (
