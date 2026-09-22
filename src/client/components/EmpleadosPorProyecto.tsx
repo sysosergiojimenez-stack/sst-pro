@@ -288,14 +288,14 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Datos principales</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Nro. Documento *</label><input type="text" value={form.nroDocumento} onChange={(e) => setForm({...form, nroDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required disabled={disabledNroDocumento} /></div>
-          <div><label className="block text-sm font-medium mb-1">Tipo Documento</label><input type="text" value={form.tipoDocumento} onChange={(e) => setForm({...form, tipoDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Tipo Documento</label><input type="text" list="dl-tipoDocumento" value={form.tipoDocumento} onChange={(e) => setForm({...form, tipoDocumento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Nombres *</label><input type="text" value={form.nombres} onChange={(e) => setForm({...form, nombres: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
           <div><label className="block text-sm font-medium mb-1">Apellidos *</label><input type="text" value={form.apellidos} onChange={(e) => setForm({...form, apellidos: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" required /></div>
           <div><label className="block text-sm font-medium mb-1">Fecha Nacimiento</label><input type="date" value={form.fechaNacimiento} onChange={(e) => setForm({...form, fechaNacimiento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Ciudad Nacimiento</label><input type="text" value={form.ciudadNacimiento} onChange={(e) => setForm({...form, ciudadNacimiento: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Sexo</label><select value={form.sexo} onChange={(e) => setForm({...form, sexo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm"><option value=""></option><option value="M">M</option><option value="F">F</option></select></div>
-          <div><label className="block text-sm font-medium mb-1">Estado Civil</label><input type="text" value={form.estadoCivil} onChange={(e) => setForm({...form, estadoCivil: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Tipo Sangre</label><input type="text" value={form.tipoSangre} onChange={(e) => setForm({...form, tipoSangre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Estado Civil</label><input type="text" list="dl-estadoCivil" value={form.estadoCivil} onChange={(e) => setForm({...form, estadoCivil: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Tipo Sangre</label><input type="text" list="dl-tipoSangre" value={form.tipoSangre} onChange={(e) => setForm({...form, tipoSangre: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
         </div>
       </div>
 
@@ -319,9 +319,9 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
           <div><label className="block text-sm font-medium mb-1">Nro</label><input type="text" value={form.nro} onChange={(e) => setForm({...form, nro: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Dpto</label><input type="text" value={form.dpto} onChange={(e) => setForm({...form, dpto: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Piso</label><input type="text" value={form.piso} onChange={(e) => setForm({...form, piso: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Barrio</label><input type="text" value={form.barrio} onChange={(e) => setForm({...form, barrio: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Ciudad</label><input type="text" value={form.ciudad} onChange={(e) => setForm({...form, ciudad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Departamento Territorial</label><input type="text" value={form.departamentoTerritorial} onChange={(e) => setForm({...form, departamentoTerritorial: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Barrio</label><input type="text" list="dl-barrio" value={form.barrio} onChange={(e) => setForm({...form, barrio: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Ciudad</label><input type="text" list="dl-ciudad" value={form.ciudad} onChange={(e) => setForm({...form, ciudad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Departamento Territorial</label><input type="text" list="dl-departamentoTerritorial" value={form.departamentoTerritorial} onChange={(e) => setForm({...form, departamentoTerritorial: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Punto Referencia</label><input type="text" value={form.puntoReferencia} onChange={(e) => setForm({...form, puntoReferencia: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
         </div>
       </div>
@@ -338,9 +338,9 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
       <div>
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Formación</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div><label className="block text-sm font-medium mb-1">Grado Instrucción</label><input type="text" value={form.gradoInstruccion} onChange={(e) => setForm({...form, gradoInstruccion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Instrucción Concluida</label><input type="text" value={form.instruccionConcluida} onChange={(e) => setForm({...form, instruccionConcluida: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Carrera Universitaria</label><input type="text" value={form.carreraUniversitaria} onChange={(e) => setForm({...form, carreraUniversitaria: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Grado Instrucción</label><input type="text" list="dl-gradoInstruccion" value={form.gradoInstruccion} onChange={(e) => setForm({...form, gradoInstruccion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Instrucción Concluida</label><input type="text" list="dl-instruccionConcluida" value={form.instruccionConcluida} onChange={(e) => setForm({...form, instruccionConcluida: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Carrera Universitaria</label><input type="text" list="dl-carreraUniversitaria" value={form.carreraUniversitaria} onChange={(e) => setForm({...form, carreraUniversitaria: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
         </div>
       </div>
 
@@ -359,16 +359,16 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
       <div>
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Laboral</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div><label className="block text-sm font-medium mb-1">Empresa</label><input type="text" value={form.empresa} onChange={(e) => setForm({...form, empresa: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Cargo</label><input type="text" value={form.cargo} onChange={(e) => setForm({...form, cargo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Empresa</label><input type="text" list="dl-empresa" value={form.empresa} onChange={(e) => setForm({...form, empresa: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Cargo</label><input type="text" list="dl-cargo" value={form.cargo} onChange={(e) => setForm({...form, cargo: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Unidad</label><input type="text" value={form.unidad} onChange={(e) => setForm({...form, unidad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Honorarios</label><input type="text" value={form.honorarios} onChange={(e) => setForm({...form, honorarios: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Moneda</label><input type="text" value={form.moneda} onChange={(e) => setForm({...form, moneda: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Régimen</label><input type="text" value={form.regimen} onChange={(e) => setForm({...form, regimen: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Moneda</label><input type="text" list="dl-moneda" value={form.moneda} onChange={(e) => setForm({...form, moneda: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Régimen</label><input type="text" list="dl-regimen" value={form.regimen} onChange={(e) => setForm({...form, regimen: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Actividades</label><textarea value={form.actividades} onChange={(e) => setForm({...form, actividades: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" rows={2} /></div>
           <div><label className="block text-sm font-medium mb-1">Fecha Inicio Contrato</label><input type="date" value={form.fechaInicioContrato} onChange={(e) => setForm({...form, fechaInicioContrato: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">Fecha Término Contrato</label><input type="date" value={form.fechaTerminoContrato} onChange={(e) => setForm({...form, fechaTerminoContrato: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Calce</label><input type="text" value={form.calce} onChange={(e) => setForm({...form, calce: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+          <div><label className="block text-sm font-medium mb-1">Calce</label><input type="text" list="dl-calce" value={form.calce} onChange={(e) => setForm({...form, calce: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
         </div>
       </div>
 
@@ -416,6 +416,7 @@ function FormularioEmpleado({ form, setForm, handleSubmit, inline = false, disab
 
 export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoProps) {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [todosEmpleados, setTodosEmpleados] = useState<Empleado[]>([]);
   const [empleadosFiltrados, setEmpleadosFiltrados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<string[]>([]);
   const [empresaFiltro, setEmpresaFiltro] = useState<string>('');
@@ -445,6 +446,36 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchData(); }, [proyecto.denominacion]);
+
+  // Empleados de todos los proyectos (dentro del acceso del usuario), solo
+  // para armar sugerencias de campos ya cargados -- no se usa para la tabla.
+  useEffect(() => {
+    apiFetch('/api/empleados')
+      .then(res => res.json())
+      .then(data => { if (data.success) setTodosEmpleados(data.data); })
+      .catch(() => {});
+  }, []);
+
+  const sugerencias = (() => {
+    const unicos = (valores: (string | undefined)[]) =>
+      [...new Set(valores.map(v => (v || '').trim()).filter(Boolean))].sort();
+    return {
+      empresa: unicos(todosEmpleados.map(e => e.empresa)),
+      tipoDocumento: unicos(todosEmpleados.map(e => e.tipoDocumento)),
+      estadoCivil: unicos(todosEmpleados.map(e => e.estadoCivil)),
+      tipoSangre: unicos(todosEmpleados.map(e => e.tipoSangre)),
+      ciudad: unicos(todosEmpleados.map(e => e.ciudad)),
+      barrio: unicos(todosEmpleados.map(e => e.barrio)),
+      departamentoTerritorial: unicos(todosEmpleados.map(e => e.departamentoTerritorial)),
+      gradoInstruccion: unicos(todosEmpleados.map(e => e.gradoInstruccion)),
+      instruccionConcluida: unicos(todosEmpleados.map(e => e.instruccionConcluida)),
+      carreraUniversitaria: unicos(todosEmpleados.map(e => e.carreraUniversitaria)),
+      cargo: unicos(todosEmpleados.map(e => e.cargo)),
+      moneda: unicos(todosEmpleados.map(e => e.moneda)),
+      regimen: unicos(todosEmpleados.map(e => e.regimen)),
+      calce: unicos(todosEmpleados.map(e => e.calce)),
+    };
+  })();
 
   useEffect(() => {
     let filtrados = [...empleados];
@@ -1322,6 +1353,20 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
 
   return (
     <div className="space-y-6">
+      <datalist id="dl-empresa">{sugerencias.empresa.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-tipoDocumento">{sugerencias.tipoDocumento.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-estadoCivil">{sugerencias.estadoCivil.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-tipoSangre">{sugerencias.tipoSangre.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-ciudad">{sugerencias.ciudad.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-barrio">{sugerencias.barrio.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-departamentoTerritorial">{sugerencias.departamentoTerritorial.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-gradoInstruccion">{sugerencias.gradoInstruccion.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-instruccionConcluida">{sugerencias.instruccionConcluida.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-carreraUniversitaria">{sugerencias.carreraUniversitaria.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-cargo">{sugerencias.cargo.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-moneda">{sugerencias.moneda.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-regimen">{sugerencias.regimen.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="dl-calce">{sugerencias.calce.map(v => <option key={v} value={v} />)}</datalist>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
