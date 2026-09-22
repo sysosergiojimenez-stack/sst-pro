@@ -443,6 +443,10 @@ app.post('/api/gemini/epp', async (c) => {
     if (!proyecto) {
       return c.json({ error: 'No se proporciono proyecto' }, 400);
     }
+    const archivo = normalizarFichaEmpleado(mimeType);
+    if (!archivo) {
+      return c.json({ error: 'Formato no admitido. Usa PDF, JPG, PNG, WEBP o HEIC.' }, 400);
+    }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
@@ -483,7 +487,7 @@ Instrucciones:
           contents: [{
             parts: [
               { text: prompt },
-              { inline_data: { mime_type: mimeType || 'application/pdf', data: pdfBase64 } }
+              { inline_data: { mime_type: archivo.mime, data: pdfBase64 } }
             ]
           }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
@@ -559,8 +563,8 @@ Instrucciones:
       }
     }
 
-    const nombreArchivo = `EPP_${proyecto}_${Date.now()}.pdf`;
-    const publicUrl = await subirPDFAGCS(pdfBase64, nombreArchivo, mimeType || 'application/pdf');
+    const nombreArchivo = `EPP_${proyecto}_${Date.now()}.${archivo.extension}`;
+    const publicUrl = await subirPDFAGCS(pdfBase64, nombreArchivo, archivo.mime);
 
     data.pdfUrl = publicUrl;
     data.proyecto = proyecto;

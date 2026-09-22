@@ -7,6 +7,7 @@ import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckC
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
+import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
 
 interface Producto {
   docId: string;
@@ -386,13 +387,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const handleGeminiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pdfFile) return;
+    const mimeType = mimeFichaEmpleado(pdfFile);
+    if (!mimeType) { alert('Formato no admitido. Usa PDF, JPG, PNG, WEBP o HEIC.'); return; }
     setGeminiLoading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = (reader.result as string).split(',')[1];
       const response = await apiFetch('/api/gemini/epp', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfBase64: base64, mimeType: pdfFile.type, proyecto }),
+        body: JSON.stringify({ pdfBase64: base64, mimeType, proyecto }),
       });
       const data = await response.json();
       if (data.success) { setDatosExtraidos(data.data); } else { alert('Error: ' + data.error); }
@@ -2656,9 +2659,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               <form onSubmit={handleGeminiSubmit} className="space-y-4">
                 <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
                   <FileText size={48} className="mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-4">Sube la factura o remision de EPP (PDF)</p>
-                  <input type="file" accept=".pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-pdf" />
-                  <label htmlFor="epp-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar PDF</label>
+                  <p className="text-sm text-muted-foreground mb-4">Sube la factura o remision de EPP (PDF o foto)</p>
+                  <input type="file" accept={ACCEPT_FICHA_EMPLEADO} onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-pdf" />
+                  <label htmlFor="epp-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar archivo</label>
                   {pdfFile && <p className="mt-4 text-sm text-primary">{pdfFile.name}</p>}
                 </div>
                 <button type="submit" disabled={!pdfFile || geminiLoading} className="w-full btn-gradient text-white px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 disabled:opacity-50"><Brain size={18} /> {geminiLoading ? 'Procesando con IA...' : 'Extraer Datos'}</button>
