@@ -10,6 +10,21 @@ export function esCombinable(file: File): boolean {
   return mime === 'application/pdf' || mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/webp';
 }
 
+// Las fotos vienen en pixeles (una foto de celular puede medir miles de
+// pixeles de lado), pero una pagina de PDF se mide en puntos (72 por
+// pulgada). Si se usan los pixeles tal cual como puntos, la pagina de la
+// foto queda gigante al lado de una pagina de PDF real (que ronda los
+// 600-850pt de lado). Se escala para que el lado mas largo no supere el de
+// una hoja A4, asi todas las paginas del PDF combinado quedan a un tamano
+// comparable sin importar si vinieron de una foto o de un PDF.
+const LADO_MAX_PAGINA_PT = 842;
+
+function tamanioPagina(anchoPx: number, altoPx: number): { width: number; height: number } {
+  const mayor = Math.max(anchoPx, altoPx);
+  const escala = mayor > LADO_MAX_PAGINA_PT ? LADO_MAX_PAGINA_PT / mayor : 1;
+  return { width: anchoPx * escala, height: altoPx * escala };
+}
+
 async function webpAPngBytes(file: File): Promise<Uint8Array> {
   const bitmap = await createImageBitmap(file);
   const canvas = document.createElement('canvas');
@@ -45,16 +60,18 @@ export async function combinarArchivosEnPDF(files: File[], nombreSalida: string)
     if (mime === 'image/jpeg' || mime === 'image/png') {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const imagen = mime === 'image/jpeg' ? await combinado.embedJpg(bytes) : await combinado.embedPng(bytes);
-      const pagina = combinado.addPage([imagen.width, imagen.height]);
-      pagina.drawImage(imagen, { x: 0, y: 0, width: imagen.width, height: imagen.height });
+      const { width, height } = tamanioPagina(imagen.width, imagen.height);
+      const pagina = combinado.addPage([width, height]);
+      pagina.drawImage(imagen, { x: 0, y: 0, width, height });
       continue;
     }
 
     if (mime === 'image/webp') {
       const pngBytes = await webpAPngBytes(file);
       const imagen = await combinado.embedPng(pngBytes);
-      const pagina = combinado.addPage([imagen.width, imagen.height]);
-      pagina.drawImage(imagen, { x: 0, y: 0, width: imagen.width, height: imagen.height });
+      const { width, height } = tamanioPagina(imagen.width, imagen.height);
+      const pagina = combinado.addPage([width, height]);
+      pagina.drawImage(imagen, { x: 0, y: 0, width, height });
       continue;
     }
 
