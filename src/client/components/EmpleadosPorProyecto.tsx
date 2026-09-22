@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Users, Plus, Pencil, Trash2, X, Save, FileText, ImageIcon, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, X, Save, FileText, ImageIcon, Brain, Filter, Search, UserCheck, UserX, Fingerprint, Upload, FileDown, ChevronDown, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet, Layers } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { generarFichaEmpleadoPDF } from '../lib/fichaEmpleadoPdf';
 import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
+import { combinarArchivosEnPDF, esCombinable } from '../lib/combinarFichaPdf';
 
 type GeminiItem = {
   id: string;
@@ -429,6 +430,8 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
   const [geminiProcessing, setGeminiProcessing] = useState(false);
   const [geminiError, setGeminiError] = useState('');
   const [geminiSaving, setGeminiSaving] = useState(false);
+  const [geminiSeleccionados, setGeminiSeleccionados] = useState<Set<string>>(new Set());
+  const [geminiCombinando, setGeminiCombinando] = useState(false);
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [isUploadingManualPdf, setIsUploadingManualPdf] = useState(false);
   const [showPdfFilters, setShowPdfFilters] = useState(false);
@@ -1016,7 +1019,49 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
     e.target.value = '';
   };
 
-  const removeGeminiItem = (id: string) => setGeminiItems(prev => prev.filter(it => it.id !== id));
+  const removeGeminiItem = (id: string) => {
+    setGeminiItems(prev => prev.filter(it => it.id !== id));
+    setGeminiSeleccionados(prev => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleGeminiSeleccion = (id: string) => {
+    setGeminiSeleccionados(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCombinarGemini = async () => {
+    const seleccionados = geminiItems.filter(it => geminiSeleccionados.has(it.id) && it.status === 'pendiente');
+    if (seleccionados.length < 2) return;
+    const noCombinable = seleccionados.find(it => !esCombinable(it.file));
+    if (noCombinable) {
+      setGeminiError(`"${noCombinable.file.name}" no se puede combinar (HEIC no es compatible, procesalo aparte).`);
+      return;
+    }
+    setGeminiCombinando(true); setGeminiError('');
+    try {
+      const archivoCombinado = await combinarArchivosEnPDF(seleccionados.map(it => it.file), `ficha-combinada-${Date.now()}.pdf`);
+      if (archivoCombinado.size > MAX_ARCHIVO_BYTES) {
+        setGeminiError('El PDF combinado supera 10MB. Combina menos archivos o usa imagenes mas livianas.');
+        return;
+      }
+      const nuevoItem: GeminiItem = { id: `combinado-${Date.now()}`, file: archivoCombinado, status: 'pendiente', datosExtraidos: null, error: '' };
+      const idsSeleccionados = new Set(seleccionados.map(it => it.id));
+      setGeminiItems(prev => [...prev.filter(it => !idsSeleccionados.has(it.id)), nuevoItem]);
+      setGeminiSeleccionados(new Set());
+    } catch (err: any) {
+      setGeminiError(err.message || 'No se pudieron combinar los archivos.');
+    } finally {
+      setGeminiCombinando(false);
+    }
+  };
 
   const procesarGeminiItem = async (item: GeminiItem) => {
     setGeminiItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'procesando', error: '' } : it));
@@ -1057,7 +1102,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         const response = await apiFetch('/api/empleados', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!response.ok) { const err = await response.json(); throw new Error(`${item.file.name}: ${err.error || 'Error'}`); }
       }
-      setShowGeminiForm(false); setGeminiItems([]); fetchData();
+      setShowGeminiForm(false); setGeminiItems([]); setGeminiSeleccionados(new Set()); fetchData();
     } catch (err: any) { setGeminiError(err.message); }
     finally { setGeminiSaving(false); }
   };
@@ -1303,7 +1348,7 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
                   <Pencil size={16} /> Manual
                 </button>
                 <button
-                  onClick={() => { setShowAddMenu(false); setShowGeminiForm(true); setGeminiItems([]); setGeminiError(''); }}
+                  onClick={() => { setShowAddMenu(false); setShowGeminiForm(true); setGeminiItems([]); setGeminiError(''); setGeminiSeleccionados(new Set()); }}
                   className="w-full px-4 py-3 text-left text-sm hover:bg-secondary flex items-center gap-2 transition-colors"
                 >
                   <Brain size={16} /> Con IA
@@ -1524,14 +1569,27 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
             <div>
               <label className="block text-sm font-medium mb-1">Subir ficha en PDF o foto (una por empleado)</label>
               <input type="file" accept={ACCEPT_FICHA_EMPLEADO} multiple onChange={handleGeminiFileChange} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
-              <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG, WEBP o HEIC. Cada archivo corresponde a un empleado.</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG, WEBP o HEIC. Si un empleado tiene varias fotos (ej. frente y dorso), marcalas abajo y combinalas en 1 antes de procesar.</p>
             </div>
 
             {geminiItems.length > 0 && (
               <div className="space-y-2">
+                {geminiSeleccionados.size >= 2 && (
+                  <button onClick={handleCombinarGemini} disabled={geminiCombinando} className="text-sm bg-secondary border border-border px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-secondary/70 transition-colors disabled:opacity-50">
+                    <Layers size={16} /> {geminiCombinando ? 'Combinando...' : `Combinar ${geminiSeleccionados.size} en 1 PDF`}
+                  </button>
+                )}
                 {geminiItems.map(item => (
                   <div key={item.id} className="flex items-center justify-between bg-secondary/50 p-3 rounded-lg">
                     <div className="flex items-center gap-3 min-w-0">
+                      {item.status === 'pendiente' && (
+                        <input
+                          type="checkbox"
+                          checked={geminiSeleccionados.has(item.id)}
+                          onChange={() => toggleGeminiSeleccion(item.id)}
+                          className="flex-shrink-0"
+                        />
+                      )}
                       {mimeFichaEmpleado(item.file)?.startsWith('image/') ? <ImageIcon size={20} className="text-primary flex-shrink-0" /> : <FileText size={20} className="text-primary flex-shrink-0" />}
                       <div className="text-left min-w-0">
                         <div className="text-sm font-medium truncate">{item.file.name}</div>
