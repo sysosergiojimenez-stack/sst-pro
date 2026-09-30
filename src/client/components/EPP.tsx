@@ -183,7 +183,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [editingItemsForm, setEditingItemsForm] = useState<{ idRegistro?: string; codigo: string; item: string; cantidad: string }[]>([]);
 
   const [showNotaDetail, setShowNotaDetail] = useState<NotaSalida | null>(null);
-  const [showNotaEdit, setShowNotaEdit] = useState<NotaSalida | null>(null);
   const [notasSeleccionadas, setNotasSeleccionadas] = useState<Set<string>>(new Set());
   const [editingNotaForm, setEditingNotaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
 
@@ -701,7 +700,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     }
     // Si estamos editando una nota existente, el trabajador se toma de esa nota.
     // Si estamos creando una nota nueva, se toma de "Quien Retira" del formulario.
-    const trabajador = showNotaEdit ? showNotaEdit.quienRetira : notaSalidaForm.quienRetira;
+    const trabajador = showNotaDetail ? showNotaDetail.quienRetira : notaSalidaForm.quienRetira;
     if (!trabajador) {
       alert('No se pudo determinar quien retira los productos');
       return;
@@ -718,7 +717,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   };
 
   const handleGuardarNotaConSalidas = async () => {
-    if (!showNotaEdit) return;
+    if (!showNotaDetail) return;
     if (salidasTemporales.length === 0) {
       alert('Agregue al menos un producto');
       return;
@@ -728,7 +727,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         idRegistro: `SAL-${Date.now()}-${idx}`,
         fechaHora: new Date().toISOString(),
         userEmail: 'sistema',
-        refNotaSalida: showNotaEdit.idRegistro,
+        refNotaSalida: showNotaDetail.idRegistro,
         refItem: s.refItem,
         cantidad: s.cantidad,
         trabajadorRetira: s.trabajadorRetira,
@@ -912,29 +911,30 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showNotaEdit) return;
+    if (!showNotaDetail) return;
     const quienRetiraFinal = editingNotaForm.quienRetira || busquedaQuienRetira.trim();
     if (!quienRetiraFinal) {
       alert('Indique quien retira los productos');
       return;
     }
     try {
-      const response = await apiFetch(`/api/epp/notas-salida/${showNotaEdit.idRegistro}`, {
+      const response = await apiFetch(`/api/epp/notas-salida/${showNotaDetail.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...editingNotaForm, quienRetira: quienRetiraFinal }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setShowNotaEdit(null);
+      setShowNotaDetail(null);
       setEditingNotaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
       setBusquedaQuienRetira('');
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const startEditNota = (nota: NotaSalida) => {
-    if (showNotaEdit?.idRegistro === nota.idRegistro) { setShowNotaEdit(null); return; }
-    setShowNotaDetail(null);
-    setShowNotaEdit(nota);
+  // Ver y editar una nota son la misma cosa: al hacer click en la fila se
+  // expande el detalle, ya directamente editable (incluidas las salidas).
+  const toggleExpandNota = (nota: NotaSalida) => {
+    if (showNotaDetail?.idRegistro === nota.idRegistro) { setShowNotaDetail(null); return; }
+    setShowNotaDetail(nota);
     setEditingNotaForm({
       orden: nota.orden,
       fecha: nota.fecha,
@@ -2114,7 +2114,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
-                        <tr onClick={() => setShowNotaDetail(expandida ? null : n)} {...longPressHandlers(() => toggleSeleccionNota(n.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
+                        <tr onClick={() => toggleExpandNota(n)} {...longPressHandlers(() => toggleSeleccionNota(n.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
                           {notasSeleccionadas.size > 0 && (
                             <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={notasSeleccionadas.has(n.idRegistro)} onChange={() => toggleSeleccionNota(n.idRegistro)} className="rounded" />
@@ -2131,45 +2131,14 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                           <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                               <button onClick={() => descargarPDFNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Descargar PDF"><FileText size={16} /></button>
-                              <button onClick={() => startEditNota(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteNotaSalida(n)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={6} className="px-6 py-4">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <div><span className="text-xs text-muted-foreground uppercase">Orden</span><p className="font-medium">{n.orden || n.idRegistro}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">Quien Retira</span><p className="font-medium">{nombreRetira}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{formatearFecha(n.fecha)}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">ID Registro</span><p className="font-medium">{n.idRegistro}</p></div>
-                              </div>
-                              {n.observaciones && (
-                                <div className="mb-4"><span className="text-xs text-muted-foreground uppercase">Observaciones</span><p className="font-medium">{n.observaciones}</p></div>
-                              )}
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-medium">Salidas registradas ({itemsCount})</h4>
-                                <button onClick={() => descargarPDFNotaSalida(n)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline" title="Descargar PDF"><FileText size={14} /> PDF</button>
-                              </div>
-                              <div className="space-y-2">
-                                {salidasByNota(n.idRegistro).map(s => {
-                                  const prod = productos.find(p => p.codigo === s.refItem);
-                                  return (
-                                    <div key={s.idRegistro} className="flex items-center justify-between bg-background/50 p-3 rounded-xl text-sm">
-                                      <div><p className="font-medium">{prod?.nombre || s.refItem}</p><p className="text-xs text-muted-foreground">Trabajador: {nombreQuienRetira(s.trabajadorRetira)}</p></div>
-                                      <span className="font-medium">{s.cantidad} und</span>
-                                    </div>
-                                  );
-                                })}
-                                {itemsCount === 0 && <p className="text-sm text-muted-foreground text-center py-2">No hay salidas registradas</p>}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        {showNotaEdit?.idRegistro === n.idRegistro && (
-                          <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={6} className="px-6 py-4">
+                            <td colSpan={6} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              <div className="text-xs text-muted-foreground uppercase mb-3">ID Registro: <span className="font-medium normal-case">{n.idRegistro}</span></div>
                               <form onSubmit={handleEditNotaSalida} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div><label className="block text-xs text-muted-foreground uppercase mb-1">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                                 <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
@@ -2356,7 +2325,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                   <div><label className="block text-xs text-muted-foreground uppercase mb-1">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
                                   <div className="flex items-end"><button type="button" onClick={handleAgregarItemSalida} className="w-full bg-secondary border border-border hover:bg-secondary/80 px-3 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"><Plus size={16} /> Agregar Item</button></div>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreQuienRetira(showNotaEdit?.quienRetira || '')}).</p>
+                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreQuienRetira(showNotaDetail?.quienRetira || '')}).</p>
 
                                 {salidasTemporales.length > 0 && (
                                   <div className="mt-3 flex gap-2">
