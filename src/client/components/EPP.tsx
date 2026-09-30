@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
-import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Eye, Pencil, Trash2, Footprints, FileDown } from 'lucide-react';
+import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
@@ -178,7 +178,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [salidasTemporales, setSalidasTemporales] = useState<{refItem: string, cantidad: string, trabajadorRetira: string, itemNombre: string}[]>([]);
 
   const [showRemisionDetail, setShowRemisionDetail] = useState<Remision | null>(null);
-  const [showRemisionEdit, setShowRemisionEdit] = useState<Remision | null>(null);
   const [remisionesSeleccionadas, setRemisionesSeleccionadas] = useState<Set<string>>(new Set());
   const [editingRemisionForm, setEditingRemisionForm] = useState({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
 
@@ -787,23 +786,24 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
   const handleEditRemision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showRemisionEdit) return;
+    if (!showRemisionDetail) return;
     try {
-      const response = await apiFetch(`/api/epp/remisiones/${showRemisionEdit.idRegistro}`, {
+      const response = await apiFetch(`/api/epp/remisiones/${showRemisionDetail.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingRemisionForm),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setShowRemisionEdit(null);
+      setShowRemisionDetail(null);
       setEditingRemisionForm({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const startEditRemision = (remision: Remision) => {
-    if (showRemisionEdit?.idRegistro === remision.idRegistro) { setShowRemisionEdit(null); return; }
-    setShowRemisionDetail(null);
-    setShowRemisionEdit(remision);
+  // Ver y editar una remision son la misma cosa: al hacer click en la fila
+  // se expande el detalle, ya directamente editable.
+  const toggleExpandRemision = (remision: Remision) => {
+    if (showRemisionDetail?.idRegistro === remision.idRegistro) { setShowRemisionDetail(null); return; }
+    setShowRemisionDetail(remision);
     setEditingRemisionForm({
       proveedor: remision.proveedor,
       numeracion: remision.numeracion,
@@ -1758,9 +1758,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       const expandida = showRemisionDetail?.idRegistro === r.idRegistro;
                       return (
                         <Fragment key={r.idRegistro}>
-                        <tr {...longPressHandlers(() => toggleSeleccionRemision(r.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
+                        <tr onClick={() => toggleExpandRemision(r)} {...longPressHandlers(() => toggleSeleccionRemision(r.idRegistro))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${expandida ? 'bg-secondary/20' : ''}`}>
                           {remisionesSeleccionadas.size > 0 && (
-                            <td className="px-4 py-3 block sm:table-cell">
+                            <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={remisionesSeleccionadas.has(r.idRegistro)} onChange={() => toggleSeleccionRemision(r.idRegistro)} className="rounded" />
                             </td>
                           )}
@@ -1772,31 +1772,31 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                               <Package size={10} /> {itemsCount}
                             </span>
                           </td>
-                          <td className="px-4 py-3 block sm:table-cell">
+                          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
                               {r.scaneado && (
                                 <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Ver PDF">
                                   <FileText size={16} />
                                 </a>
                               )}
-                              <button onClick={() => setShowRemisionDetail(expandida ? null : r)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${expandida ? 'text-primary bg-secondary' : ''}`} title="Ver detalle"><Eye size={16} /></button>
-                              <button onClick={() => startEditRemision(r)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => handleDeleteRemision(r)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={6} className="px-6 py-4">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <div><span className="text-xs text-muted-foreground uppercase">Numeracion</span><p className="font-medium">{r.numeracion}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">Proveedor</span><p className="font-medium">{r.proveedor || '-'}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{formatearFecha(r.fecha)}</p></div>
-                                <div><span className="text-xs text-muted-foreground uppercase">ID Registro</span><p className="font-medium">{r.idRegistro}</p></div>
-                              </div>
-                              {r.detalle && (
-                                <div className="mb-4"><span className="text-xs text-muted-foreground uppercase">Detalle</span><p className="font-medium">{r.detalle}</p></div>
-                              )}
+                            <td colSpan={6} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              <form onSubmit={handleEditRemision} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Detalle</label><input type="text" value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                <div className="flex items-end gap-2 md:col-span-4">
+                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                                  <button type="button" onClick={() => setShowRemisionDetail(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                                </div>
+                              </form>
+                              <div className="text-xs text-muted-foreground uppercase mb-4">ID Registro: <span className="font-medium normal-case">{r.idRegistro}</span></div>
                               {r.scaneado && (
                                 <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-sm mb-4"><FileText size={14} /> Ver documento escaneado</a>
                               )}
@@ -1810,22 +1810,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                 ))}
                                 {itemsCount === 0 && <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>}
                               </div>
-                            </td>
-                          </tr>
-                        )}
-                        {showRemisionEdit?.idRegistro === r.idRegistro && (
-                          <tr className="bg-secondary/10 border-b border-border/50">
-                            <td colSpan={6} className="px-6 py-4">
-                              <form onSubmit={handleEditRemision} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Detalle</label><input type="text" value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div className="flex items-end gap-2 md:col-span-4">
-                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
-                                  <button type="button" onClick={() => setShowRemisionEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
-                                </div>
-                              </form>
                             </td>
                           </tr>
                         )}
