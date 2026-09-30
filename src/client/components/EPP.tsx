@@ -180,6 +180,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [showRemisionDetail, setShowRemisionDetail] = useState<Remision | null>(null);
   const [remisionesSeleccionadas, setRemisionesSeleccionadas] = useState<Set<string>>(new Set());
   const [editingRemisionForm, setEditingRemisionForm] = useState({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
+  const [editingItemsForm, setEditingItemsForm] = useState<{ idRegistro?: string; codigo: string; item: string; cantidad: string }[]>([]);
 
   const [showNotaDetail, setShowNotaDetail] = useState<NotaSalida | null>(null);
   const [showNotaEdit, setShowNotaEdit] = useState<NotaSalida | null>(null);
@@ -793,14 +794,36 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         body: JSON.stringify(editingRemisionForm),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+
+      // Sincroniza los items: actualiza los existentes, crea los agregados
+      // y borra los que se quitaron del formulario.
+      const itemsValidos = editingItemsForm.filter(it => it.item.trim());
+      const idsActuales = new Set(itemsValidos.filter(it => it.idRegistro).map(it => it.idRegistro));
+      const idsOriginales = entradasByRemision(showRemisionDetail.idRegistro).map(it => it.idRegistro);
+      const idsAEliminar = idsOriginales.filter(id => !idsActuales.has(id));
+
+      await Promise.all([
+        ...itemsValidos.map((it, idx) => {
+          const body = { codigo: it.codigo.trim(), item: it.item.trim(), cantidad: it.cantidad.trim() || '0' };
+          return it.idRegistro
+            ? apiFetch(`/api/epp/entradas/${it.idRegistro}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            : apiFetch('/api/epp/entradas', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, idRegistro: `ENT-${Date.now()}-${idx}`, refRemision: showRemisionDetail.idRegistro, proyecto }),
+              });
+        }),
+        ...idsAEliminar.map(id => apiFetch(`/api/epp/entradas/${id}`, { method: 'DELETE' })),
+      ]);
+
       setShowRemisionDetail(null);
       setEditingRemisionForm({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
+      setEditingItemsForm([]);
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
   // Ver y editar una remision son la misma cosa: al hacer click en la fila
-  // se expande el detalle, ya directamente editable.
+  // se expande el detalle, ya directamente editable (incluidos los items).
   const toggleExpandRemision = (remision: Remision) => {
     if (showRemisionDetail?.idRegistro === remision.idRegistro) { setShowRemisionDetail(null); return; }
     setShowRemisionDetail(remision);
@@ -810,7 +833,14 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       fecha: remision.fecha,
       detalle: remision.detalle,
     });
+    setEditingItemsForm(entradasByRemision(remision.idRegistro).map(it => ({ idRegistro: it.idRegistro, codigo: it.codigo, item: it.item, cantidad: it.cantidad })));
   };
+
+  const actualizarItemRemisionForm = (idx: number, campo: 'codigo' | 'item' | 'cantidad', valor: string) => {
+    setEditingItemsForm(prev => prev.map((it, i) => (i === idx ? { ...it, [campo]: valor } : it)));
+  };
+  const agregarItemRemisionForm = () => setEditingItemsForm(prev => [...prev, { codigo: '', item: '', cantidad: '' }]);
+  const quitarItemRemisionForm = (idx: number) => setEditingItemsForm(prev => prev.filter((_, i) => i !== idx));
 
   const handleDeleteNotaSalida = async (nota: NotaSalida) => {
     if (!confirm(`Eliminar nota de salida "${nota.orden || nota.idRegistro}" y todas sus salidas relacionadas?`)) return;
@@ -1786,30 +1816,40 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
                             <td colSpan={6} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                              <form onSubmit={handleEditRemision} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Detalle</label><input type="text" value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div className="flex items-end gap-2 md:col-span-4">
+                              <form onSubmit={handleEditRemision}>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label><input type="text" value={editingRemisionForm.proveedor} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Numeracion</label><input type="text" value={editingRemisionForm.numeracion} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, numeracion: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingRemisionForm.fecha} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Detalle</label><input type="text" value={editingRemisionForm.detalle} onChange={(e) => setEditingRemisionForm({...editingRemisionForm, detalle: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground uppercase mb-3">ID Registro: <span className="font-medium normal-case">{r.idRegistro}</span></div>
+                                {r.scaneado && (
+                                  <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-sm mb-4"><FileText size={14} /> Ver documento escaneado</a>
+                                )}
+
+                                <div className="flex items-center justify-between mb-2 mt-2">
+                                  <h4 className="text-sm font-medium">Items de la remision ({editingItemsForm.length})</h4>
+                                  <button type="button" onClick={agregarItemRemisionForm} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus size={14} /> Agregar item</button>
+                                </div>
+                                <div className="space-y-2 mb-4">
+                                  {editingItemsForm.map((it, idx) => (
+                                    <div key={it.idRegistro || `nuevo-${idx}`} className="flex items-center gap-2 bg-background/50 p-3 rounded-xl">
+                                      <input type="text" value={it.item} onChange={(e) => actualizarItemRemisionForm(idx, 'item', e.target.value)} placeholder="Nombre del item" className="flex-1 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                      <input type="text" value={it.codigo} onChange={(e) => actualizarItemRemisionForm(idx, 'codigo', e.target.value)} placeholder="Codigo" className="w-24 sm:w-28 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                      <input type="number" value={it.cantidad} onChange={(e) => actualizarItemRemisionForm(idx, 'cantidad', e.target.value)} placeholder="Cant." className="w-16 sm:w-20 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                                      <button type="button" onClick={() => quitarItemRemisionForm(idx)} className="p-1.5 text-muted-foreground hover:text-red-400 shrink-0" title="Quitar item"><X size={16} /></button>
+                                    </div>
+                                  ))}
+                                  {editingItemsForm.length === 0 && <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>}
+                                </div>
+
+                                <div className="flex items-center gap-2">
                                   <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
                                   <button type="button" onClick={() => setShowRemisionDetail(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
                                 </div>
                               </form>
-                              <div className="text-xs text-muted-foreground uppercase mb-4">ID Registro: <span className="font-medium normal-case">{r.idRegistro}</span></div>
-                              {r.scaneado && (
-                                <a href={r.scaneado} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-sm mb-4"><FileText size={14} /> Ver documento escaneado</a>
-                              )}
-                              <h4 className="text-sm font-medium mb-2">Items de la remision ({itemsCount})</h4>
-                              <div className="space-y-2">
-                                {entradasByRemision(r.idRegistro).map(e => (
-                                  <div key={e.idRegistro} className="flex items-center justify-between bg-background/50 p-3 rounded-xl text-sm">
-                                    <div><p className="font-medium">{e.item}</p><p className="text-xs text-muted-foreground">Codigo: {e.codigo}</p></div>
-                                    <span className="font-medium">{e.cantidad} und</span>
-                                  </div>
-                                ))}
-                                {itemsCount === 0 && <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>}
-                              </div>
                             </td>
                           </tr>
                         )}

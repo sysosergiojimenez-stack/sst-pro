@@ -90,7 +90,7 @@ import {
 import {
   getAllProductos, getProductosByProyecto, getProductoByCodigo, getProductoById, appendProducto, updateProducto, deleteProducto,
   getAllRemisiones, getRemisionesByProyecto, getRemisionById, appendRemision, updateRemision, deleteRemision,
-  getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, deleteEntrada,
+  getAllEntradas, getEntradasByProyecto, getEntradasByRemision, getEntradasByRemisionId, appendEntrada, appendMultipleEntradas, updateEntrada, deleteEntrada,
   getAllNotasSalida, getNotasSalidaByProyecto, getNotaSalidaById, appendNotaSalida, updateNotaSalida, deleteNotaSalida,
   getAllSalidas, getSalidasByProyecto, getSalidasByNota, getSalidasByTrabajador, appendSalida, appendMultipleSalidas, updateSalida, deleteSalida,
   getAllSolicitudesSuministro, getSolicitudesSuministroByProyecto, getNextNumeroSolicitud, appendSolicitudSuministro, updateSolicitudSuministro, deleteSolicitudSuministro,
@@ -1807,6 +1807,22 @@ app.post('/api/epp/entradas/batch', async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+// PUT - Actualizar entrada (item de una remision)
+app.put('/api/epp/entradas/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    if (!id) {
+      return c.json({ error: 'id invalido' }, 400);
+    }
+    await updateEntrada(id, body);
+    return c.json({ success: true, message: 'Entrada actualizada' });
+  } catch (error: any) {
+    console.error('Error PUT /api/epp/entradas:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // DELETE - Eliminar entrada
 app.delete('/api/epp/entradas/:id', async (c) => {
   try {

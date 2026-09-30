@@ -197,6 +197,16 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
   await batch.commit();
 }
 
+export async function updateEntrada(idRegistro: string, entrada: Partial<Pick<Entrada, 'codigo' | 'item' | 'cantidad'>>): Promise<void> {
+  const updates: Record<string, string> = {};
+  for (const f of ['codigo', 'item', 'cantidad'] as const) {
+    if ((entrada as any)[f] !== undefined) updates[f] = (entrada as any)[f];
+  }
+  if (Object.keys(updates).length === 0) return;
+  await getDb().collection(COL_ENTRADAS).doc(idRegistro).set(updates, { merge: true });
+  console.log('Entrada actualizada:', idRegistro);
+}
+
 export async function deleteEntrada(idRegistro: string): Promise<void> {
   await getDb().collection(COL_ENTRADAS).doc(idRegistro).delete();
   console.log('Entrada eliminada:', idRegistro);
