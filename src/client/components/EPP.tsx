@@ -185,6 +185,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [showNotaDetail, setShowNotaDetail] = useState<NotaSalida | null>(null);
   const [notasSeleccionadas, setNotasSeleccionadas] = useState<Set<string>>(new Set());
   const [editingNotaForm, setEditingNotaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
+  const [editingSalidasForm, setEditingSalidasForm] = useState<{ idRegistro?: string; refItem: string; cantidad: string; busqueda: string }[]>([]);
+  const [filaBusquedaSalidaActiva, setFilaBusquedaSalidaActiva] = useState<number | null>(null);
+  const [indiceResaltadoSalidaForm, setIndiceResaltadoSalidaForm] = useState(0);
 
   const fetchData = async () => {
     setLoading(true);
@@ -889,26 +892,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
-  const handleUpdateCantidadSalida = async (idRegistro: string, nuevaCantidad: string) => {
-    try {
-      const response = await apiFetch(`/api/epp/salidas/${idRegistro}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cantidad: nuevaCantidad }),
-      });
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      fetchData();
-    } catch (err: any) { alert('Error: ' + err.message); }
-  };
-
-  const handleEliminarSalidaDeNota = async (idRegistro: string) => {
-    if (!confirm('Eliminar este item de la nota?')) return;
-    try {
-      const response = await apiFetch(`/api/epp/salidas/${idRegistro}`, { method: 'DELETE' });
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      fetchData();
-    } catch (err: any) { alert('Error: ' + err.message); }
-  };
-
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showNotaDetail) return;
@@ -923,15 +906,38 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         body: JSON.stringify({ ...editingNotaForm, quienRetira: quienRetiraFinal }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
+
+      // Sincroniza las salidas (items) de la nota: actualiza las existentes,
+      // crea las agregadas y borra las que se quitaron del formulario.
+      const itemsValidos = editingSalidasForm.filter(it => it.refItem.trim() && it.cantidad.trim());
+      const idsActuales = new Set(itemsValidos.filter(it => it.idRegistro).map(it => it.idRegistro));
+      const idsOriginales = salidasByNota(showNotaDetail.idRegistro).map(s => s.idRegistro);
+      const idsAEliminar = idsOriginales.filter(id => !idsActuales.has(id));
+
+      await Promise.all([
+        ...itemsValidos.map((it, idx) => {
+          const body = { refItem: it.refItem, cantidad: it.cantidad.trim(), trabajadorRetira: quienRetiraFinal };
+          return it.idRegistro
+            ? apiFetch(`/api/epp/salidas/${it.idRegistro}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            : apiFetch('/api/epp/salidas', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, idRegistro: `SAL-${Date.now()}-${idx}`, refNotaSalida: showNotaDetail.idRegistro }),
+              });
+        }),
+        ...idsAEliminar.map(id => apiFetch(`/api/epp/salidas/${id}`, { method: 'DELETE' })),
+      ]);
+
       setShowNotaDetail(null);
       setEditingNotaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
+      setEditingSalidasForm([]);
       setBusquedaQuienRetira('');
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
 
   // Ver y editar una nota son la misma cosa: al hacer click en la fila se
-  // expande el detalle, ya directamente editable (incluidas las salidas).
+  // expande el detalle, ya directamente editable (incluidas las salidas),
+  // igual que en Remisiones.
   const toggleExpandNota = (nota: NotaSalida) => {
     if (showNotaDetail?.idRegistro === nota.idRegistro) { setShowNotaDetail(null); return; }
     setShowNotaDetail(nota);
@@ -941,8 +947,19 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       quienRetira: nota.quienRetira,
       observaciones: nota.observaciones,
     });
+    setEditingSalidasForm(salidasByNota(nota.idRegistro).map(s => ({ idRegistro: s.idRegistro, refItem: s.refItem, cantidad: s.cantidad, busqueda: '' })));
     const empActual = buscarEmpleado(nota.quienRetira);
     setBusquedaQuienRetira(empActual ? `${empActual.nombres} ${empActual.apellidos} - CI: ${empActual.nroDocumento}` : nota.quienRetira);
+  };
+
+  const actualizarSalidaItemForm = (idx: number, campo: 'refItem' | 'cantidad' | 'busqueda', valor: string) => {
+    setEditingSalidasForm(prev => prev.map((it, i) => (i === idx ? { ...it, [campo]: valor } : it)));
+  };
+  const agregarSalidaItemForm = () => setEditingSalidasForm(prev => [...prev, { refItem: '', cantidad: '', busqueda: '' }]);
+  const quitarSalidaItemForm = (idx: number) => setEditingSalidasForm(prev => prev.filter((_, i) => i !== idx));
+  const seleccionarProductoSalidaForm = (idx: number, codigo: string) => {
+    setEditingSalidasForm(prev => prev.map((it, i) => (i === idx ? { ...it, refItem: codigo, busqueda: '' } : it)));
+    setFilaBusquedaSalidaActiva(null);
   };
 
   const productosFiltrados = productos.filter(p =>
@@ -2138,182 +2155,73 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                         {expandida && (
                           <tr className="bg-secondary/10 border-b border-border/50">
                             <td colSpan={6} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                              <div className="text-xs text-muted-foreground uppercase mb-3">ID Registro: <span className="font-medium normal-case">{n.idRegistro}</span></div>
-                              <form onSubmit={handleEditNotaSalida} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div className="relative">
-                                  <label className="block text-xs text-muted-foreground uppercase mb-1">Quien Retira</label>
-                                  <input
-                                    type="text"
-                                    value={busquedaQuienRetira}
-                                    onChange={(e) => {
-                                      setBusquedaQuienRetira(e.target.value);
-                                      setMostrarSugerenciasQuienRetira(true);
-                                      setIndiceResaltadoQuienRetira(0);
-                                      if (editingNotaForm.quienRetira) setEditingNotaForm({ ...editingNotaForm, quienRetira: '' });
-                                    }}
-                                    onFocus={() => setMostrarSugerenciasQuienRetira(true)}
-                                    onBlur={() => {
-                                      setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150);
-                                      if (busquedaQuienRetira.trim() && !editingNotaForm.quienRetira) {
-                                        setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
-                                      }
-                                    }}
-                                    onKeyDown={(e) => {
-                                      const filtrados = buscarEmpleadosPorTexto(busquedaQuienRetira);
-                                      if (e.key === 'ArrowDown') {
-                                        e.preventDefault();
-                                        setMostrarSugerenciasQuienRetira(true);
-                                        setIndiceResaltadoQuienRetira(i => Math.min(i + 1, filtrados.length - 1));
-                                      } else if (e.key === 'ArrowUp') {
-                                        e.preventDefault();
-                                        setIndiceResaltadoQuienRetira(i => Math.max(i - 1, 0));
-                                      } else if (e.key === 'Enter') {
-                                        const emp = filtrados[indiceResaltadoQuienRetira];
-                                        if (emp && mostrarSugerenciasQuienRetira) {
-                                          e.preventDefault();
-                                          setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
-                                          setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
-                                          setMostrarSugerenciasQuienRetira(false);
-                                        } else if (busquedaQuienRetira.trim()) {
-                                          setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
-                                          setMostrarSugerenciasQuienRetira(false);
-                                        }
-                                      } else if (e.key === 'Escape') {
-                                        setMostrarSugerenciasQuienRetira(false);
-                                      }
-                                    }}
-                                    placeholder="Nombre, empresa o cedula..."
-                                    className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
-                                    autoComplete="off"
-                                  />
-                                  {mostrarSugerenciasQuienRetira && busquedaQuienRetira && (
-                                    <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
-                                      {buscarEmpleadosPorTexto(busquedaQuienRetira).length > 0 ? (
-                                        buscarEmpleadosPorTexto(busquedaQuienRetira).map((emp, idx) => (
-                                          <button
-                                            type="button"
-                                            key={emp.nroDocumento}
-                                            ref={(el) => { if (idx === indiceResaltadoQuienRetira) el?.scrollIntoView({ block: 'nearest' }); }}
-                                            onMouseEnter={() => setIndiceResaltadoQuienRetira(idx)}
-                                            onClick={() => {
-                                              setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
-                                              setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
-                                              setMostrarSugerenciasQuienRetira(false);
-                                            }}
-                                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${idx === indiceResaltadoQuienRetira ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
-                                          >
-                                            {emp.nombres} {emp.apellidos} <span className="text-muted-foreground">- CI: {emp.nroDocumento}</span>
-                                          </button>
-                                        ))
-                                      ) : (
-                                        <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <div><label className="block text-xs text-muted-foreground uppercase mb-1">Observaciones</label><input type="text" value={editingNotaForm.observaciones} onChange={(e) => setEditingNotaForm({...editingNotaForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                                <div className="flex items-end gap-2 md:col-span-4">
-                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
-                                  <button type="button" onClick={() => { setShowNotaEdit(null); setBusquedaQuienRetira(''); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
-                                </div>
-                              </form>
-                              <div className="mt-4 pt-4 border-t border-border">
-                                <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Salidas de esta nota ({salidasByNota(n.idRegistro).length})</h4>
-                                <div className="space-y-2">
-                                  {salidasByNota(n.idRegistro).map(s => {
-                                    const prod = productos.find(p => p.codigo === s.refItem);
-                                    return (
-                                      <div key={s.idRegistro} className="flex items-center gap-3 bg-secondary/30 p-2.5 rounded-xl text-sm">
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium truncate">{prod?.nombre || s.refItem}</p>
-                                          <p className="text-xs text-muted-foreground truncate">Trabajador: {nombreQuienRetira(s.trabajadorRetira)}</p>
-                                        </div>
-                                        <input
-                                          type="number"
-                                          defaultValue={s.cantidad}
-                                          onBlur={(e) => { if (e.target.value !== s.cantidad && e.target.value.trim() !== '') handleUpdateCantidadSalida(s.idRegistro, e.target.value); }}
-                                          className="w-20 bg-secondary border border-border rounded-lg px-2 py-1.5 text-sm text-center input-glow focus:outline-none focus:border-primary/50"
-                                          min="1"
-                                        />
-                                        <button type="button" onClick={() => handleEliminarSalidaDeNota(s.idRegistro)} className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 shrink-0"><Trash2 size={16} /></button>
-                                      </div>
-                                    );
-                                  })}
-                                  {salidasByNota(n.idRegistro).length === 0 && <p className="text-sm text-muted-foreground">No hay salidas registradas</p>}
-                                </div>
-                              </div>
-
-                              <div className="mt-4 pt-4 border-t border-border">
-                                <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Agregar Productos a la Nota</h4>
-
-                                {salidasTemporales.length > 0 && (
-                                  <div className="mb-3 space-y-2">
-                                    {salidasTemporales.map((s, idx) => {
-                                      return (
-                                        <div key={idx} className="flex items-center justify-between bg-secondary/50 p-2.5 rounded-xl text-sm">
-                                          <div>
-                                            <p className="font-medium">{s.itemNombre}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              Cant: {s.cantidad} | Trabajador: {nombreQuienRetira(s.trabajadorRetira)}
-                                            </p>
-                                          </div>
-                                          <button type="button" onClick={() => handleEliminarItemTemporal(idx)} className="p-1 rounded hover:bg-red-500/20 text-red-400"><X size={14} /></button>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <div className="relative md:col-span-2">
-                                    <label className="block text-xs text-muted-foreground uppercase mb-1">Producto *</label>
+                              <form onSubmit={handleEditNotaSalida}>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  <div className="relative">
+                                    <label className="block text-xs text-muted-foreground uppercase mb-1">Quien Retira</label>
                                     <input
                                       type="text"
-                                      value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
-                                      onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); setIndiceResaltadoProducto(0); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
-                                      onFocus={() => setMostrarSugerenciasProducto(true)}
-                                      onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
-                                      onKeyDown={(e) => {
-                                        const filtrados = productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase()));
-                                        if (e.key === 'ArrowDown') {
-                                          e.preventDefault();
-                                          setMostrarSugerenciasProducto(true);
-                                          setIndiceResaltadoProducto(i => Math.min(i + 1, filtrados.length - 1));
-                                        } else if (e.key === 'ArrowUp') {
-                                          e.preventDefault();
-                                          setIndiceResaltadoProducto(i => Math.max(i - 1, 0));
-                                        } else if (e.key === 'Enter') {
-                                          const p = filtrados[indiceResaltadoProducto];
-                                          if (p && mostrarSugerenciasProducto) {
-                                            e.preventDefault();
-                                            setSalidaForm({ ...salidaForm, refItem: p.codigo });
-                                            setBusquedaProducto('');
-                                            setMostrarSugerenciasProducto(false);
-                                          }
-                                        } else if (e.key === 'Escape') {
-                                          setMostrarSugerenciasProducto(false);
+                                      value={busquedaQuienRetira}
+                                      onChange={(e) => {
+                                        setBusquedaQuienRetira(e.target.value);
+                                        setMostrarSugerenciasQuienRetira(true);
+                                        setIndiceResaltadoQuienRetira(0);
+                                        if (editingNotaForm.quienRetira) setEditingNotaForm({ ...editingNotaForm, quienRetira: '' });
+                                      }}
+                                      onFocus={() => setMostrarSugerenciasQuienRetira(true)}
+                                      onBlur={() => {
+                                        setTimeout(() => setMostrarSugerenciasQuienRetira(false), 150);
+                                        if (busquedaQuienRetira.trim() && !editingNotaForm.quienRetira) {
+                                          setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
                                         }
                                       }}
-                                      placeholder="Escribi nombre o codigo..."
+                                      onKeyDown={(e) => {
+                                        const filtrados = buscarEmpleadosPorTexto(busquedaQuienRetira);
+                                        if (e.key === 'ArrowDown') {
+                                          e.preventDefault();
+                                          setMostrarSugerenciasQuienRetira(true);
+                                          setIndiceResaltadoQuienRetira(i => Math.min(i + 1, filtrados.length - 1));
+                                        } else if (e.key === 'ArrowUp') {
+                                          e.preventDefault();
+                                          setIndiceResaltadoQuienRetira(i => Math.max(i - 1, 0));
+                                        } else if (e.key === 'Enter') {
+                                          const emp = filtrados[indiceResaltadoQuienRetira];
+                                          if (emp && mostrarSugerenciasQuienRetira) {
+                                            e.preventDefault();
+                                            setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
+                                            setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
+                                            setMostrarSugerenciasQuienRetira(false);
+                                          } else if (busquedaQuienRetira.trim()) {
+                                            setEditingNotaForm({ ...editingNotaForm, quienRetira: busquedaQuienRetira.trim() });
+                                            setMostrarSugerenciasQuienRetira(false);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setMostrarSugerenciasQuienRetira(false);
+                                        }
+                                      }}
+                                      placeholder="Nombre, empresa o cedula..."
                                       className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
-                                      required={!salidaForm.refItem}
                                       autoComplete="off"
                                     />
-                                    {mostrarSugerenciasProducto && busquedaProducto && (
+                                    {mostrarSugerenciasQuienRetira && busquedaQuienRetira && (
                                       <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
-                                        {productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).length > 0 ? (
-                                          productosConStockSalida.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(busquedaProducto.toLowerCase())).map((p, idx) => (
+                                        {buscarEmpleadosPorTexto(busquedaQuienRetira).length > 0 ? (
+                                          buscarEmpleadosPorTexto(busquedaQuienRetira).map((emp, idx) => (
                                             <button
                                               type="button"
-                                              key={p.codigo}
-                                              ref={(el) => { if (idx === indiceResaltadoProducto) el?.scrollIntoView({ block: 'nearest' }); }}
-                                              onMouseEnter={() => setIndiceResaltadoProducto(idx)}
-                                              onClick={() => { setSalidaForm({ ...salidaForm, refItem: p.codigo }); setBusquedaProducto(''); setMostrarSugerenciasProducto(false); }}
-                                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${idx === indiceResaltadoProducto ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
+                                              key={emp.nroDocumento}
+                                              ref={(el) => { if (idx === indiceResaltadoQuienRetira) el?.scrollIntoView({ block: 'nearest' }); }}
+                                              onMouseEnter={() => setIndiceResaltadoQuienRetira(idx)}
+                                              onClick={() => {
+                                                setEditingNotaForm({ ...editingNotaForm, quienRetira: emp.nroDocumento });
+                                                setBusquedaQuienRetira(`${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`);
+                                                setMostrarSugerenciasQuienRetira(false);
+                                              }}
+                                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${idx === indiceResaltadoQuienRetira ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
                                             >
-                                              {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
+                                              {emp.nombres} {emp.apellidos} <span className="text-muted-foreground">- CI: {emp.nroDocumento}</span>
                                             </button>
                                           ))
                                         ) : (
@@ -2322,22 +2230,87 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                       </div>
                                     )}
                                   </div>
-                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Cantidad *</label><input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required min="1" /></div>
-                                  <div className="flex items-end"><button type="button" onClick={handleAgregarItemSalida} className="w-full bg-secondary border border-border hover:bg-secondary/80 px-3 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"><Plus size={16} /> Agregar Item</button></div>
+                                  <div><label className="block text-xs text-muted-foreground uppercase mb-1">Observaciones</label><input type="text" value={editingNotaForm.observaciones} onChange={(e) => setEditingNotaForm({...editingNotaForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-2">El producto se registrara a nombre de quien retiro la nota ({nombreQuienRetira(showNotaDetail?.quienRetira || '')}).</p>
 
-                                {salidasTemporales.length > 0 && (
-                                  <div className="mt-3 flex gap-2">
-                                    <button type="button" onClick={handleGuardarNotaConSalidas} className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm shadow-lg shadow-blue-500/25">
-                                      <Save size={16} /> Guardar {salidasTemporales.length} Producto(s)
-                                    </button>
-                                    <button type="button" onClick={() => setSalidasTemporales([])} className="px-4 py-2 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors text-sm">
-                                      Limpiar
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                                <div className="text-xs text-muted-foreground uppercase mb-3">ID Registro: <span className="font-medium normal-case">{n.idRegistro}</span></div>
+
+                                <div className="flex items-center justify-between mb-2 mt-2">
+                                  <h4 className="text-sm font-medium">Items de la nota ({editingSalidasForm.length})</h4>
+                                  <button type="button" onClick={agregarSalidaItemForm} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus size={14} /> Agregar item</button>
+                                </div>
+                                <div className="space-y-2 mb-4">
+                                  {editingSalidasForm.map((it, idx) => {
+                                    const prodSeleccionado = productos.find(p => p.codigo === it.refItem);
+                                    const valorMostrado = it.busqueda || (it.refItem ? `${prodSeleccionado?.nombre || it.refItem} (Stock: ${stockDisponible(it.refItem)})` : '');
+                                    const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(it.busqueda.toLowerCase()));
+                                    return (
+                                      <div key={it.idRegistro || `nuevo-${idx}`} className="flex items-center gap-2 bg-background/50 p-3 rounded-xl">
+                                        <div className="relative flex-1">
+                                          <input
+                                            type="text"
+                                            value={valorMostrado}
+                                            onChange={(e) => {
+                                              actualizarSalidaItemForm(idx, 'busqueda', e.target.value);
+                                              setFilaBusquedaSalidaActiva(idx);
+                                              setIndiceResaltadoSalidaForm(0);
+                                              if (it.refItem) actualizarSalidaItemForm(idx, 'refItem', '');
+                                            }}
+                                            onFocus={() => setFilaBusquedaSalidaActiva(idx)}
+                                            onBlur={() => setTimeout(() => setFilaBusquedaSalidaActiva(f => (f === idx ? null : f)), 150)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'ArrowDown') {
+                                                e.preventDefault();
+                                                setFilaBusquedaSalidaActiva(idx);
+                                                setIndiceResaltadoSalidaForm(i => Math.min(i + 1, filtrados.length - 1));
+                                              } else if (e.key === 'ArrowUp') {
+                                                e.preventDefault();
+                                                setIndiceResaltadoSalidaForm(i => Math.max(i - 1, 0));
+                                              } else if (e.key === 'Enter') {
+                                                const p = filtrados[indiceResaltadoSalidaForm];
+                                                if (p && filaBusquedaSalidaActiva === idx) { e.preventDefault(); seleccionarProductoSalidaForm(idx, p.codigo); }
+                                              } else if (e.key === 'Escape') {
+                                                setFilaBusquedaSalidaActiva(null);
+                                              }
+                                            }}
+                                            placeholder="Nombre o codigo del producto..."
+                                            className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+                                            autoComplete="off"
+                                          />
+                                          {filaBusquedaSalidaActiva === idx && it.busqueda && (
+                                            <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                                              {filtrados.length > 0 ? (
+                                                filtrados.map((p, pIdx) => (
+                                                  <button
+                                                    type="button"
+                                                    key={p.codigo}
+                                                    ref={(el) => { if (pIdx === indiceResaltadoSalidaForm) el?.scrollIntoView({ block: 'nearest' }); }}
+                                                    onMouseEnter={() => setIndiceResaltadoSalidaForm(pIdx)}
+                                                    onClick={() => seleccionarProductoSalidaForm(idx, p.codigo)}
+                                                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${pIdx === indiceResaltadoSalidaForm ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
+                                                  >
+                                                    {p.nombre} <span className="text-muted-foreground">(Stock: {stockDisponible(p.codigo)})</span>
+                                                  </button>
+                                                ))
+                                              ) : (
+                                                <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <input type="number" value={it.cantidad} onChange={(e) => actualizarSalidaItemForm(idx, 'cantidad', e.target.value)} placeholder="Cant." className="w-16 sm:w-20 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" min="1" />
+                                        <button type="button" onClick={() => quitarSalidaItemForm(idx)} className="p-1.5 text-muted-foreground hover:text-red-400 shrink-0" title="Quitar item"><X size={16} /></button>
+                                      </div>
+                                    );
+                                  })}
+                                  {editingSalidasForm.length === 0 && <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
+                                  <button type="button" onClick={() => { setShowNotaDetail(null); setBusquedaQuienRetira(''); }} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                                </div>
+                              </form>
                             </td>
                           </tr>
                         )}
