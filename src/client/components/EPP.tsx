@@ -126,6 +126,22 @@ const clasificaciones = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Protec
 
 type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'solicitudes';
 
+const normalizarClasificacion = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+
+// Mapea cada grupo de la planilla de entrega de EPP a la(s) palabra(s) clave
+// que deben estar presentes en la columna Clasificacion real de Productos.
+// Se usa coincidencia por substring (no igualdad exacta) porque esa columna
+// es texto libre y varia entre proyectos (ej. "Lentes Obscuros", "Lentes
+// Claros"). Botin para Obrero exige ambas palabras para no confundirse con
+// "BOTIN P/ SUPERVISOR" ni "Casco P/ Obrero".
+const GRUPOS_PLANILLA_EPP: { nombre: string; match: (clasificacionNormalizada: string) => boolean }[] = [
+  { nombre: 'Guantes', match: (c) => c.includes('GUANTE') },
+  { nombre: 'Lentes', match: (c) => c.includes('LENTE') },
+  { nombre: 'Mascarillas', match: (c) => c.includes('MASCARILLA') },
+  { nombre: 'Botín para Obrero', match: (c) => c.includes('BOTIN') && c.includes('OBRERO') },
+  { nombre: 'Uniforme', match: (c) => c.includes('INDUMENTARIA') || c.includes('UNIFORME') },
+];
+
 export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -151,6 +167,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [reporteMes, setReporteMes] = useState<number | 'todos'>('todos');
   const [reporteAnio, setReporteAnio] = useState(new Date().getFullYear());
   const reportesRef = useRef<HTMLDivElement>(null);
+  const [planillaAbierta, setPlanillaAbierta] = useState(false);
+  const [gruposSeleccionadosPlanilla, setGruposSeleccionadosPlanilla] = useState<Set<string>>(
+    new Set(GRUPOS_PLANILLA_EPP.map(g => g.nombre))
+  );
+  const [itemsExcluidosPlanilla, setItemsExcluidosPlanilla] = useState<Set<string>>(new Set());
   const [showSolicitudForm, setShowSolicitudForm] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
@@ -1443,32 +1464,38 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
   };
 
-  const normalizarClasificacion = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-
-  // Mapea cada grupo de la planilla a la(s) palabra(s) clave que deben estar
-  // presentes en la columna Clasificacion real de Productos. Se usa
-  // coincidencia por substring (no igualdad exacta) porque esa columna es
-  // texto libre y varia entre proyectos (ej. "Lentes Obscuros", "Lentes
-  // Claros"). Botin para Obrero exige ambas palabras para no confundirse con
-  // "BOTIN P/ SUPERVISOR" ni "Casco P/ Obrero".
-  const GRUPOS_PLANILLA_EPP: { nombre: string; match: (clasificacionNormalizada: string) => boolean }[] = [
-    { nombre: 'Guantes', match: (c) => c.includes('GUANTE') },
-    { nombre: 'Lentes', match: (c) => c.includes('LENTE') },
-    { nombre: 'Mascarillas', match: (c) => c.includes('MASCARILLA') },
-    { nombre: 'Botín para Obrero', match: (c) => c.includes('BOTIN') && c.includes('OBRERO') },
-    { nombre: 'Uniforme', match: (c) => c.includes('INDUMENTARIA') || c.includes('UNIFORME') },
-  ];
-
   const productosDeGrupo = (grupo: { match: (clasificacionNormalizada: string) => boolean }) => {
     return productos
       .filter(p => grupo.match(normalizarClasificacion(p.clasificacion || '')))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   };
 
+  const claveItemPlanilla = (grupoNombre: string, codigo: string) => `${grupoNombre}__${codigo}`;
+
+  const toggleGrupoPlanilla = (nombre: string) => {
+    setGruposSeleccionadosPlanilla(prev => {
+      const next = new Set(prev);
+      if (next.has(nombre)) next.delete(nombre); else next.add(nombre);
+      return next;
+    });
+  };
+
+  const toggleItemPlanilla = (grupoNombre: string, codigo: string) => {
+    setItemsExcluidosPlanilla(prev => {
+      const next = new Set(prev);
+      const clave = claveItemPlanilla(grupoNombre, codigo);
+      if (next.has(clave)) next.delete(clave); else next.add(clave);
+      return next;
+    });
+  };
+
   // Planilla de entrega de EPP: una "mini orden de salida" en blanco por
   // grupo de EPP, con los productos de esa clasificacion precargados como
   // filas (solo falta completar cantidad, quien retira y firmas a mano).
   const generarPlanillaEntregaEPP = async () => {
+    const gruposActivos = GRUPOS_PLANILLA_EPP.filter(g => gruposSeleccionadosPlanilla.has(g.nombre));
+    if (gruposActivos.length === 0) { alert('Selecciona al menos un grupo.'); return; }
+
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageW = 210;
     const pageH = 297;
@@ -1552,7 +1579,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6);
-      const items = productosDeGrupo(grupo);
+      const items = productosDeGrupo(grupo).filter(p => !itemsExcluidosPlanilla.has(claveItemPlanilla(grupo.nombre, p.codigo)));
       if (items.length > 0) {
         items.forEach((p, idx) => {
           const productoLines = doc.splitTextToSize(p.nombre, cols[2] - 2);
@@ -1583,7 +1610,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       return y;
     };
 
-    GRUPOS_PLANILLA_EPP.forEach((grupo, idxGrupo) => {
+    gruposActivos.forEach((grupo, idxGrupo) => {
       if (idxGrupo > 0) doc.addPage();
       let yInicioCopia = m;
 
@@ -1606,6 +1633,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     });
 
     doc.save(`Planilla_Entrega_EPP_${proyecto.replace(/\s+/g, '_')}.pdf`);
+    setPlanillaAbierta(false);
   };
 
   const renderFilaProducto = (p: Producto) => {
@@ -1747,8 +1775,8 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={generarPlanillaEntregaEPP}
-            className="border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm bg-secondary border-border hover:bg-secondary/80"
+            onClick={() => setPlanillaAbierta(v => !v)}
+            className={`border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm ${planillaAbierta ? 'bg-primary text-white border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
             title="Genera un PDF con una hoja por grupo de EPP, con los productos de cada clasificación precargados"
           >
             <ClipboardList size={16} /> Planilla de Entrega EPP
@@ -1851,6 +1879,70 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
             <button
               type="button"
               onClick={() => setReportesAbierto(false)}
+              className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {planillaAbierta && (
+        <div className="bg-card border border-border rounded-xl p-6 scale-in">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <ClipboardList size={20} className="text-primary" />
+              Planilla de Entrega EPP
+            </h3>
+            <button onClick={() => setPlanillaAbierta(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+          </div>
+
+          <p className="text-xs text-muted-foreground mb-4">Elegí qué grupos incluir en el PDF y destildá los productos que no quieras que aparezcan en las notas.</p>
+
+          <div className="space-y-3 mb-4">
+            {GRUPOS_PLANILLA_EPP.map(grupo => {
+              const items = productosDeGrupo(grupo);
+              const seleccionado = gruposSeleccionadosPlanilla.has(grupo.nombre);
+              return (
+                <div key={grupo.nombre} className={`border rounded-xl p-4 transition-colors ${seleccionado ? 'border-primary bg-primary/5' : 'border-border bg-secondary/30'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={seleccionado} onChange={() => toggleGrupoPlanilla(grupo.nombre)} className="rounded" />
+                    <span className="font-medium text-sm">{grupo.nombre}</span>
+                    <span className="text-xs text-muted-foreground">({items.length} producto{items.length !== 1 ? 's' : ''})</span>
+                  </label>
+                  {seleccionado && (
+                    items.length === 0 ? (
+                      <p className="text-xs text-muted-foreground pl-6 mt-2">Sin productos registrados en esta clasificación</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-6 mt-3">
+                        {items.map(p => {
+                          const excluido = itemsExcluidosPlanilla.has(claveItemPlanilla(grupo.nombre, p.codigo));
+                          return (
+                            <label key={p.codigo} className="flex items-center gap-2 text-xs cursor-pointer">
+                              <input type="checkbox" checked={!excluido} onChange={() => toggleItemPlanilla(grupo.nombre, p.codigo)} className="rounded" />
+                              <span className={excluido ? 'line-through text-muted-foreground' : 'text-foreground'}>{p.codigo} - {p.nombre}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={generarPlanillaEntregaEPP}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+            >
+              <FileDown size={18} /> Generar PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlanillaAbierta(false)}
               className="px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-secondary/80 transition-colors"
             >
               Cancelar
