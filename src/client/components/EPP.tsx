@@ -1443,24 +1443,25 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
   };
 
-  // Mapea cada grupo de la planilla a las clasificaciones reales de producto
-  // que puede traer (ver `clasificaciones` y CLASIFICACIONES_BOTIN mas arriba),
-  // ya que el usuario usa nombres coloquiales (ej. "Lentes") distintos del
-  // valor guardado en el producto (ej. "Gafas").
-  const GRUPOS_PLANILLA_EPP: { nombre: string; clasificaciones: string[] }[] = [
-    { nombre: 'Guantes', clasificaciones: ['Guantes'] },
-    { nombre: 'Lentes', clasificaciones: ['Gafas', 'Lentes'] },
-    { nombre: 'Mascarillas', clasificaciones: ['Proteccion Respiratoria', 'Mascarillas', 'Mascarilla'] },
-    { nombre: 'Botín para Obrero', clasificaciones: ['BOTIN P/ OBRERO'] },
-    { nombre: 'Uniforme', clasificaciones: ['Ropa de Trabajo', 'Uniforme'] },
-  ];
-
   const normalizarClasificacion = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
 
-  const productosDeGrupo = (grupo: { clasificaciones: string[] }) => {
-    const aceptadas = new Set(grupo.clasificaciones.map(normalizarClasificacion));
+  // Mapea cada grupo de la planilla a la(s) palabra(s) clave que deben estar
+  // presentes en la columna Clasificacion real de Productos. Se usa
+  // coincidencia por substring (no igualdad exacta) porque esa columna es
+  // texto libre y varia entre proyectos (ej. "Lentes Obscuros", "Lentes
+  // Claros"). Botin para Obrero exige ambas palabras para no confundirse con
+  // "BOTIN P/ SUPERVISOR" ni "Casco P/ Obrero".
+  const GRUPOS_PLANILLA_EPP: { nombre: string; match: (clasificacionNormalizada: string) => boolean }[] = [
+    { nombre: 'Guantes', match: (c) => c.includes('GUANTE') },
+    { nombre: 'Lentes', match: (c) => c.includes('LENTE') },
+    { nombre: 'Mascarillas', match: (c) => c.includes('MASCARILLA') },
+    { nombre: 'Botín para Obrero', match: (c) => c.includes('BOTIN') && c.includes('OBRERO') },
+    { nombre: 'Uniforme', match: (c) => c.includes('INDUMENTARIA') || c.includes('UNIFORME') },
+  ];
+
+  const productosDeGrupo = (grupo: { match: (clasificacionNormalizada: string) => boolean }) => {
     return productos
-      .filter(p => aceptadas.has(normalizarClasificacion(p.clasificacion || '')))
+      .filter(p => grupo.match(normalizarClasificacion(p.clasificacion || '')))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   };
 
