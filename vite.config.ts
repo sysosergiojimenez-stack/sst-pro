@@ -9,6 +9,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      workbox: {
+        // El bundle principal supero el limite default de 2 MiB para
+        // precache (jsPDF + xlsx + el resto de la app); se sube el limite
+        // en vez de intentar code-splitting por ahora.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       manifest: {
         name: 'SST Pro',
         short_name: 'SST Pro',
