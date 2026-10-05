@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
-import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown } from 'lucide-react';
+import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown, ClipboardList } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
@@ -1443,6 +1443,163 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
   };
 
+  // Mapea cada grupo de la planilla a las clasificaciones reales de producto
+  // que puede traer (ver `clasificaciones` y CLASIFICACIONES_BOTIN mas arriba),
+  // ya que el usuario usa nombres coloquiales (ej. "Lentes") distintos del
+  // valor guardado en el producto (ej. "Gafas").
+  const GRUPOS_PLANILLA_EPP: { nombre: string; clasificaciones: string[] }[] = [
+    { nombre: 'Guantes', clasificaciones: ['Guantes'] },
+    { nombre: 'Lentes', clasificaciones: ['Gafas', 'Lentes'] },
+    { nombre: 'Mascarillas', clasificaciones: ['Proteccion Respiratoria', 'Mascarillas', 'Mascarilla'] },
+    { nombre: 'Botín para Obrero', clasificaciones: ['BOTIN P/ OBRERO'] },
+    { nombre: 'Uniforme', clasificaciones: ['Ropa de Trabajo', 'Uniforme'] },
+  ];
+
+  const normalizarClasificacion = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+
+  const productosDeGrupo = (grupo: { clasificaciones: string[] }) => {
+    const aceptadas = new Set(grupo.clasificaciones.map(normalizarClasificacion));
+    return productos
+      .filter(p => aceptadas.has(normalizarClasificacion(p.clasificacion || '')))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  };
+
+  // Planilla de entrega de EPP: una "mini orden de salida" en blanco por
+  // grupo de EPP, con los productos de esa clasificacion precargados como
+  // filas (solo falta completar cantidad, quien retira y firmas a mano).
+  const generarPlanillaEntregaEPP = async () => {
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageW = 210;
+    const m = 10;
+    const w = pageW - m * 2;
+    const logo = await fetchLogoData(proyectoLogo);
+    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
+
+    const cols = [12, 35, 98, 30];
+    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
+    const x0 = m;
+
+    const dibujarEncabezadoTabla = (y: number) => {
+      doc.setFillColor(230, 230, 230);
+      doc.setLineWidth(0.1);
+      doc.rect(x0, y, w, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      let x = x0;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 1, y + 4);
+        x += cols[i];
+      });
+      doc.rect(x0, y, w, 6);
+      x = x0;
+      cols.forEach((cw, i) => {
+        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+        x += cw;
+      });
+      return y + 6;
+    };
+
+    GRUPOS_PLANILLA_EPP.forEach((grupo, idxGrupo) => {
+      if (idxGrupo > 0) doc.addPage();
+      let y = m;
+
+      if (logo && logoSize) {
+        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
+      } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(proyecto, pageW - m - 2, y + 5, { align: 'right' });
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('NOTA DE SALIDA', m, y + 6);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Entrega de EPP - ${grupo.nombre}`, m, y + 12);
+
+      y += 20;
+
+      // Nro y fecha en blanco (se completan a mano)
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Nº:', pageW - m - 40, y);
+      doc.setLineWidth(0.1);
+      doc.line(pageW - m - 34, y + 1, pageW - m, y + 1);
+      doc.text('Fecha:', pageW - m - 40, y + 6);
+      doc.line(pageW - m - 28, y + 7, pageW - m, y + 7);
+
+      const campoBlanco = (label: string) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(`${label}:`, m, y);
+        const labelW = doc.getTextWidth(`${label}:`);
+        doc.setLineWidth(0.1);
+        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
+        y += 6;
+      };
+
+      campoBlanco('Quien Retira');
+      campoBlanco('Observaciones');
+
+      y += 3;
+
+      y = dibujarEncabezadoTabla(y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      const items = productosDeGrupo(grupo);
+      if (items.length > 0) {
+        items.forEach((p, idx) => {
+          const productoLines = doc.splitTextToSize(p.nombre, cols[2] - 2);
+          const rowH = Math.max(6, 3 + productoLines.length * 2.2);
+          if (y + rowH > 280) {
+            doc.addPage();
+            y = m;
+            y = dibujarEncabezadoTabla(y);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+          }
+          let x = x0;
+          const vals: (string | string[])[] = [String(idx + 1), p.codigo, productoLines, ''];
+          vals.forEach((val, i) => {
+            const text = Array.isArray(val) ? val : [String(val)];
+            doc.text(text, x + 1, y + 3);
+            x += cols[i];
+          });
+          doc.rect(x0, y, w, rowH);
+          x = x0;
+          cols.forEach((cw, i) => {
+            if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
+            x += cw;
+          });
+          y += rowH;
+        });
+      } else {
+        doc.rect(x0, y, w, 8);
+        doc.text('Sin productos registrados en esta clasificación', x0 + 1, y + 5);
+        y += 8;
+      }
+
+      y += 8;
+
+      // Firmas
+      const firmaW = (w - 20) / 3;
+      const firmas = ['QUIEN RETIRA', 'ENTREGA', 'ADMINISTRACIÓN'];
+      let fx = m;
+      doc.setLineWidth(0.1);
+      firmas.forEach((f) => {
+        doc.line(fx, y + 10, fx + firmaW, y + 10);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(f, fx + firmaW / 2, y + 14, { align: 'center' });
+        fx += firmaW + 10;
+      });
+    });
+
+    doc.save(`Planilla_Entrega_EPP_${proyecto.replace(/\s+/g, '_')}.pdf`);
+  };
+
   const renderFilaProducto = (p: Producto) => {
     const entradas = totalEntradasByProducto(p.codigo);
     const salidas = totalSalidasByProducto(p.codigo);
@@ -1580,6 +1737,14 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           <p className="text-muted-foreground mt-1">{proyecto}</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={generarPlanillaEntregaEPP}
+            className="border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm bg-secondary border-border hover:bg-secondary/80"
+            title="Genera un PDF con una hoja por grupo de EPP, con los productos de cada clasificación precargados"
+          >
+            <ClipboardList size={16} /> Planilla de Entrega EPP
+          </button>
           <div ref={reportesRef}>
             <button
               type="button"
