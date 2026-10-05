@@ -535,6 +535,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const startEditProducto = (producto: Producto) => {
     if (showProductoEdit?.codigo === producto.codigo) { setShowProductoEdit(null); return; }
     setShowProductoEdit(producto);
+    setAjusteProductoSeleccionado(null);
     setEditingProductoForm({
       codigo: producto.codigo,
       nombre: producto.nombre,
@@ -1420,9 +1421,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const ajustando = ajusteProductoSeleccionado?.codigo === p.codigo;
     return (
       <Fragment key={p.codigo}>
-      <tr {...longPressHandlers(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando || ajustando ? 'bg-secondary/20' : ''}`}>
+      <tr onClick={() => startEditProducto(p)} {...longPressHandlers(() => toggleSeleccionProducto(p.codigo))} className={`border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0 select-none ${bajo ? 'bg-red-500/5' : ''} ${editando || ajustando ? 'bg-secondary/20' : ''}`}>
         {productosSeleccionados.size > 0 && (
-          <td className="px-4 py-3 block sm:table-cell">
+          <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
             <input type="checkbox" checked={productosSeleccionados.has(p.codigo)} onChange={() => toggleSeleccionProducto(p.codigo)} className="rounded" />
           </td>
         )}
@@ -1447,17 +1448,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
             </span>
           )}
         </td>
-        <td className="px-4 py-3 block sm:table-cell">
+        <td className="px-4 py-3 block sm:table-cell" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-center gap-1 pt-1.5 sm:pt-0 mt-1 sm:mt-0 border-t border-border/50 sm:border-0">
             <button onClick={() => startAjusteStock(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-blue-400" title="Ajustar stock"><Boxes size={16} /></button>
-            <button onClick={() => startEditProducto(p)} className={`p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary ${editando ? 'text-primary bg-secondary' : ''}`} title="Editar"><Pencil size={16} /></button>
-            <button onClick={() => handleDeleteProducto(p)} className="p-3 sm:p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-red-400" title="Eliminar"><Trash2 size={16} /></button>
           </div>
         </td>
       </tr>
       {editando && (
         <tr className="bg-secondary/10 border-b border-border/50">
-          <td colSpan={8} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo *</label>
@@ -1482,6 +1481,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               <div className="flex items-end gap-2 md:col-span-4">
                 <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Cambios</button>
                 <button type="button" onClick={() => setShowProductoEdit(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Cancelar</button>
+                <button type="button" onClick={() => handleDeleteProducto(p)} className="px-5 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors flex items-center gap-2 ml-auto"><Trash2 size={18} /> Eliminar</button>
               </div>
             </form>
           </td>
