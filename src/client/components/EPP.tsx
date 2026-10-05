@@ -148,6 +148,8 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [showSalidaForm, setShowSalidaForm] = useState(false);
   const [reportesAbierto, setReportesAbierto] = useState(false);
   const [reporteSeleccionado, setReporteSeleccionado] = useState<TipoReporte>('inventario');
+  const [reporteMes, setReporteMes] = useState<number | 'todos'>('todos');
+  const [reporteAnio, setReporteAnio] = useState(new Date().getFullYear());
   const reportesRef = useRef<HTMLDivElement>(null);
   const [showSolicitudForm, setShowSolicitudForm] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -310,12 +312,24 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       });
   };
 
-  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'dotacion';
+  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'salidasPorProducto' | 'dotacion';
+
+  const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  // Filtra por mes/anio seleccionado cuando aplica (reportes sin fecha, como
+  // inventario y dotacion, muestran el estado actual y no se filtran).
+  const enPeriodoSeleccionado = (fechaStr: string): boolean => {
+    if (reporteMes === 'todos') return true;
+    const d = new Date(fechaStr);
+    if (isNaN(d.getTime())) return true;
+    return d.getMonth() + 1 === reporteMes && d.getFullYear() === reporteAnio;
+  };
 
   // Exportar reportes a PDF o Excel
   const exportarReporte = async (tipo: TipoReporte, formato: 'pdf' | 'excel') => {
     const fecha = new Date().toLocaleDateString('es-ES');
     const safeProyecto = proyecto.replace(/\s+/g, '_');
+    const sufijoPeriodo = reporteMes === 'todos' ? '' : ` - ${MESES_REPORTE[reporteMes - 1]} ${reporteAnio}`;
     let titulo = '';
     let headers: string[] = [];
     let rows: (string | number)[][] = [];
@@ -331,19 +345,36 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         });
         break;
       case 'entradas':
-        titulo = 'Entradas por Producto';
+        titulo = 'Entradas por Producto' + sufijoPeriodo;
         headers = ['Producto', 'Código', 'Cantidad', 'Fecha'];
-        rows = entradasProyecto.map(e => [e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)]);
+        rows = entradasProyecto
+          .filter(e => enPeriodoSeleccionado(e.dateTime))
+          .map(e => [e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)]);
         break;
       case 'salidas':
-        titulo = 'Salidas por Trabajador';
+        titulo = 'Salidas por Trabajador' + sufijoPeriodo;
         headers = ['Documento', 'Trabajador', 'Producto', 'Cantidad', 'Fecha'];
-        rows = salidas.map(s => {
-          const prod = productos.find(p => p.codigo === s.refItem);
-          const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
-          return [s.trabajadorRetira, emp ? `${emp.nombres} ${emp.apellidos}` : '-', prod?.nombre || s.refItem, parseInt(s.cantidad || '0'), formatearFecha(s.fechaHora)];
-        });
+        rows = salidas
+          .filter(s => enPeriodoSeleccionado(s.fechaHora))
+          .map(s => {
+            const prod = productos.find(p => p.codigo === s.refItem);
+            const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
+            return [s.trabajadorRetira, emp ? `${emp.nombres} ${emp.apellidos}` : '-', prod?.nombre || s.refItem, parseInt(s.cantidad || '0'), formatearFecha(s.fechaHora)];
+          });
         break;
+      case 'salidasPorProducto': {
+        titulo = 'Salidas por Producto' + sufijoPeriodo;
+        headers = ['Código', 'Producto', 'Cantidad', 'Trabajador', 'Fecha'];
+        const salidasFiltradas = salidas.filter(s => enPeriodoSeleccionado(s.fechaHora));
+        rows = [...salidasFiltradas]
+          .sort((a, b) => a.refItem.localeCompare(b.refItem) || a.fechaHora.localeCompare(b.fechaHora))
+          .map(s => {
+            const prod = productos.find(p => p.codigo === s.refItem);
+            const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
+            return [s.refItem, prod?.nombre || '-', parseInt(s.cantidad || '0'), emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira, formatearFecha(s.fechaHora)];
+          });
+        break;
+      }
       case 'dotacion':
         titulo = 'Dotación de Calzados';
         headers = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta', 'Estado Empleado'];
@@ -1576,6 +1607,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               { key: 'inventario', label: 'Inventario Actual', desc: 'Productos con stock y estado', icon: Package, color: 'text-blue-400' },
               { key: 'entradas', label: 'Entradas por Producto', desc: 'Historial de entradas al inventario', icon: Boxes, color: 'text-emerald-400' },
               { key: 'salidas', label: 'Salidas por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
+              { key: 'salidasPorProducto', label: 'Salidas por Producto', desc: 'Entregas de EPP agrupadas por producto', icon: Truck, color: 'text-orange-400' },
               { key: 'dotacion', label: 'Dotación de Calzados', desc: 'Control de botines por trabajador', icon: Footprints, color: 'text-amber-400' },
             ].map(opt => (
               <button
@@ -1591,6 +1623,34 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 </div>
               </button>
             ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className="text-xs text-muted-foreground uppercase">Período</span>
+            <select
+              value={reporteMes}
+              onChange={(e) => setReporteMes(e.target.value === 'todos' ? 'todos' : Number(e.target.value))}
+              className="bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+            >
+              <option value="todos">Todos los meses</option>
+              {MESES_REPORTE.map((nombre, idx) => (
+                <option key={idx} value={idx + 1}>{nombre}</option>
+              ))}
+            </select>
+            {reporteMes !== 'todos' && (
+              <select
+                value={reporteAnio}
+                onChange={(e) => setReporteAnio(Number(e.target.value))}
+                className="bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i).map(anio => (
+                  <option key={anio} value={anio}>{anio}</option>
+                ))}
+              </select>
+            )}
+            {(reporteSeleccionado === 'inventario' || reporteSeleccionado === 'dotacion') && reporteMes !== 'todos' && (
+              <span className="text-xs text-muted-foreground">(no aplica a este reporte, muestra el estado actual)</span>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
