@@ -1543,7 +1543,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         y += 6;
       };
 
-      campoBlanco('Quien Retira');
+      campoBlanco('Quien Retira (CI/NOMBRE/FIRMA)');
       campoBlanco('Observaciones');
 
       y += 3;
@@ -1578,21 +1578,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         y += 8;
       }
 
-      y += 5;
-
-      // Firmas
-      const firmaW = (w - 20) / 3;
-      const firmas = ['QUIEN RETIRA', 'ENTREGA', 'ADMINISTRACIÓN'];
-      let fx = m;
-      doc.setLineWidth(0.1);
-      firmas.forEach((f) => {
-        doc.line(fx, y + 6, fx + firmaW, y + 6);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
-        doc.text(f, fx + firmaW / 2, y + 9, { align: 'center' });
-        fx += firmaW + 10;
-      });
-      y += 11;
+      y += 4;
 
       return y;
     };
