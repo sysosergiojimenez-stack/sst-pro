@@ -1470,6 +1470,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const generarPlanillaEntregaEPP = async () => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageW = 210;
+    const pageH = 297;
     const m = 10;
     const w = pageW - m * 2;
     const logo = await fetchLogoData(proyectoLogo);
@@ -1499,35 +1500,37 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       return y + 6;
     };
 
-    GRUPOS_PLANILLA_EPP.forEach((grupo, idxGrupo) => {
-      if (idxGrupo > 0) doc.addPage();
-      let y = m;
+    // Dibuja una "mini nota de salida" en blanco para el grupo dado, a partir
+    // de startY, y devuelve el Y final (para poder repetirla cuantas veces
+    // quepan en la hoja y para trazar el recuadro que la bordea).
+    const renderNota = (grupo: { nombre: string }, startY: number) => {
+      let y = startY;
 
       if (logo && logoSize) {
         doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
       } else {
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(proyecto, pageW - m - 2, y + 5, { align: 'right' });
+        doc.text(proyecto, pageW - m - 2, y + 4, { align: 'right' });
       }
 
-      doc.setFontSize(14);
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text('NOTA DE SALIDA', m, y + 6);
-      doc.setFontSize(10);
+      const tituloW = doc.getTextWidth('NOTA DE SALIDA');
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Entrega de EPP - ${grupo.nombre}`, m, y + 12);
+      doc.text(`Entrega de EPP - ${grupo.nombre}`, m + tituloW + 4, y + 6);
 
-      y += 20;
+      y += 14;
 
-      // Nro y fecha en blanco (se completan a mano)
+      // El numero se autoasigna al procesar la planilla con IA (foto), por
+      // eso no se precarga un campo "Nº" -- solo la fecha, en blanco.
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('Nº:', pageW - m - 40, y);
+      doc.text('Fecha:', pageW - m - 40, y);
       doc.setLineWidth(0.1);
-      doc.line(pageW - m - 34, y + 1, pageW - m, y + 1);
-      doc.text('Fecha:', pageW - m - 40, y + 6);
-      doc.line(pageW - m - 28, y + 7, pageW - m, y + 7);
+      doc.line(pageW - m - 28, y + 1, pageW - m, y + 1);
 
       const campoBlanco = (label: string) => {
         doc.setFont('helvetica', 'bold');
@@ -1553,13 +1556,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         items.forEach((p, idx) => {
           const productoLines = doc.splitTextToSize(p.nombre, cols[2] - 2);
           const rowH = Math.max(6, 3 + productoLines.length * 2.2);
-          if (y + rowH > 280) {
-            doc.addPage();
-            y = m;
-            y = dibujarEncabezadoTabla(y);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
-          }
           let x = x0;
           const vals: (string | string[])[] = [String(idx + 1), p.codigo, productoLines, ''];
           vals.forEach((val, i) => {
@@ -1581,7 +1577,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         y += 8;
       }
 
-      y += 8;
+      y += 5;
 
       // Firmas
       const firmaW = (w - 20) / 3;
@@ -1589,12 +1585,37 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       let fx = m;
       doc.setLineWidth(0.1);
       firmas.forEach((f) => {
-        doc.line(fx, y + 10, fx + firmaW, y + 10);
+        doc.line(fx, y + 6, fx + firmaW, y + 6);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text(f, fx + firmaW / 2, y + 14, { align: 'center' });
+        doc.setFontSize(7);
+        doc.text(f, fx + firmaW / 2, y + 9, { align: 'center' });
         fx += firmaW + 10;
       });
+      y += 11;
+
+      return y;
+    };
+
+    GRUPOS_PLANILLA_EPP.forEach((grupo, idxGrupo) => {
+      if (idxGrupo > 0) doc.addPage();
+      let yInicioCopia = m;
+
+      while (true) {
+        const yFin = renderNota(grupo, yInicioCopia);
+        doc.setLineWidth(0.2);
+        doc.rect(m, yInicioCopia, w, yFin - yInicioCopia);
+
+        const alturaCopia = yFin - yInicioCopia;
+        const siguienteInicio = yFin + 6;
+        if (siguienteInicio + alturaCopia > pageH - m) break;
+
+        doc.setLineWidth(0.1);
+        doc.setDrawColor(150, 150, 150);
+        doc.line(m, yFin + 3, pageW - m, yFin + 3);
+        doc.setDrawColor(0, 0, 0);
+
+        yInicioCopia = siguienteInicio;
+      }
     });
 
     doc.save(`Planilla_Entrega_EPP_${proyecto.replace(/\s+/g, '_')}.pdf`);
