@@ -347,6 +347,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   };
 
+  // La fecha real del ingreso es la de la remision/factura (r.fecha), no
+  // e.dateTime (que es cuando se registro la entrada en la app). Normalizada
+  // a ISO (ver normalizarFechaAISO). Devuelve '' si no se encuentra remision.
+  const fechaRemisionDe = (e: Entrada): string =>
+    normalizarFechaAISO(remisiones.find(r => r.idRegistro === e.refRemision)?.fecha || '');
+
   // Si la salida viene de una Nota de Salida procesada por IA (foto/PDF), se
   // usa la fecha real de esa nota (lo que dice el documento). Si la nota se
   // cargo a mano, se mantiene fechaHora (cuando se registro en la app) tal
@@ -366,6 +372,106 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const d = new Date(fechaStr);
     if (isNaN(d.getTime())) return true;
     return d.getMonth() + 1 === reporteMes && d.getFullYear() === reporteAnio;
+  };
+
+  // PDF de "Entradas por Clasificación de Productos" en formato jerarquico:
+  // Clasificacion (con el total) > Producto (fila sombreada, con su
+  // subtotal) > cada entrada individual con su fecha y cantidad.
+  const generarPdfEntradasPorClasificacion = async (sufijoPeriodo: string, fechaImpresion: string) => {
+    interface FilaEntrada { fechaTexto: string; fechaOrden: string; cantidad: number }
+    interface GrupoProducto { nombre: string; subtotal: number; filas: FilaEntrada[] }
+    interface GrupoClasificacion { nombre: string; total: number; productos: GrupoProducto[] }
+
+    const entradasFiltradas = entradasProyecto.filter(e => enPeriodoSeleccionado(fechaRemisionDe(e) || e.dateTime));
+    const clasifPorCodigo = new Map(productos.map(p => [p.codigo, p.clasificacion || 'Sin clasificación']));
+    const nombrePorCodigo = new Map(productos.map(p => [p.codigo, p.nombre]));
+
+    const gruposPorClasif = new Map<string, Map<string, GrupoProducto>>();
+    for (const e of entradasFiltradas) {
+      const clasificacion = clasifPorCodigo.get(e.codigo) || 'Sin clasificación';
+      const fechaOrden = fechaRemisionDe(e) || e.dateTime;
+      const cantidad = parseInt(e.cantidad || '0');
+      if (!gruposPorClasif.has(clasificacion)) gruposPorClasif.set(clasificacion, new Map());
+      const porProducto = gruposPorClasif.get(clasificacion)!;
+      if (!porProducto.has(e.codigo)) porProducto.set(e.codigo, { nombre: nombrePorCodigo.get(e.codigo) || e.item, subtotal: 0, filas: [] });
+      const grupoProducto = porProducto.get(e.codigo)!;
+      grupoProducto.subtotal += cantidad;
+      grupoProducto.filas.push({ fechaTexto: formatearFecha(fechaOrden), fechaOrden, cantidad });
+    }
+
+    const clasificaciones: GrupoClasificacion[] = [...gruposPorClasif.entries()]
+      .map(([nombre, porProducto]) => {
+        const productosGrupo = [...porProducto.values()]
+          .map(g => ({ ...g, filas: [...g.filas].sort((a, b) => a.fechaOrden.localeCompare(b.fechaOrden)) }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        const total = productosGrupo.reduce((sum, p) => sum + p.subtotal, 0);
+        return { nombre, total, productos: productosGrupo };
+      })
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageW = 210;
+    const pageH = 297;
+    const m = 14;
+    const yHeader = await drawPdfHeader(doc, { denominacion: proyecto, logo: proyectoLogo }, 10, { marginLeft: m, marginRight: m });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Entradas por Clasificación de Productos' + sufijoPeriodo, m, yHeader + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Proyecto: ${proyecto}  |  Fecha: ${fechaImpresion}`, m, yHeader + 16);
+
+    let y = yHeader + 26;
+
+    const saltoDePagina = (alturaNecesaria: number) => {
+      if (y + alturaNecesaria > pageH - m) {
+        doc.addPage();
+        y = m + 10;
+      }
+    };
+
+    if (clasificaciones.length === 0) {
+      doc.setFontSize(10);
+      doc.text('No hay entradas registradas en este período.', m, y);
+    }
+
+    for (const clasif of clasificaciones) {
+      saltoDePagina(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(clasif.nombre, m, y);
+      doc.text(String(clasif.total), pageW - m, y, { align: 'right' });
+      y += 8;
+
+      for (const prod of clasif.productos) {
+        const maxAnchoNombre = pageW - m * 2 - 25;
+        const lineasNombre = doc.splitTextToSize(prod.nombre, maxAnchoNombre);
+        const altoBarra = 3 + lineasNombre.length * 3.5;
+        saltoDePagina(altoBarra + 1.5 + prod.filas.length * 5);
+
+        doc.setFillColor(230, 230, 230);
+        doc.rect(m, y - 4.5, pageW - m * 2, altoBarra, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.text(lineasNombre, m + 1, y);
+        doc.text(String(prod.subtotal), pageW - m - 1, y, { align: 'right' });
+        y += altoBarra + 1.5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        for (const fila of prod.filas) {
+          saltoDePagina(5);
+          doc.text(fila.fechaTexto, m + 1, y);
+          doc.text(String(fila.cantidad), pageW - m - 1, y, { align: 'right' });
+          y += 5;
+        }
+        y += 3;
+      }
+      y += 4;
+    }
+
+    doc.save(`reporte-entradas-clasificacion-${proyecto.replace(/\s+/g, '_')}-${fechaImpresion.replace(/\//g, '-')}.pdf`);
   };
 
   // Exportar reportes a PDF o Excel
@@ -390,12 +496,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       case 'entradas': {
         titulo = 'Entradas por Clasificación de Productos' + sufijoPeriodo;
         headers = ['Clasificación', 'Producto', 'Código', 'Cantidad', 'Fecha'];
-        // La fecha real del ingreso es la de la remision/factura (r.fecha),
-        // no e.dateTime (que es cuando se registro la entrada en la app).
-        // r.fecha viene en YYYY-MM-DD si se agrego a mano (<input type="date">)
-        // o en DD/MM/AAAA si lo extrajo la IA -- se normaliza a ISO para poder
-        // filtrar por periodo y mostrarla bien en ambos casos.
-        const fechaRemisionDe = (e: Entrada) => normalizarFechaAISO(remisiones.find(r => r.idRegistro === e.refRemision)?.fecha || '');
         const entradasFiltradas = entradasProyecto.filter(e => enPeriodoSeleccionado(fechaRemisionDe(e) || e.dateTime));
         rows = [...entradasFiltradas]
           .sort((a, b) => {
@@ -449,6 +549,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           }),
         ];
         break;
+    }
+
+    if (tipo === 'entradas' && formato === 'pdf') {
+      await generarPdfEntradasPorClasificacion(sufijoPeriodo, fecha);
+      setReportesAbierto(false);
+      return;
     }
 
     if (formato === 'excel') {
