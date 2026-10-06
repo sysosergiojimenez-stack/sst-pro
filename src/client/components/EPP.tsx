@@ -1695,7 +1695,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Proveedor</label>
-                <input type="text" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                <input type="text" list="proveedores-datalist" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
@@ -1753,6 +1753,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     <div className="space-y-6 max-w-7xl mx-auto">
       <datalist id="clasificaciones-datalist">
         {clasificacionesSugeridas.map(c => <option key={c} value={c} />)}
+      </datalist>
+      <datalist id="proveedores-datalist">
+        {proveedoresSugeridos.map(p => <option key={p} value={p} />)}
       </datalist>
       {/* Alertas de stock bajo */}
       {productosStockBajo.length > 0 && (
@@ -2008,7 +2011,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               <form onSubmit={handleAddProducto} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label className="block text-sm font-medium mb-2">Codigo *</label><input type="text" value={productoForm.codigo} onChange={(e) => setProductoForm({...productoForm, codigo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Nombre *</label><input type="text" value={productoForm.nombre} onChange={(e) => setProductoForm({...productoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
-                <div><label className="block text-sm font-medium mb-2">Proveedor</label><input type="text" value={productoForm.proveedor} onChange={(e) => setProductoForm({...productoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                <div><label className="block text-sm font-medium mb-2">Proveedor</label><input type="text" list="proveedores-datalist" value={productoForm.proveedor} onChange={(e) => setProductoForm({...productoForm, proveedor: e.target.value})} placeholder="Elegi uno o escribi uno nuevo..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div><label className="block text-sm font-medium mb-2">Clasificacion</label><input type="text" list="clasificaciones-datalist" value={productoForm.clasificacion} onChange={(e) => setProductoForm({...productoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div><label className="block text-sm font-medium mb-2">Stock Minimo</label><input type="number" value={productoForm.stockMinimo} onChange={(e) => setProductoForm({...productoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div className="md:col-span-3"><button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Producto</button></div>
@@ -2793,13 +2796,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                   <div><label className="block text-sm font-medium mb-1">Ubicación</label><input type="text" value={solicitudForm.ubicacion} onChange={(e) => setSolicitudForm({...solicitudForm, ubicacion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Proveedor general</label>
-                    <select value={solicitudForm.proveedor} onChange={(e) => setSolicitudForm({...solicitudForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
-                      <option value="">-- Seleccionar --</option>
-                      {!proveedoresSugeridos.includes(solicitudForm.proveedor) && solicitudForm.proveedor && (
-                        <option value={solicitudForm.proveedor}>{solicitudForm.proveedor}</option>
-                      )}
-                      {proveedoresSugeridos.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <input type="text" list="proveedores-datalist" value={solicitudForm.proveedor} onChange={(e) => setSolicitudForm({...solicitudForm, proveedor: e.target.value})} placeholder="Elegi uno o escribi uno nuevo..." className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Observaciones</label><textarea value={solicitudForm.observaciones} onChange={(e) => setSolicitudForm({...solicitudForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" rows={2} /></div>
                 </div>
