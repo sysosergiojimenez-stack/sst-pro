@@ -2258,7 +2258,10 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                   <Trash2 size={16} /> Eliminar ({notasSeleccionadas.size})
                 </button>
               )}
-              <button onClick={() => setShowGeminiSalidaForm(true)} className="bg-secondary border border-border px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-secondary/80 transition-colors text-sm">
+              <button
+                onClick={() => setShowGeminiSalidaForm(v => !v)}
+                className={`border px-4 py-2 rounded-xl flex items-center gap-2 transition-colors text-sm ${showGeminiSalidaForm ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
+              >
                 <Brain size={16} /> Procesar con IA
               </button>
               <button onClick={() => {
@@ -2272,6 +2275,63 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               </button>
             </div>
           </div>
+
+          {showGeminiSalidaForm && (
+            <div className="bg-card border border-border rounded-xl p-6 scale-in">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Nota de Salida con IA</h3>
+                <button onClick={() => { setShowGeminiSalidaForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              </div>
+              {!datosExtraidos ? (
+                <form onSubmit={handleGeminiSalidaSubmit} className="space-y-4">
+                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
+                    <FileText size={48} className="mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-4">Sube la nota de salida de EPP (PDF o foto)</p>
+                    <input type="file" accept={ACCEPT_FICHA_EMPLEADO} onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-salida-pdf" />
+                    <label htmlFor="epp-salida-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar Archivo</label>
+                    {pdfFile && <p className="mt-4 text-sm text-primary">{pdfFile.name}</p>}
+                  </div>
+                  <button type="submit" disabled={!pdfFile || geminiLoading} className="w-full btn-gradient text-white px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 disabled:opacity-50"><Brain size={18} /> {geminiLoading ? 'Procesando con IA...' : 'Extraer Datos'}</button>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 p-4 rounded-xl text-sm flex items-center gap-2"><CheckCircle2 size={16} /> Datos extraidos correctamente. Revisá la cédula de cada fila antes de confirmar.</div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{datosExtraidos.fecha}</p></div>
+                    <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Items</span><p className="font-medium">{datosExtraidos.items?.length || 0}</p></div>
+                  </div>
+                  {datosExtraidos.items?.length > 0 && (
+                    <div className="max-h-64 overflow-auto rounded-xl border border-border">
+                      <table className="w-full text-xs">
+                        <thead className="bg-secondary/50 sticky top-0">
+                          <tr>
+                            <th className="text-left px-2 py-1.5">Código</th>
+                            <th className="text-left px-2 py-1.5">Producto</th>
+                            <th className="text-right px-2 py-1.5">Cant.</th>
+                            <th className="text-left px-2 py-1.5">Cédula</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datosExtraidos.items.map((it: any, idx: number) => (
+                            <tr key={idx} className="border-t border-border/50">
+                              <td className="px-2 py-1.5">{it.codigo || '-'}</td>
+                              <td className="px-2 py-1.5">{it.nombre}</td>
+                              <td className="px-2 py-1.5 text-right">{it.cantidad}</td>
+                              <td className="px-2 py-1.5">{it.trabajador || <span className="text-amber-400">sin leer</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={handleConfirmGeminiSalida} className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Confirmar y Guardar</button>
+                    <button onClick={() => setDatosExtraidos(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Subir otro archivo</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {showNotaSalidaForm && (
             <div className="glass-card p-6 scale-in">
@@ -3012,66 +3072,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 ))}</div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={handleConfirmGemini} className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Confirmar y Guardar Todo</button>
-                  <button onClick={() => setDatosExtraidos(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Subir otro PDF</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal Procesar Nota de Salida con IA */}
-      {showGeminiSalidaForm && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-auto scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Nota de Salida con IA</h2>
-              <button onClick={() => { setShowGeminiSalidaForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary transition-colors"><X size={20} /></button>
-            </div>
-            {!datosExtraidos ? (
-              <form onSubmit={handleGeminiSalidaSubmit} className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
-                  <FileText size={48} className="mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-4">Sube la nota de salida de EPP (PDF)</p>
-                  <input type="file" accept=".pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-salida-pdf" />
-                  <label htmlFor="epp-salida-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar PDF</label>
-                  {pdfFile && <p className="mt-4 text-sm text-primary">{pdfFile.name}</p>}
-                </div>
-                <button type="submit" disabled={!pdfFile || geminiLoading} className="w-full btn-gradient text-white px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 disabled:opacity-50"><Brain size={18} /> {geminiLoading ? 'Procesando con IA...' : 'Extraer Datos'}</button>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 p-4 rounded-xl text-sm flex items-center gap-2"><CheckCircle2 size={16} /> Datos extraidos correctamente. Revisá la cédula de cada fila antes de confirmar.</div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{datosExtraidos.fecha}</p></div>
-                  <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Items</span><p className="font-medium">{datosExtraidos.items?.length || 0}</p></div>
-                </div>
-                {datosExtraidos.items?.length > 0 && (
-                  <div className="max-h-64 overflow-auto rounded-xl border border-border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-secondary/50 sticky top-0">
-                        <tr>
-                          <th className="text-left px-2 py-1.5">Código</th>
-                          <th className="text-left px-2 py-1.5">Producto</th>
-                          <th className="text-right px-2 py-1.5">Cant.</th>
-                          <th className="text-left px-2 py-1.5">Cédula</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {datosExtraidos.items.map((it: any, idx: number) => (
-                          <tr key={idx} className="border-t border-border/50">
-                            <td className="px-2 py-1.5">{it.codigo || '-'}</td>
-                            <td className="px-2 py-1.5">{it.nombre}</td>
-                            <td className="px-2 py-1.5 text-right">{it.cantidad}</td>
-                            <td className="px-2 py-1.5">{it.trabajador || <span className="text-amber-400">sin leer</span>}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div className="flex gap-2 pt-2">
-                  <button onClick={handleConfirmGeminiSalida} className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Confirmar y Guardar</button>
                   <button onClick={() => setDatosExtraidos(null)} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">Subir otro PDF</button>
                 </div>
               </div>
