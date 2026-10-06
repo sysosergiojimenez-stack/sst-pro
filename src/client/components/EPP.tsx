@@ -1788,125 +1788,80 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     setPlanillaAbierta(false);
   };
 
-  // Planilla de entrega "por trabajador": un recibo en blanco (sin
-  // precargar productos) con filas de items totalmente vacias, para anotar
-  // a mano una dotacion completa (varios tipos de EPP) a una sola persona.
-  const CANTIDAD_FILAS_RECIBO_TRABAJADOR = 8;
-
+  // Planilla de entrega "por trabajador": una hoja completa en blanco (sin
+  // precargar productos), con Item/Codigo/Producto/Cantidad/Firma, todas las
+  // filas vacias para completar a mano.
   const generarPlanillaEntregaPorTrabajador = async () => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageW = 210;
     const pageH = 297;
     const m = 10;
     const w = pageW - m * 2;
-    const logo = await fetchLogoData(proyectoLogo);
-    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
 
-    const cols = [12, 35, 98, 30];
-    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
+    const yHeader = await drawPdfHeader(doc, { denominacion: proyecto, logo: proyectoLogo }, 10, { marginLeft: m, marginRight: m });
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('NOTA DE SALIDA', m, yHeader + 6);
+    const tituloW = doc.getTextWidth('NOTA DE SALIDA');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Entrega de EPP - Dotación', m + tituloW + 4, yHeader + 6);
+
+    let y = yHeader + 14;
+
+    // Solo la fecha en el encabezado (sin "Quien Retira" -- cada fila ahora
+    // tiene su propia columna de Firma).
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('Fecha:', m, y);
+    const labelW = doc.getTextWidth('Fecha:');
+    doc.setLineWidth(0.1);
+    doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
+    y += 9;
+
+    const cols = [10, 28, 70, 22, 60]; // Item, Codigo, Producto, Cantidad, Firma -- suma w
+    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad', 'Firma'];
     const x0 = m;
+    const tablaInicioY = y;
 
-    const dibujarEncabezadoTabla = (y: number) => {
-      doc.setFillColor(230, 230, 230);
-      doc.setLineWidth(0.1);
-      doc.rect(x0, y, w, 6, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6);
-      let x = x0;
-      headers.forEach((h, i) => {
-        doc.text(h, x + 1, y + 4);
-        x += cols[i];
-      });
-      doc.rect(x0, y, w, 6);
+    doc.setFillColor(230, 230, 230);
+    doc.setLineWidth(0.1);
+    doc.rect(x0, y, w, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    let x = x0;
+    headers.forEach((h, i) => {
+      doc.text(h, x + 1, y + 4);
+      x += cols[i];
+    });
+    doc.rect(x0, y, w, 6);
+    x = x0;
+    cols.forEach((cw, i) => {
+      if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+      x += cw;
+    });
+    y += 6;
+
+    // Alto de fila: 50% mas que el anterior (6mm -> 9mm).
+    const rowH = 9;
+    const numFilas = Math.floor((pageH - m - y) / rowH);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    for (let idx = 0; idx < numFilas; idx++) {
+      doc.text(String(idx + 1), x0 + 1, y + rowH / 2 + 1);
+      doc.rect(x0, y, w, rowH);
       x = x0;
       cols.forEach((cw, i) => {
-        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
         x += cw;
       });
-      return y + 6;
-    };
-
-    const renderRecibo = (startY: number) => {
-      let y = startY;
-
-      if (logo && logoSize) {
-        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
-      } else {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(proyecto, pageW - m - 2, y + 4, { align: 'right' });
-      }
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('NOTA DE SALIDA', m, y + 6);
-      const tituloW = doc.getTextWidth('NOTA DE SALIDA');
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Entrega de EPP - Dotación', m + tituloW + 4, y + 6);
-
-      y += 14;
-
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Fecha:', pageW - m - 40, y);
-      doc.setLineWidth(0.1);
-      doc.line(pageW - m - 28, y + 1, pageW - m, y + 1);
-
-      const campoBlanco = (label: string) => {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text(`${label}:`, m, y);
-        const labelW = doc.getTextWidth(`${label}:`);
-        doc.setLineWidth(0.1);
-        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
-        y += 6;
-      };
-
-      campoBlanco('Trabajador (CI/NOMBRE/FIRMA)');
-      campoBlanco('Observaciones');
-
-      y += 3;
-
-      y = dibujarEncabezadoTabla(y);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      const rowH = 6;
-      for (let idx = 0; idx < CANTIDAD_FILAS_RECIBO_TRABAJADOR; idx++) {
-        let x = x0;
-        doc.text(String(idx + 1), x + 1, y + 4);
-        doc.rect(x0, y, w, rowH);
-        x = x0;
-        cols.forEach((cw, i) => {
-          if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
-          x += cw;
-        });
-        y += rowH;
-      }
-
-      y += 4;
-
-      return y;
-    };
-
-    let yInicioCopia = m;
-    while (true) {
-      const yFin = renderRecibo(yInicioCopia);
-      doc.setLineWidth(0.2);
-      doc.rect(m, yInicioCopia, w, yFin - yInicioCopia);
-
-      const alturaCopia = yFin - yInicioCopia;
-      const siguienteInicio = yFin + 6;
-      if (siguienteInicio + alturaCopia > pageH - m) break;
-
-      doc.setLineWidth(0.1);
-      doc.setDrawColor(150, 150, 150);
-      doc.line(m, yFin + 3, pageW - m, yFin + 3);
-      doc.setDrawColor(0, 0, 0);
-
-      yInicioCopia = siguienteInicio;
+      y += rowH;
     }
+
+    doc.setLineWidth(0.2);
+    doc.rect(x0, tablaInicioY, w, y - tablaInicioY);
 
     doc.save(`Planilla_Entrega_EPP_Trabajador_${proyecto.replace(/\s+/g, '_')}.pdf`);
     setPlanillaAbierta(false);
@@ -2222,7 +2177,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           </div>
 
           {modoPlanilla === 'trabajador' ? (
-            <p className="text-xs text-muted-foreground mb-4">Genera recibos en blanco (sin productos precargados) para anotar a mano una dotación completa -- varios tipos de EPP -- entregada a una sola persona.</p>
+            <p className="text-xs text-muted-foreground mb-4">Genera una hoja completa en blanco (sin productos precargados), con columnas Ítem/Código/Producto/Cantidad/Firma, para anotar a mano cualquier entrega de EPP.</p>
           ) : (
           <p className="text-xs text-muted-foreground mb-4">Elegí qué grupos incluir en el PDF y destildá los productos que no quieras que aparezcan en las notas.</p>
           )}
