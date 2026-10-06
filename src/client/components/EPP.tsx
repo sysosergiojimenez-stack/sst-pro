@@ -365,13 +365,22 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           return [p.codigo, p.nombre, p.proveedor, p.clasificacion, stock, minimo, isStockBajo(p) ? 'BAJO' : 'OK'];
         });
         break;
-      case 'entradas':
-        titulo = 'Entradas por Producto' + sufijoPeriodo;
-        headers = ['Producto', 'Código', 'Cantidad', 'Fecha'];
-        rows = entradasProyecto
-          .filter(e => enPeriodoSeleccionado(e.dateTime))
-          .map(e => [e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)]);
+      case 'entradas': {
+        titulo = 'Entradas por Clasificación de Productos' + sufijoPeriodo;
+        headers = ['Clasificación', 'Producto', 'Código', 'Cantidad', 'Fecha'];
+        const entradasFiltradas = entradasProyecto.filter(e => enPeriodoSeleccionado(e.dateTime));
+        rows = [...entradasFiltradas]
+          .sort((a, b) => {
+            const clasifA = productos.find(p => p.codigo === a.codigo)?.clasificacion || '';
+            const clasifB = productos.find(p => p.codigo === b.codigo)?.clasificacion || '';
+            return clasifA.localeCompare(clasifB) || a.item.localeCompare(b.item);
+          })
+          .map(e => {
+            const clasificacion = productos.find(p => p.codigo === e.codigo)?.clasificacion || '-';
+            return [clasificacion, e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)];
+          });
         break;
+      }
       case 'salidas':
         titulo = 'Salidas por Trabajador' + sufijoPeriodo;
         headers = ['Documento', 'Trabajador', 'Producto', 'Cantidad', 'Fecha'];
@@ -1812,7 +1821,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             {[
               { key: 'inventario', label: 'Inventario Actual', desc: 'Productos con stock y estado', icon: Package, color: 'text-blue-400' },
-              { key: 'entradas', label: 'Entradas por Producto', desc: 'Historial de entradas al inventario', icon: Boxes, color: 'text-emerald-400' },
+              { key: 'entradas', label: 'Entradas por Clasificación', desc: 'Historial de entradas al inventario, agrupado por clasificación', icon: Boxes, color: 'text-emerald-400' },
               { key: 'salidas', label: 'Salidas por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
               { key: 'salidasPorProducto', label: 'Salidas por Producto', desc: 'Entregas de EPP agrupadas por producto', icon: Truck, color: 'text-orange-400' },
               { key: 'dotacion', label: 'Dotación de Calzados', desc: 'Control de botines por trabajador', icon: Footprints, color: 'text-amber-400' },
