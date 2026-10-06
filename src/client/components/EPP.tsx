@@ -1802,6 +1802,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         <td className="px-4 py-3 font-mono text-xs text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Codigo: </span>{p.codigo}</td>
         <td className="px-4 py-3 font-medium block sm:table-cell">{p.nombre}</td>
         <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{p.proveedor || '-'}</td>
+        <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Clasificación: </span>{p.clasificacion || '-'}</td>
         <td className="px-4 py-3 text-right font-mono text-emerald-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Entradas: </span>{entradas}</td>
         <td className="px-4 py-3 text-right font-mono text-amber-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Salidas: </span>{salidas}</td>
         <td className="px-4 py-3 text-right font-mono font-bold block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Stock: </span>{stock}</td>
@@ -1828,7 +1829,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       </tr>
       {editando && (
         <tr className="bg-secondary/10 border-b border-border/50">
-          <td colSpan={8} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+          <td colSpan={9} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo *</label>
@@ -1861,7 +1862,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       )}
       {ajustando && (
         <tr className="bg-blue-500/5 border-b border-border/50">
-          <td colSpan={productosSeleccionados.size > 0 ? 10 : 9} className="px-6 py-4">
+          <td colSpan={productosSeleccionados.size > 0 ? 11 : 10} className="px-6 py-4">
             <form onSubmit={handleSubmitAjuste} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Producto</label>
@@ -2183,6 +2184,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Codigo</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Clasificación</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Entradas</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Salidas</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Stock</th>
@@ -2194,7 +2196,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                     {productosConStock.map(renderFilaProducto)}
                     {productosAgotados.length > 0 && (
                       <tr className="bg-secondary/80">
-                        <td colSpan={productosSeleccionados.size > 0 ? 9 : 8} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <td colSpan={productosSeleccionados.size > 0 ? 10 : 9} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Agotados ({productosAgotados.length})
                         </td>
                       </tr>
