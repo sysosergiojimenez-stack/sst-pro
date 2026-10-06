@@ -166,6 +166,8 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [reporteSeleccionado, setReporteSeleccionado] = useState<TipoReporte>('inventario');
   const [reporteMes, setReporteMes] = useState<number | 'todos'>('todos');
   const [reporteAnio, setReporteAnio] = useState(new Date().getFullYear());
+  const [reporteAlertaFiltro, setReporteAlertaFiltro] = useState('todas');
+  const [reporteEstadoFiltro, setReporteEstadoFiltro] = useState<'todos' | 'Activo' | 'Inactivo'>('todos');
   const reportesRef = useRef<HTMLDivElement>(null);
   const [planillaAbierta, setPlanillaAbierta] = useState(false);
   const [gruposSeleccionadosPlanilla, setGruposSeleccionadosPlanilla] = useState<Set<string>>(
@@ -535,20 +537,21 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           });
         break;
       }
-      case 'dotacion':
+      case 'dotacion': {
         titulo = 'Dotación de Calzados';
         headers = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta', 'Estado Empleado'];
+        const filaDotacion = (emp: Empleado, estado: 'Activo' | 'Inactivo') => {
+          const d = calcularDotacion(emp);
+          return { fila: [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', estado], alerta: d.alerta || 'OK' };
+        };
         rows = [
-          ...dotacionActivos.map(emp => {
-            const d = calcularDotacion(emp);
-            return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Activo'];
-          }),
-          ...dotacionInactivos.map(emp => {
-            const d = calcularDotacion(emp);
-            return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', 'Inactivo'];
-          }),
-        ];
+          ...(reporteEstadoFiltro === 'Inactivo' ? [] : dotacionActivos.map(emp => filaDotacion(emp, 'Activo'))),
+          ...(reporteEstadoFiltro === 'Activo' ? [] : dotacionInactivos.map(emp => filaDotacion(emp, 'Inactivo'))),
+        ]
+          .filter(({ alerta }) => reporteAlertaFiltro === 'todas' || alerta === reporteAlertaFiltro)
+          .map(({ fila }) => fila);
         break;
+      }
     }
 
     if (tipo === 'entradas' && formato === 'pdf') {
@@ -2005,6 +2008,33 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               <span className="text-xs text-muted-foreground">(no aplica a este reporte, muestra el estado actual)</span>
             )}
           </div>
+
+          {reporteSeleccionado === 'dotacion' && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="text-xs text-muted-foreground uppercase">Alerta</span>
+              <select
+                value={reporteAlertaFiltro}
+                onChange={(e) => setReporteAlertaFiltro(e.target.value)}
+                className="bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+              >
+                <option value="todas">Todas</option>
+                <option value="OK">OK</option>
+                <option value="Proximo a vencer">Próximo a vencer</option>
+                <option value="Vencido">Vencido</option>
+                <option value="Sin dotacion registrada">Sin dotación registrada</option>
+              </select>
+              <span className="text-xs text-muted-foreground uppercase ml-2">Estado</span>
+              <select
+                value={reporteEstadoFiltro}
+                onChange={(e) => setReporteEstadoFiltro(e.target.value as 'todos' | 'Activo' | 'Inactivo')}
+                className="bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
+              >
+                <option value="todos">Todos</option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <button
