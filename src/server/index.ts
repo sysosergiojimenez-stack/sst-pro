@@ -576,6 +576,128 @@ Instrucciones:
   }
 });
 
+// Extrae una Nota de Salida de EPP (planilla manuscrita en blanco: Fecha en
+// el encabezado + filas Item/Codigo/Producto/Cantidad/Firma-Nro Cedula,
+// donde cada fila puede ser una entrega distinta a un trabajador distinto).
+app.post('/api/gemini/epp-salida', async (c) => {
+  try {
+    const { pdfBase64, mimeType, proyecto } = await c.req.json();
+    if (!pdfBase64) {
+      return c.json({ error: 'No se proporciono PDF' }, 400);
+    }
+    if (!proyecto) {
+      return c.json({ error: 'No se proporciono proyecto' }, 400);
+    }
+    const archivo = normalizarFichaEmpleado(mimeType);
+    if (!archivo) {
+      return c.json({ error: 'Formato no admitido. Usa PDF, JPG, PNG, WEBP o HEIC.' }, 400);
+    }
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
+    }
+
+    const prompt = `Analiza este documento manuscrito de entrega de Equipos de Proteccion Personal (EPP) y extrae la informacion en formato JSON.
+
+El documento tiene un campo "Fecha" en el encabezado (compartido por todo el documento) y una tabla con columnas: Item, Codigo, Producto, Cantidad, Firma / Nro Cedula. Cada fila es una entrega independiente y puede corresponder a un trabajador distinto (no asumas que todas las filas son del mismo trabajador).
+
+Devuelve EXACTAMENTE este formato JSON (sin markdown, sin backticks, solo el JSON puro):
+
+{
+  "fecha": "DD/MM/AAAA",
+  "items": [
+    {
+      "codigo": "codigo del producto tal como esta escrito, o vacio si no se leyo ninguno",
+      "nombre": "descripcion del producto tal como esta escrita",
+      "cantidad": "cantidad como numero",
+      "trabajador": "SOLO el numero de cedula (CI) escrito en la columna Firma / Nro Cedula de esa fila, sin puntos ni espacios -- si no se puede leer con certeza, dejalo vacio"
+    }
+  ]
+}
+
+Instrucciones:
+1. Ignora filas completamente vacias (sin producto ni cantidad escritos)
+2. La columna "Firma / Nro Cedula" suele tener una firma manuscrita y, junto a ella, un numero de cedula -- extrae UNICAMENTE el numero, no intentes interpretar la firma como texto
+3. Si una fila no tiene numero de cedula legible, deja "trabajador" como string vacio, no inventes un numero
+4. La fecha es un solo campo en el encabezado, compartido por todas las filas -- formato DD/MM/AAAA (dia/mes/año)
+5. Extrae TODAS las filas completas del documento`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: archivo.mime, data: pdfBase64 } }
+            ]
+          }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error Gemini API: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let jsonStr = text.trim();
+    jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+    jsonStr = jsonStr.replace(/^```\s*/, '').replace(/```\s*$/, '');
+
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
+    }
+
+    let data;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch (parseError: any) {
+      console.error('Error parseando JSON (epp-salida):', parseError.message);
+
+      if (jsonStr.includes('"items":') && !jsonStr.trim().endsWith(']') && !jsonStr.trim().endsWith('}')) {
+        let fixed = jsonStr.trim();
+        let openBraces = 0, closeBraces = 0;
+        let openBrackets = 0, closeBrackets = 0;
+        for (let i = 0; i < fixed.length; i++) {
+          const ch = fixed[i];
+          if (ch === '{') openBraces++;
+          else if (ch === '}') closeBraces++;
+          else if (ch === '[') openBrackets++;
+          else if (ch === ']') closeBrackets++;
+        }
+        const quoteCount = (fixed.match(/"/g) || []).length;
+        if (quoteCount % 2 !== 0) fixed += '"';
+        for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
+        for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+
+        try {
+          data = JSON.parse(fixed);
+        } catch {
+          return c.json({ error: 'La IA devolvio una respuesta incompleta. Intenta con un documento mas corto o con menos filas.', rawResponse: text.substring(0, 1000) }, 500);
+        }
+      } else {
+        return c.json({ error: 'La IA no devolvio un JSON valido', rawResponse: text.substring(0, 1000) }, 500);
+      }
+    }
+
+    data.proyecto = proyecto;
+
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error Gemini EPP Salida:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 
 // API REST - Estadisticas
 app.get('/api/estadisticas', async (c) => {
