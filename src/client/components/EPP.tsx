@@ -1821,7 +1821,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     y += 9;
 
     const cols = [10, 28, 70, 22, 60]; // Item, Codigo, Producto, Cantidad, Firma -- suma w
-    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad', 'Firma'];
+    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad', 'Firma / Nro Cédula'];
     const x0 = m;
     const tablaInicioY = y;
 
