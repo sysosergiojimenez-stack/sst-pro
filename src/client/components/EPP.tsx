@@ -337,6 +337,28 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
   const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+  // Convierte DD/MM/AAAA (formato que devuelve la extraccion por IA) a
+  // YYYY-MM-DD. Si ya viene en YYYY-MM-DD (<input type="date">) o en
+  // cualquier otro formato, se devuelve sin cambios.
+  const normalizarFechaAISO = (fecha: string): string => {
+    const ddmmyyyy = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!ddmmyyyy) return fecha;
+    const [, d, m, y] = ddmmyyyy;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  };
+
+  // Si la salida viene de una Nota de Salida procesada por IA (foto/PDF), se
+  // usa la fecha real de esa nota (lo que dice el documento). Si la nota se
+  // cargo a mano, se mantiene fechaHora (cuando se registro en la app) tal
+  // como ya funcionaba -- a pedido, no se toca el caso manual.
+  const fechaRealDeSalida = (s: Salida): string => {
+    const nota = notasSalida.find(n => n.idRegistro === s.refNotaSalida);
+    if (nota && nota.observaciones.startsWith('Procesado por IA')) {
+      return normalizarFechaAISO(nota.fecha) || s.fechaHora;
+    }
+    return s.fechaHora;
+  };
+
   // Filtra por mes/anio seleccionado cuando aplica (reportes sin fecha, como
   // inventario y dotacion, muestran el estado actual y no se filtran).
   const enPeriodoSeleccionado = (fechaStr: string): boolean => {
@@ -368,7 +390,13 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       case 'entradas': {
         titulo = 'Entradas por Clasificación de Productos' + sufijoPeriodo;
         headers = ['Clasificación', 'Producto', 'Código', 'Cantidad', 'Fecha'];
-        const entradasFiltradas = entradasProyecto.filter(e => enPeriodoSeleccionado(e.dateTime));
+        // La fecha real del ingreso es la de la remision/factura (r.fecha),
+        // no e.dateTime (que es cuando se registro la entrada en la app).
+        // r.fecha viene en YYYY-MM-DD si se agrego a mano (<input type="date">)
+        // o en DD/MM/AAAA si lo extrajo la IA -- se normaliza a ISO para poder
+        // filtrar por periodo y mostrarla bien en ambos casos.
+        const fechaRemisionDe = (e: Entrada) => normalizarFechaAISO(remisiones.find(r => r.idRegistro === e.refRemision)?.fecha || '');
+        const entradasFiltradas = entradasProyecto.filter(e => enPeriodoSeleccionado(fechaRemisionDe(e) || e.dateTime));
         rows = [...entradasFiltradas]
           .sort((a, b) => {
             const clasifA = productos.find(p => p.codigo === a.codigo)?.clasificacion || '';
@@ -377,31 +405,33 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           })
           .map(e => {
             const clasificacion = productos.find(p => p.codigo === e.codigo)?.clasificacion || '-';
-            return [clasificacion, e.item, e.codigo, parseInt(e.cantidad || '0'), formatearFecha(e.dateTime)];
+            const fecha = fechaRemisionDe(e);
+            return [clasificacion, e.item, e.codigo, parseInt(e.cantidad || '0'), fecha ? formatearFecha(fecha) : formatearFecha(e.dateTime)];
           });
         break;
       }
-      case 'salidas':
+      case 'salidas': {
         titulo = 'Salidas por Trabajador' + sufijoPeriodo;
         headers = ['Documento', 'Trabajador', 'Producto', 'Cantidad', 'Fecha'];
         rows = salidas
-          .filter(s => enPeriodoSeleccionado(s.fechaHora))
+          .filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)))
           .map(s => {
             const prod = productos.find(p => p.codigo === s.refItem);
             const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
-            return [s.trabajadorRetira, emp ? `${emp.nombres} ${emp.apellidos}` : '-', prod?.nombre || s.refItem, parseInt(s.cantidad || '0'), formatearFecha(s.fechaHora)];
+            return [s.trabajadorRetira, emp ? `${emp.nombres} ${emp.apellidos}` : '-', prod?.nombre || s.refItem, parseInt(s.cantidad || '0'), formatearFecha(fechaRealDeSalida(s))];
           });
         break;
+      }
       case 'salidasPorProducto': {
         titulo = 'Salidas por Producto' + sufijoPeriodo;
         headers = ['Código', 'Producto', 'Cantidad', 'Trabajador', 'Fecha'];
-        const salidasFiltradas = salidas.filter(s => enPeriodoSeleccionado(s.fechaHora));
+        const salidasFiltradas = salidas.filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)));
         rows = [...salidasFiltradas]
-          .sort((a, b) => a.refItem.localeCompare(b.refItem) || a.fechaHora.localeCompare(b.fechaHora))
+          .sort((a, b) => a.refItem.localeCompare(b.refItem) || fechaRealDeSalida(a).localeCompare(fechaRealDeSalida(b)))
           .map(s => {
             const prod = productos.find(p => p.codigo === s.refItem);
             const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
-            return [s.refItem, prod?.nombre || '-', parseInt(s.cantidad || '0'), emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira, formatearFecha(s.fechaHora)];
+            return [s.refItem, prod?.nombre || '-', parseInt(s.cantidad || '0'), emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira, formatearFecha(fechaRealDeSalida(s))];
           });
         break;
       }
