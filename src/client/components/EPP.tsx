@@ -170,6 +170,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [reporteEstadoFiltro, setReporteEstadoFiltro] = useState<'todos' | 'Activo' | 'Inactivo'>('todos');
   const reportesRef = useRef<HTMLDivElement>(null);
   const [planillaAbierta, setPlanillaAbierta] = useState(false);
+  const [modoPlanilla, setModoPlanilla] = useState<'clasificacion' | 'trabajador'>('clasificacion');
   const [gruposSeleccionadosPlanilla, setGruposSeleccionadosPlanilla] = useState<Set<string>>(
     new Set(GRUPOS_PLANILLA_EPP.map(g => g.nombre))
   );
@@ -1787,6 +1788,130 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     setPlanillaAbierta(false);
   };
 
+  // Planilla de entrega "por trabajador": un recibo en blanco (sin
+  // precargar productos) con filas de items totalmente vacias, para anotar
+  // a mano una dotacion completa (varios tipos de EPP) a una sola persona.
+  const CANTIDAD_FILAS_RECIBO_TRABAJADOR = 8;
+
+  const generarPlanillaEntregaPorTrabajador = async () => {
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const pageW = 210;
+    const pageH = 297;
+    const m = 10;
+    const w = pageW - m * 2;
+    const logo = await fetchLogoData(proyectoLogo);
+    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
+
+    const cols = [12, 35, 98, 30];
+    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
+    const x0 = m;
+
+    const dibujarEncabezadoTabla = (y: number) => {
+      doc.setFillColor(230, 230, 230);
+      doc.setLineWidth(0.1);
+      doc.rect(x0, y, w, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      let x = x0;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 1, y + 4);
+        x += cols[i];
+      });
+      doc.rect(x0, y, w, 6);
+      x = x0;
+      cols.forEach((cw, i) => {
+        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
+        x += cw;
+      });
+      return y + 6;
+    };
+
+    const renderRecibo = (startY: number) => {
+      let y = startY;
+
+      if (logo && logoSize) {
+        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
+      } else {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(proyecto, pageW - m - 2, y + 4, { align: 'right' });
+      }
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('NOTA DE SALIDA', m, y + 6);
+      const tituloW = doc.getTextWidth('NOTA DE SALIDA');
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Entrega de EPP - Dotación', m + tituloW + 4, y + 6);
+
+      y += 14;
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fecha:', pageW - m - 40, y);
+      doc.setLineWidth(0.1);
+      doc.line(pageW - m - 28, y + 1, pageW - m, y + 1);
+
+      const campoBlanco = (label: string) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(`${label}:`, m, y);
+        const labelW = doc.getTextWidth(`${label}:`);
+        doc.setLineWidth(0.1);
+        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
+        y += 6;
+      };
+
+      campoBlanco('Trabajador (CI/NOMBRE/FIRMA)');
+      campoBlanco('Observaciones');
+
+      y += 3;
+
+      y = dibujarEncabezadoTabla(y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      const rowH = 6;
+      for (let idx = 0; idx < CANTIDAD_FILAS_RECIBO_TRABAJADOR; idx++) {
+        let x = x0;
+        doc.text(String(idx + 1), x + 1, y + 4);
+        doc.rect(x0, y, w, rowH);
+        x = x0;
+        cols.forEach((cw, i) => {
+          if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
+          x += cw;
+        });
+        y += rowH;
+      }
+
+      y += 4;
+
+      return y;
+    };
+
+    let yInicioCopia = m;
+    while (true) {
+      const yFin = renderRecibo(yInicioCopia);
+      doc.setLineWidth(0.2);
+      doc.rect(m, yInicioCopia, w, yFin - yInicioCopia);
+
+      const alturaCopia = yFin - yInicioCopia;
+      const siguienteInicio = yFin + 6;
+      if (siguienteInicio + alturaCopia > pageH - m) break;
+
+      doc.setLineWidth(0.1);
+      doc.setDrawColor(150, 150, 150);
+      doc.line(m, yFin + 3, pageW - m, yFin + 3);
+      doc.setDrawColor(0, 0, 0);
+
+      yInicioCopia = siguienteInicio;
+    }
+
+    doc.save(`Planilla_Entrega_EPP_Trabajador_${proyecto.replace(/\s+/g, '_')}.pdf`);
+    setPlanillaAbierta(false);
+  };
+
   const renderFilaProducto = (p: Producto) => {
     const entradas = totalEntradasByProducto(p.codigo);
     const salidas = totalSalidasByProducto(p.codigo);
@@ -2079,8 +2204,30 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
             <button onClick={() => setPlanillaAbierta(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
 
-          <p className="text-xs text-muted-foreground mb-4">Elegí qué grupos incluir en el PDF y destildá los productos que no quieras que aparezcan en las notas.</p>
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setModoPlanilla('clasificacion')}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${modoPlanilla === 'clasificacion' ? 'bg-primary text-primary-foreground' : 'bg-secondary border border-border text-muted-foreground hover:text-foreground'}`}
+            >
+              Por Clasificación
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoPlanilla('trabajador')}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${modoPlanilla === 'trabajador' ? 'bg-primary text-primary-foreground' : 'bg-secondary border border-border text-muted-foreground hover:text-foreground'}`}
+            >
+              Por Trabajador
+            </button>
+          </div>
 
+          {modoPlanilla === 'trabajador' ? (
+            <p className="text-xs text-muted-foreground mb-4">Genera recibos en blanco (sin productos precargados) para anotar a mano una dotación completa -- varios tipos de EPP -- entregada a una sola persona.</p>
+          ) : (
+          <p className="text-xs text-muted-foreground mb-4">Elegí qué grupos incluir en el PDF y destildá los productos que no quieras que aparezcan en las notas.</p>
+          )}
+
+          {modoPlanilla === 'clasificacion' && (
           <div className="space-y-3 mb-4">
             {GRUPOS_PLANILLA_EPP.map(grupo => {
               const items = productosDeGrupo(grupo);
@@ -2113,11 +2260,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
               );
             })}
           </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={generarPlanillaEntregaEPP}
+              onClick={modoPlanilla === 'trabajador' ? generarPlanillaEntregaPorTrabajador : generarPlanillaEntregaEPP}
               className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
             >
               <FileDown size={18} /> Generar PDF
