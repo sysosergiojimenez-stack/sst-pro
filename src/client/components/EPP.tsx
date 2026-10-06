@@ -126,22 +126,6 @@ const clasificaciones = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Protec
 
 type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'solicitudes';
 
-const normalizarClasificacion = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
-
-// Mapea cada grupo de la planilla de entrega de EPP a la(s) palabra(s) clave
-// que deben estar presentes en la columna Clasificacion real de Productos.
-// Se usa coincidencia por substring (no igualdad exacta) porque esa columna
-// es texto libre y varia entre proyectos (ej. "Lentes Obscuros", "Lentes
-// Claros"). Botin para Obrero exige ambas palabras para no confundirse con
-// "BOTIN P/ SUPERVISOR" ni "Casco P/ Obrero".
-const GRUPOS_PLANILLA_EPP: { nombre: string; match: (clasificacionNormalizada: string) => boolean }[] = [
-  { nombre: 'Guantes', match: (c) => c.includes('GUANTE') },
-  { nombre: 'Lentes', match: (c) => c.includes('LENTE') },
-  { nombre: 'Mascarillas', match: (c) => c.includes('MASCARILLA') },
-  { nombre: 'Botín para Obrero', match: (c) => c.includes('BOTIN') && c.includes('OBRERO') },
-  { nombre: 'Uniforme', match: (c) => c.includes('INDUMENTARIA') || c.includes('UNIFORME') },
-];
-
 export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -170,11 +154,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [reporteEstadoFiltro, setReporteEstadoFiltro] = useState<'todos' | 'Activo' | 'Inactivo'>('todos');
   const reportesRef = useRef<HTMLDivElement>(null);
   const [planillaAbierta, setPlanillaAbierta] = useState(false);
-  const [modoPlanilla, setModoPlanilla] = useState<'clasificacion' | 'trabajador'>('clasificacion');
-  const [gruposSeleccionadosPlanilla, setGruposSeleccionadosPlanilla] = useState<Set<string>>(
-    new Set(GRUPOS_PLANILLA_EPP.map(g => g.nombre))
-  );
-  const [itemsExcluidosPlanilla, setItemsExcluidosPlanilla] = useState<Set<string>>(new Set());
   const [showSolicitudForm, setShowSolicitudForm] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
@@ -1616,178 +1595,6 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
   };
 
-  const productosDeGrupo = (grupo: { match: (clasificacionNormalizada: string) => boolean }) => {
-    return productos
-      .filter(p => grupo.match(normalizarClasificacion(p.clasificacion || '')))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  };
-
-  const claveItemPlanilla = (grupoNombre: string, codigo: string) => `${grupoNombre}__${codigo}`;
-
-  const toggleGrupoPlanilla = (nombre: string) => {
-    setGruposSeleccionadosPlanilla(prev => {
-      const next = new Set(prev);
-      if (next.has(nombre)) next.delete(nombre); else next.add(nombre);
-      return next;
-    });
-  };
-
-  const toggleItemPlanilla = (grupoNombre: string, codigo: string) => {
-    setItemsExcluidosPlanilla(prev => {
-      const next = new Set(prev);
-      const clave = claveItemPlanilla(grupoNombre, codigo);
-      if (next.has(clave)) next.delete(clave); else next.add(clave);
-      return next;
-    });
-  };
-
-  // Planilla de entrega de EPP: una "mini orden de salida" en blanco por
-  // grupo de EPP, con los productos de esa clasificacion precargados como
-  // filas (solo falta completar cantidad, quien retira y firmas a mano).
-  const generarPlanillaEntregaEPP = async () => {
-    const gruposActivos = GRUPOS_PLANILLA_EPP.filter(g => gruposSeleccionadosPlanilla.has(g.nombre));
-    if (gruposActivos.length === 0) { alert('Selecciona al menos un grupo.'); return; }
-
-    const doc = new jsPDF('portrait', 'mm', 'a4');
-    const pageW = 210;
-    const pageH = 297;
-    const m = 10;
-    const w = pageW - m * 2;
-    const logo = await fetchLogoData(proyectoLogo);
-    const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
-
-    const cols = [12, 35, 98, 30];
-    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
-    const x0 = m;
-
-    const dibujarEncabezadoTabla = (y: number) => {
-      doc.setFillColor(230, 230, 230);
-      doc.setLineWidth(0.1);
-      doc.rect(x0, y, w, 6, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6);
-      let x = x0;
-      headers.forEach((h, i) => {
-        doc.text(h, x + 1, y + 4);
-        x += cols[i];
-      });
-      doc.rect(x0, y, w, 6);
-      x = x0;
-      cols.forEach((cw, i) => {
-        if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + 6);
-        x += cw;
-      });
-      return y + 6;
-    };
-
-    // Dibuja una "mini nota de salida" en blanco para el grupo dado, a partir
-    // de startY, y devuelve el Y final (para poder repetirla cuantas veces
-    // quepan en la hoja y para trazar el recuadro que la bordea).
-    const renderNota = (grupo: { nombre: string; match: (clasificacionNormalizada: string) => boolean }, startY: number) => {
-      let y = startY;
-
-      if (logo && logoSize) {
-        doc.addImage(logo.dataUrl, logo.format, pageW - m - logoSize.width, y, logoSize.width, logoSize.height);
-      } else {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(proyecto, pageW - m - 2, y + 4, { align: 'right' });
-      }
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('NOTA DE SALIDA', m, y + 6);
-      const tituloW = doc.getTextWidth('NOTA DE SALIDA');
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Entrega de EPP - ${grupo.nombre}`, m + tituloW + 4, y + 6);
-
-      y += 14;
-
-      // El numero se autoasigna al procesar la planilla con IA (foto), por
-      // eso no se precarga un campo "Nº" -- solo la fecha, en blanco.
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Fecha:', pageW - m - 40, y);
-      doc.setLineWidth(0.1);
-      doc.line(pageW - m - 28, y + 1, pageW - m, y + 1);
-
-      const campoBlanco = (label: string) => {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text(`${label}:`, m, y);
-        const labelW = doc.getTextWidth(`${label}:`);
-        doc.setLineWidth(0.1);
-        doc.line(m + labelW + 2, y + 1, pageW - m, y + 1);
-        y += 6;
-      };
-
-      campoBlanco('Quien Retira (CI/NOMBRE/FIRMA)');
-      campoBlanco('Observaciones');
-
-      y += 3;
-
-      y = dibujarEncabezadoTabla(y);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      const items = productosDeGrupo(grupo).filter(p => !itemsExcluidosPlanilla.has(claveItemPlanilla(grupo.nombre, p.codigo)));
-      if (items.length > 0) {
-        items.forEach((p, idx) => {
-          const productoLines = doc.splitTextToSize(p.nombre, cols[2] - 2);
-          const rowH = Math.max(6, 3 + productoLines.length * 2.2);
-          let x = x0;
-          const vals: (string | string[])[] = [String(idx + 1), p.codigo, productoLines, ''];
-          vals.forEach((val, i) => {
-            const text = Array.isArray(val) ? val : [String(val)];
-            doc.text(text, x + 1, y + 3);
-            x += cols[i];
-          });
-          doc.rect(x0, y, w, rowH);
-          x = x0;
-          cols.forEach((cw, i) => {
-            if (i < cols.length - 1) doc.line(x + cw, y, x + cw, y + rowH);
-            x += cw;
-          });
-          y += rowH;
-        });
-      } else {
-        doc.rect(x0, y, w, 8);
-        doc.text('Sin productos registrados en esta clasificación', x0 + 1, y + 5);
-        y += 8;
-      }
-
-      y += 4;
-
-      return y;
-    };
-
-    gruposActivos.forEach((grupo, idxGrupo) => {
-      if (idxGrupo > 0) doc.addPage();
-      let yInicioCopia = m;
-
-      while (true) {
-        const yFin = renderNota(grupo, yInicioCopia);
-        doc.setLineWidth(0.2);
-        doc.rect(m, yInicioCopia, w, yFin - yInicioCopia);
-
-        const alturaCopia = yFin - yInicioCopia;
-        const siguienteInicio = yFin + 6;
-        if (siguienteInicio + alturaCopia > pageH - m) break;
-
-        doc.setLineWidth(0.1);
-        doc.setDrawColor(150, 150, 150);
-        doc.line(m, yFin + 3, pageW - m, yFin + 3);
-        doc.setDrawColor(0, 0, 0);
-
-        yInicioCopia = siguienteInicio;
-      }
-    });
-
-    doc.save(`Planilla_Entrega_EPP_${proyecto.replace(/\s+/g, '_')}.pdf`);
-    setPlanillaAbierta(false);
-  };
-
   // Planilla de entrega "por trabajador": una hoja completa en blanco (sin
   // precargar productos), con Item/Codigo/Producto/Cantidad/Firma, todas las
   // filas vacias para completar a mano.
@@ -2159,68 +1966,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
             <button onClick={() => setPlanillaAbierta(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
 
-          <div className="flex gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => setModoPlanilla('clasificacion')}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${modoPlanilla === 'clasificacion' ? 'bg-primary text-primary-foreground' : 'bg-secondary border border-border text-muted-foreground hover:text-foreground'}`}
-            >
-              Por Clasificación
-            </button>
-            <button
-              type="button"
-              onClick={() => setModoPlanilla('trabajador')}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${modoPlanilla === 'trabajador' ? 'bg-primary text-primary-foreground' : 'bg-secondary border border-border text-muted-foreground hover:text-foreground'}`}
-            >
-              Por Trabajador
-            </button>
-          </div>
-
-          {modoPlanilla === 'trabajador' ? (
-            <p className="text-xs text-muted-foreground mb-4">Genera una hoja completa en blanco (sin productos precargados), con columnas Ítem/Código/Producto/Cantidad/Firma, para anotar a mano cualquier entrega de EPP.</p>
-          ) : (
-          <p className="text-xs text-muted-foreground mb-4">Elegí qué grupos incluir en el PDF y destildá los productos que no quieras que aparezcan en las notas.</p>
-          )}
-
-          {modoPlanilla === 'clasificacion' && (
-          <div className="space-y-3 mb-4">
-            {GRUPOS_PLANILLA_EPP.map(grupo => {
-              const items = productosDeGrupo(grupo);
-              const seleccionado = gruposSeleccionadosPlanilla.has(grupo.nombre);
-              return (
-                <div key={grupo.nombre} className={`border rounded-xl p-4 transition-colors ${seleccionado ? 'border-primary bg-primary/5' : 'border-border bg-secondary/30'}`}>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={seleccionado} onChange={() => toggleGrupoPlanilla(grupo.nombre)} className="rounded" />
-                    <span className="font-medium text-sm">{grupo.nombre}</span>
-                    <span className="text-xs text-muted-foreground">({items.length} producto{items.length !== 1 ? 's' : ''})</span>
-                  </label>
-                  {seleccionado && (
-                    items.length === 0 ? (
-                      <p className="text-xs text-muted-foreground pl-6 mt-2">Sin productos registrados en esta clasificación</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-6 mt-3">
-                        {items.map(p => {
-                          const excluido = itemsExcluidosPlanilla.has(claveItemPlanilla(grupo.nombre, p.codigo));
-                          return (
-                            <label key={p.codigo} className="flex items-center gap-2 text-xs cursor-pointer">
-                              <input type="checkbox" checked={!excluido} onChange={() => toggleItemPlanilla(grupo.nombre, p.codigo)} className="rounded" />
-                              <span className={excluido ? 'line-through text-muted-foreground' : 'text-foreground'}>{p.codigo} - {p.nombre}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          )}
+          <p className="text-xs text-muted-foreground mb-4">Genera una hoja completa en blanco (sin productos precargados), con columnas Ítem/Código/Producto/Cantidad/Firma, para anotar a mano cualquier entrega de EPP.</p>
 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={modoPlanilla === 'trabajador' ? generarPlanillaEntregaPorTrabajador : generarPlanillaEntregaEPP}
+              onClick={generarPlanillaEntregaPorTrabajador}
               className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
             >
               <FileDown size={18} /> Generar PDF
