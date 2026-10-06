@@ -7,3 +7,10 @@ dist/
 .DS_Store
 *.log
 *.zip
+
+# Salida de "tsc" sin --noEmit corriendo contra tsconfig.json (que no tiene
+# outDir): si se te olvida el flag, esto evita que la salida ensucie src/.
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map

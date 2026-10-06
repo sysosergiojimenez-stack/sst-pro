@@ -1028,6 +1028,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const clasificacionesSugeridas = [...new Set([...clasificaciones, ...productos.map(p => p.clasificacion).filter(Boolean)])]
     .sort((a, b) => a.localeCompare(b, 'es'));
 
+  const proveedoresSugeridos = [...new Set(productos.map(p => p.proveedor).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es'));
+
   const termBusqueda = searchTerm.toLowerCase();
 
   const remisionesFiltradas = remisiones.filter(r => {
@@ -1531,7 +1534,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     // Dibuja una "mini nota de salida" en blanco para el grupo dado, a partir
     // de startY, y devuelve el Y final (para poder repetirla cuantas veces
     // quepan en la hoja y para trazar el recuadro que la bordea).
-    const renderNota = (grupo: { nombre: string }, startY: number) => {
+    const renderNota = (grupo: { nombre: string; match: (clasificacionNormalizada: string) => boolean }, startY: number) => {
       let y = startY;
 
       if (logo && logoSize) {
@@ -2788,7 +2791,16 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                   <div><label className="block text-sm font-medium mb-1">Supervisor</label><input type="text" value={solicitudForm.supervisor} onChange={(e) => setSolicitudForm({...solicitudForm, supervisor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
                   <div><label className="block text-sm font-medium mb-1">Actividad</label><input type="text" value={solicitudForm.actividad} onChange={(e) => setSolicitudForm({...solicitudForm, actividad: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
                   <div><label className="block text-sm font-medium mb-1">Ubicación</label><input type="text" value={solicitudForm.ubicacion} onChange={(e) => setSolicitudForm({...solicitudForm, ubicacion: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Proveedor general</label><input type="text" value={solicitudForm.proveedor} onChange={(e) => setSolicitudForm({...solicitudForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Proveedor general</label>
+                    <select value={solicitudForm.proveedor} onChange={(e) => setSolicitudForm({...solicitudForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
+                      <option value="">-- Seleccionar --</option>
+                      {!proveedoresSugeridos.includes(solicitudForm.proveedor) && solicitudForm.proveedor && (
+                        <option value={solicitudForm.proveedor}>{solicitudForm.proveedor}</option>
+                      )}
+                      {proveedoresSugeridos.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
                   <div className="sm:col-span-2"><label className="block text-sm font-medium mb-1">Observaciones</label><textarea value={solicitudForm.observaciones} onChange={(e) => setSolicitudForm({...solicitudForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm" rows={2} /></div>
                 </div>
 
