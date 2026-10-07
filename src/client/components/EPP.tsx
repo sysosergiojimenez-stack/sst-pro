@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
-import { HardHat, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown, ClipboardList } from 'lucide-react';
+import { HardHat, Wrench, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown, ClipboardList } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
@@ -1906,20 +1906,26 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <HardHat className="text-violet-400" size={28} />
-            Control de EPP
+            {soloTipo === 'EPP' ? (
+              <HardHat className="text-violet-400" size={28} />
+            ) : (
+              <Wrench className="text-amber-400" size={28} />
+            )}
+            {soloTipo === 'EPP' ? 'Control de EPP' : 'Control de Herramientas y Materiales'}
           </h1>
           <p className="text-muted-foreground mt-1">{proyecto}</p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPlanillaAbierta(v => !v)}
-            className={`border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm ${planillaAbierta ? 'bg-primary text-white border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
-            title="Genera un PDF con una hoja por grupo de EPP, con los productos de cada clasificación precargados"
-          >
-            <ClipboardList size={16} /> Planilla de Entrega EPP
-          </button>
+          {soloTipo === 'EPP' && (
+            <button
+              type="button"
+              onClick={() => setPlanillaAbierta(v => !v)}
+              className={`border px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors text-sm ${planillaAbierta ? 'bg-primary text-white border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
+              title="Genera un PDF con una hoja por grupo de EPP, con los productos de cada clasificación precargados"
+            >
+              <ClipboardList size={16} /> Planilla de Entrega EPP
+            </button>
+          )}
           <div ref={reportesRef}>
             <button
               type="button"
@@ -2128,7 +2134,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
       {vista === 'productos' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Planilla de Productos EPP</h2>
+            <h2 className="text-lg font-semibold">{soloTipo === 'EPP' ? 'Planilla de Productos EPP' : 'Catálogo de Herramientas y Materiales'}</h2>
             <div className="flex gap-2">
               {productosSeleccionados.size > 0 && (
                 <button onClick={handleBulkDeleteProductos} className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-colors text-sm">
@@ -3288,7 +3294,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
               <form onSubmit={handleGeminiSubmit} className="space-y-4">
                 <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
                   <FileText size={48} className="mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-4">Sube la factura o remision de EPP (PDF o foto)</p>
+                  <p className="text-sm text-muted-foreground mb-4">Sube la factura o remisión (PDF o foto)</p>
                   <input type="file" accept={ACCEPT_FICHA_EMPLEADO} onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-pdf" />
                   <label htmlFor="epp-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar archivo</label>
                   {pdfFile && <p className="mt-4 text-sm text-primary">{pdfFile.name}</p>}
