@@ -412,6 +412,164 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
               </div>
             </button>
 
+            {/* Herramientas y Materiales */}
+            <button
+              onClick={() => setModuloActivo('herramientas')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                  <Wrench size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Herramientas y Materiales</h4>
+              <p className="text-sm text-muted-foreground mt-1">Control de herramientas, equipos y materiales de obra</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-info"><Package size={10} />{stats.herramientasItems} items</span>
+                    {stats.herramientasBajoStock > 0 ? (
+                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.herramientasBajoStock} bajo stock</span>
+                    ) : (
+                      <span className="badge badge-success">Stock OK</span>
+                    )}
+                  </>
+                )}
+              </div>
+            </button>
+
+            {/* EPP */}
+            <button
+              onClick={() => setModuloActivo('epp')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
+                  <HardHat size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">EPP</h4>
+              <p className="text-sm text-muted-foreground mt-1">Control de Equipos de Protección Personal</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-info"><Package size={10} />{stats.eppItems} items</span>
+                    {stats.eppBajoStock > 0 ? (
+                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.eppBajoStock} bajo stock</span>
+                    ) : (
+                      <span className="badge badge-success">Stock OK</span>
+                    )}
+                  </>
+                )}
+              </div>
+            </button>
+
+            {/* Capacitacion y Charlas de Seguridad */}
+            <button
+              onClick={() => setModuloActivo('capacitaciones')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                  <GraduationCap size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Capacitacion y Charlas</h4>
+              <p className="text-sm text-muted-foreground mt-1">Cronograma de charlas de seguridad y evidencias</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-info"><Clock size={10} />{stats.capacitacionesPendientes} pendientes</span>
+                    {stats.capacitacionesRealizadas > 0 && <span className="badge badge-success"><CheckCircle2 size={10} />{stats.capacitacionesRealizadas} realizadas</span>}
+                  </>
+                )}
+              </div>
+            </button>
+
+            {/* Inspecciones */}
+            <button
+              onClick={() => setModuloActivo('inspecciones')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
+                  <ClipboardCheck size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Inspecciones</h4>
+              <p className="text-sm text-muted-foreground mt-1">Checklist de seguridad, calendario y hallazgos</p>
+            </button>
+
+            {/* Medidas Disciplinarias */}
+            <button
+              onClick={() => setModuloActivo('disciplinarias')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg">
+                  <ShieldAlert size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Medidas Disciplinarias</h4>
+              <p className="text-sm text-muted-foreground mt-1">Notificación de amonestación (SST-FOR-12) para firma del trabajador</p>
+            </button>
+
+            {/* Bitacora */}
+            <button
+              onClick={() => setModuloActivo('bitacora')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-rose-500/30 hover:shadow-lg hover:shadow-rose-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
+                  <NotebookPen size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Bitacora</h4>
+              <p className="text-sm text-muted-foreground mt-1">Registro de trabajos realizados con evidencia fotografica</p>
+            </button>
+
+            {/* Indicadores de SST */}
+            <button
+              onClick={() => setModuloActivo('indicadores')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
+                  <BarChart3 size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Indicadores de SST</h4>
+              <p className="text-sm text-muted-foreground mt-1">Dashboard consolidado (SST-IND-01) con semáforo de cumplimiento</p>
+            </button>
+
+            {/* Informe Mensual */}
+            <button
+              onClick={() => setModuloActivo('informe-mensual')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                  <FileBarChart size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Informe Mensual</h4>
+              <p className="text-sm text-muted-foreground mt-1">Genera el informe mensual de seguridad e higiene en obra en PDF</p>
+            </button>
+
             {/* Permisos de Trabajo de Alto Riesgo */}
             <button
               onClick={() => setModuloActivo('permisos')}
@@ -462,162 +620,6 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                   </>
                 )}
               </div>
-            </button>
-
-            {/* Inspecciones */}
-            <button 
-              onClick={() => setModuloActivo('inspecciones')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                  <ClipboardCheck size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Inspecciones</h4>
-              <p className="text-sm text-muted-foreground mt-1">Checklist de seguridad, calendario y hallazgos</p>
-            </button>
-
-            {/* EPP */}
-            <button 
-              onClick={() => setModuloActivo('epp')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
-                  <HardHat size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">EPP</h4>
-              <p className="text-sm text-muted-foreground mt-1">Control de Equipos de Protección Personal</p>
-              <div className="flex items-center gap-3 mt-3">
-                {loading ? (
-                  <span className="badge badge-muted">Cargando...</span>
-                ) : (
-                  <>
-                    <span className="badge badge-info"><Package size={10} />{stats.eppItems} items</span>
-                    {stats.eppBajoStock > 0 ? (
-                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.eppBajoStock} bajo stock</span>
-                    ) : (
-                      <span className="badge badge-success">Stock OK</span>
-                    )}
-                  </>
-                )}
-              </div>
-            </button>
-            {/* Herramientas y Materiales */}
-            <button
-              onClick={() => setModuloActivo('herramientas')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
-                  <Wrench size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Herramientas y Materiales</h4>
-              <p className="text-sm text-muted-foreground mt-1">Control de herramientas, equipos y materiales de obra</p>
-              <div className="flex items-center gap-3 mt-3">
-                {loading ? (
-                  <span className="badge badge-muted">Cargando...</span>
-                ) : (
-                  <>
-                    <span className="badge badge-info"><Package size={10} />{stats.herramientasItems} items</span>
-                    {stats.herramientasBajoStock > 0 ? (
-                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.herramientasBajoStock} bajo stock</span>
-                    ) : (
-                      <span className="badge badge-success">Stock OK</span>
-                    )}
-                  </>
-                )}
-              </div>
-            </button>
-            {/* Capacitacion y Charlas de Seguridad */}
-            <button 
-              onClick={() => setModuloActivo('capacitaciones')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                  <GraduationCap size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Capacitacion y Charlas</h4>
-              <p className="text-sm text-muted-foreground mt-1">Cronograma de charlas de seguridad y evidencias</p>
-              <div className="flex items-center gap-3 mt-3">
-                {loading ? (
-                  <span className="badge badge-muted">Cargando...</span>
-                ) : (
-                  <>
-                    <span className="badge badge-info"><Clock size={10} />{stats.capacitacionesPendientes} pendientes</span>
-                    {stats.capacitacionesRealizadas > 0 && <span className="badge badge-success"><CheckCircle2 size={10} />{stats.capacitacionesRealizadas} realizadas</span>}
-                  </>
-                )}
-              </div>
-            </button>
-
-            {/* Bitacora */}
-            <button
-              onClick={() => setModuloActivo('bitacora')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-rose-500/30 hover:shadow-lg hover:shadow-rose-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
-                  <NotebookPen size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Bitacora</h4>
-              <p className="text-sm text-muted-foreground mt-1">Registro de trabajos realizados con evidencia fotografica</p>
-            </button>
-
-            {/* Medidas Disciplinarias */}
-            <button
-              onClick={() => setModuloActivo('disciplinarias')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg">
-                  <ShieldAlert size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Medidas Disciplinarias</h4>
-              <p className="text-sm text-muted-foreground mt-1">Notificación de amonestación (SST-FOR-12) para firma del trabajador</p>
-            </button>
-
-            {/* Indicadores de SST */}
-            <button
-              onClick={() => setModuloActivo('indicadores')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
-                  <BarChart3 size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Indicadores de SST</h4>
-              <p className="text-sm text-muted-foreground mt-1">Dashboard consolidado (SST-IND-01) con semáforo de cumplimiento</p>
-            </button>
-
-            {/* Informe Mensual */}
-            <button
-              onClick={() => setModuloActivo('informe-mensual')}
-              className="bg-card border border-border rounded-xl p-5 text-left hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                  <FileBarChart size={24} className="text-white" />
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h4 className="font-semibold text-base">Informe Mensual</h4>
-              <p className="text-sm text-muted-foreground mt-1">Genera el informe mensual de seguridad e higiene en obra en PDF</p>
             </button>
           </div>
         </div>
