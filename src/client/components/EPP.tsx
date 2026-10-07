@@ -150,7 +150,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [reporteSeleccionado, setReporteSeleccionado] = useState<TipoReporte>('inventario');
   const [reporteMes, setReporteMes] = useState<number | 'todos'>('todos');
   const [reporteAnio, setReporteAnio] = useState(new Date().getFullYear());
-  const [reporteAlertaFiltro, setReporteAlertaFiltro] = useState('todas');
+  const ALERTAS_DOTACION = ['OK', 'Proximo a vencer', 'Vencido', 'Sin dotacion registrada'];
+  const [reporteAlertaFiltro, setReporteAlertaFiltro] = useState<Set<string>>(new Set(ALERTAS_DOTACION));
+  const toggleReporteAlertaFiltro = (alerta: string) => {
+    setReporteAlertaFiltro(prev => {
+      const next = new Set(prev);
+      if (next.has(alerta)) next.delete(alerta); else next.add(alerta);
+      return next;
+    });
+  };
   const [reporteEstadoFiltro, setReporteEstadoFiltro] = useState<'todos' | 'Activo' | 'Inactivo'>('todos');
   const reportesRef = useRef<HTMLDivElement>(null);
   const [planillaAbierta, setPlanillaAbierta] = useState(false);
@@ -528,7 +536,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           ...(reporteEstadoFiltro === 'Inactivo' ? [] : dotacionActivos.map(emp => filaDotacion(emp, 'Activo'))),
           ...(reporteEstadoFiltro === 'Activo' ? [] : dotacionInactivos.map(emp => filaDotacion(emp, 'Inactivo'))),
         ]
-          .filter(({ alerta }) => reporteAlertaFiltro === 'todas' || alerta === reporteAlertaFiltro)
+          .filter(({ alerta }) => reporteAlertaFiltro.has(alerta))
           .map(({ fila }) => fila);
         break;
       }
@@ -1899,17 +1907,25 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           {reporteSeleccionado === 'dotacion' && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="text-xs text-muted-foreground uppercase">Alerta</span>
-              <select
-                value={reporteAlertaFiltro}
-                onChange={(e) => setReporteAlertaFiltro(e.target.value)}
-                className="bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50"
-              >
-                <option value="todas">Todas</option>
-                <option value="OK">OK</option>
-                <option value="Proximo a vencer">Próximo a vencer</option>
-                <option value="Vencido">Vencido</option>
-                <option value="Sin dotacion registrada">Sin dotación registrada</option>
-              </select>
+              {[
+                { value: 'OK', label: 'OK' },
+                { value: 'Proximo a vencer', label: 'Próximo a vencer' },
+                { value: 'Vencido', label: 'Vencido' },
+                { value: 'Sin dotacion registrada', label: 'Sin dotación registrada' },
+              ].map(({ value, label }) => (
+                <label
+                  key={value}
+                  className="flex items-center gap-1.5 bg-secondary border border-border rounded-xl px-3 py-2 text-sm cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={reporteAlertaFiltro.has(value)}
+                    onChange={() => toggleReporteAlertaFiltro(value)}
+                    className="rounded"
+                  />
+                  {label}
+                </label>
+              ))}
               <span className="text-xs text-muted-foreground uppercase ml-2">Estado</span>
               <select
                 value={reporteEstadoFiltro}
