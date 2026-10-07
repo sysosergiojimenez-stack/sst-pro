@@ -696,7 +696,11 @@ Instrucciones:
     const dia = String(data.diaFecha || '').padStart(2, '0');
     const mes = String(data.mesFecha || '').padStart(2, '0');
     const anio = String(data.anioFecha || '');
-    data.fecha = (dia && mes && anio) ? `${dia}/${mes}/${anio}` : '';
+    // Formato AAAA-MM-DD (ISO), igual al que usa el resto de la app (inputs
+    // type="date", fechaLocalISO) -- NO "DD/MM/AAAA", porque new Date() de
+    // JS interpreta strings con "/" como MM/DD (formato EEUU) y revertiria
+    // el arreglo de ambiguedad de fecha hecho mas arriba.
+    data.fecha = (dia && mes && anio) ? `${anio}-${mes}-${dia}` : '';
     delete data.diaFecha;
     delete data.mesFecha;
     delete data.anioFecha;

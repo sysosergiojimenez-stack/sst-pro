@@ -157,7 +157,7 @@ const ENTRADA_FIELDS = ['dateTime', 'userEmail', 'refRemision', 'codigo', 'item'
 
 function docToEntrada(data: FirebaseFirestore.DocumentData): Entrada {
   const e: any = { rowIndex: 0, idRegistro: data.idRegistro || '' };
-  for (const f of ENTRADA_FIELDS) e[f] = data[f] || '';
+  for (const f of ENTRADA_FIELDS) e[f] = data[f] != null ? String(data[f]) : '';
   return e as Entrada;
 }
 
@@ -182,7 +182,7 @@ export async function getEntradasByRemisionId(idRegistro: string): Promise<Entra
 
 export async function appendEntrada(entrada: Omit<Entrada, 'rowIndex'>): Promise<void> {
   const data: Record<string, string> = { idRegistro: entrada.idRegistro };
-  for (const f of ENTRADA_FIELDS) data[f] = (entrada as any)[f] || (f === 'dateTime' ? new Date().toISOString() : '');
+  for (const f of ENTRADA_FIELDS) data[f] = (entrada as any)[f] != null && (entrada as any)[f] !== '' ? String((entrada as any)[f]) : (f === 'dateTime' ? new Date().toISOString() : '');
   await getDb().collection(COL_ENTRADAS).doc(entrada.idRegistro).set(data);
 }
 
@@ -192,7 +192,7 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
   const batch = db.batch();
   for (const e of entradas) {
     const data: Record<string, string> = { idRegistro: e.idRegistro };
-    for (const f of ENTRADA_FIELDS) data[f] = (e as any)[f] || (f === 'dateTime' ? new Date().toISOString() : '');
+    for (const f of ENTRADA_FIELDS) data[f] = (e as any)[f] != null && (e as any)[f] !== '' ? String((e as any)[f]) : (f === 'dateTime' ? new Date().toISOString() : '');
     batch.set(db.collection(COL_ENTRADAS).doc(e.idRegistro), data);
   }
   await batch.commit();
@@ -201,7 +201,7 @@ export async function appendMultipleEntradas(entradas: Omit<Entrada, 'rowIndex'>
 export async function updateEntrada(idRegistro: string, entrada: Partial<Pick<Entrada, 'codigo' | 'item' | 'cantidad'>>): Promise<void> {
   const updates: Record<string, string> = {};
   for (const f of ['codigo', 'item', 'cantidad'] as const) {
-    if ((entrada as any)[f] !== undefined) updates[f] = (entrada as any)[f];
+    if ((entrada as any)[f] !== undefined) updates[f] = String((entrada as any)[f]);
   }
   if (Object.keys(updates).length === 0) return;
   await getDb().collection(COL_ENTRADAS).doc(idRegistro).set(updates, { merge: true });
@@ -298,7 +298,7 @@ const SALIDA_FIELDS = ['fechaHora', 'userEmail', 'refNotaSalida', 'refItem', 'ca
 
 function docToSalida(data: FirebaseFirestore.DocumentData): Salida {
   const s: any = { rowIndex: 0, idRegistro: data.idRegistro || '' };
-  for (const f of SALIDA_FIELDS) s[f] = data[f] || '';
+  for (const f of SALIDA_FIELDS) s[f] = data[f] != null ? String(data[f]) : '';
   return s as Salida;
 }
 
@@ -327,7 +327,7 @@ export async function getSalidasByTrabajador(trabajador: string): Promise<Salida
 
 export async function appendSalida(salida: Omit<Salida, 'rowIndex'>): Promise<void> {
   const data: Record<string, string> = { idRegistro: salida.idRegistro };
-  for (const f of SALIDA_FIELDS) data[f] = (salida as any)[f] || '';
+  for (const f of SALIDA_FIELDS) data[f] = (salida as any)[f] != null ? String((salida as any)[f]) : '';
   await getDb().collection(COL_SALIDAS).doc(salida.idRegistro).set(data);
 }
 
@@ -337,7 +337,7 @@ export async function appendMultipleSalidas(salidas: Omit<Salida, 'rowIndex'>[])
   const batch = db.batch();
   for (const s of salidas) {
     const data: Record<string, string> = { idRegistro: s.idRegistro };
-    for (const f of SALIDA_FIELDS) data[f] = (s as any)[f] || '';
+    for (const f of SALIDA_FIELDS) data[f] = (s as any)[f] != null ? String((s as any)[f]) : '';
     batch.set(db.collection(COL_SALIDAS).doc(s.idRegistro), data);
   }
   await batch.commit();
@@ -346,7 +346,7 @@ export async function appendMultipleSalidas(salidas: Omit<Salida, 'rowIndex'>[])
 export async function updateSalida(idRegistro: string, salida: Partial<Pick<Salida, 'refItem' | 'cantidad' | 'trabajadorRetira'>>): Promise<void> {
   const updates: Record<string, string> = {};
   for (const f of ['refItem', 'cantidad', 'trabajadorRetira'] as const) {
-    if (salida[f] !== undefined) updates[f] = salida[f] as string;
+    if (salida[f] !== undefined) updates[f] = String(salida[f]);
   }
   if (Object.keys(updates).length === 0) return;
   await getDb().collection(COL_SALIDAS).doc(idRegistro).set(updates, { merge: true });

@@ -684,7 +684,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
         refRemision: remisionId,
         codigo: item.codigo,
         item: item.nombre,
-        cantidad: item.cantidad,
+        cantidad: String(item.cantidad),
         proyecto,
       }));
 
@@ -722,7 +722,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
         idRegistro: `SAL-${Date.now()}-${idx}`,
         refNotaSalida: notaId,
         refItem: item.codigo,
-        cantidad: item.cantidad,
+        cantidad: String(item.cantidad),
         trabajadorRetira: item.trabajador || datosExtraidos.quienRetira || '',
       }));
 
@@ -2416,7 +2416,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
                 <div className="space-y-4">
                   <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 p-4 rounded-xl text-sm flex items-center gap-2"><CheckCircle2 size={16} /> Datos extraidos correctamente. Revisá la cédula de cada fila antes de confirmar.</div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{datosExtraidos.fecha}</p></div>
+                    <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Fecha</span><p className="font-medium">{formatearFecha(datosExtraidos.fecha)}</p></div>
                     <div className="bg-secondary/50 p-3 rounded-xl"><span className="text-xs text-muted-foreground uppercase">Items</span><p className="font-medium">{datosExtraidos.items?.length || 0}</p></div>
                   </div>
                   {datosExtraidos.items?.length > 0 && (
