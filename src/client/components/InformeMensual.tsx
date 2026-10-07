@@ -402,8 +402,9 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
 
       // ---- Inventarios ----
       const clasifNorm = (c: string) => (c || '').trim().toUpperCase();
-      const productosEPP = productos.filter(p => CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
-      const productosHerramientas = productos.filter(p => !CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
+      const productosConStock = productos.filter(p => stockDisponible(p.codigo) > 0);
+      const productosEPP = productosConStock.filter(p => CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
+      const productosHerramientas = productosConStock.filter(p => !CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
 
       doc.addPage();
       y = 20;
