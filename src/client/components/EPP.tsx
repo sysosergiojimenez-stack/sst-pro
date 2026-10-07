@@ -210,7 +210,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         apiFetch(`/api/epp/entradas?proyecto=${encodeURIComponent(proyecto)}`),
         apiFetch(`/api/epp/notas-salida?proyecto=${encodeURIComponent(proyecto)}`),
         apiFetch(`/api/epp/salidas?proyecto=${encodeURIComponent(proyecto)}`),
-        apiFetch('/api/empleados'),
+        apiFetch(`/api/empleados?proyecto=${encodeURIComponent(proyecto)}`),
       ]);
       const [prodData, entData, notData, salData, empData] = await Promise.all([
         prodRes.json(), entRes.json(), notRes.json(), salRes.json(), empRes.json()
