@@ -15,9 +15,10 @@ export interface Producto {
   proveedor: string;
   clasificacion: string;
   stockMinimo: string;
+  tipo: 'EPP' | 'Herramienta' | '';
 }
 
-const PRODUCTO_FIELDS = ['codigo', 'proyecto', 'nombre', 'proveedor', 'clasificacion', 'stockMinimo'] as const;
+const PRODUCTO_FIELDS = ['codigo', 'proyecto', 'nombre', 'proveedor', 'clasificacion', 'stockMinimo', 'tipo'] as const;
 
 function docToProducto(id: string, data: FirebaseFirestore.DocumentData): Producto {
   const p: any = { docId: id, rowIndex: 0 };
@@ -228,9 +229,10 @@ export interface NotaSalida {
   fecha: string;
   quienRetira: string;
   observaciones: string;
+  tipo: 'EPP' | 'Herramienta' | '';
 }
 
-const NOTA_SALIDA_FIELDS = ['fechaHora', 'userEmail', 'obra', 'orden', 'fecha', 'quienRetira', 'observaciones'] as const;
+const NOTA_SALIDA_FIELDS = ['fechaHora', 'userEmail', 'obra', 'orden', 'fecha', 'quienRetira', 'observaciones', 'tipo'] as const;
 
 function docToNotaSalida(data: FirebaseFirestore.DocumentData): NotaSalida {
   const n: any = { rowIndex: 0, idRegistro: data.idRegistro || '' };
@@ -262,7 +264,7 @@ export async function appendNotaSalida(nota: Omit<NotaSalida, 'rowIndex'>): Prom
 
 export async function updateNotaSalida(idRegistro: string, nota: Partial<Omit<NotaSalida, 'rowIndex'>>): Promise<void> {
   const updates: Record<string, string> = {};
-  for (const f of ['orden', 'fecha', 'quienRetira', 'observaciones'] as const) {
+  for (const f of ['orden', 'fecha', 'quienRetira', 'observaciones', 'tipo'] as const) {
     if ((nota as any)[f] !== undefined) updates[f] = (nota as any)[f];
   }
   if (Object.keys(updates).length === 0) return;

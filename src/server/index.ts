@@ -1773,6 +1773,7 @@ app.post('/api/epp/productos', async (c) => {
       proveedor: body.proveedor || '',
       stockMinimo: body.stockMinimo || 0,
       clasificacion: body.clasificacion || '',
+      tipo: body.tipo || '',
     });
     return c.json({ success: true, message: 'Producto registrado' });
   } catch (error: any) {
@@ -2166,6 +2167,7 @@ app.post('/api/epp/notas-salida', async (c) => {
       fecha: body.fecha || '',
       quienRetira: body.quienRetira || '',
       observaciones: body.observaciones || '',
+      tipo: body.tipo || '',
     });
     return c.json({ success: true, message: 'Nota de salida registrada', idRegistro });
   } catch (error: any) {

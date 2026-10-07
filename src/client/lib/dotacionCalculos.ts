@@ -32,6 +32,7 @@ export interface DotacionSalida {
 export interface DotacionProducto {
   codigo: string;
   clasificacion: string;
+  tipo?: string;
 }
 
 export interface DotacionNotaSalida {
@@ -58,7 +59,7 @@ export function calcularDotacion(
     return { s, prod, nota };
   });
   const entregasBotin = conProductoYNota
-    .filter(x => x.prod && x.nota?.fecha && CLASIFICACIONES_BOTIN.includes(x.prod.clasificacion?.trim().toUpperCase() || ''));
+    .filter(x => x.prod && x.nota?.fecha && CLASIFICACIONES_BOTIN.includes(x.prod.clasificacion?.trim().toUpperCase() || '') && (!x.prod.tipo || x.prod.tipo === 'EPP'));
 
   if (entregasBotin.length === 0) {
     return { ultimaDotacion: '', proximaDotacion: '', alerta: 'Sin dotacion registrada' };

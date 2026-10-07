@@ -18,6 +18,7 @@ interface Producto {
   proveedor: string;
   clasificacion: string;
   stockMinimo: string;
+  tipo: 'EPP' | 'Herramienta' | '';
 }
 
 interface Remision {
@@ -54,6 +55,7 @@ interface NotaSalida {
   fecha: string;
   quienRetira: string;
   observaciones: string;
+  tipo: 'EPP' | 'Herramienta' | '';
 }
 
 interface Salida {
@@ -122,7 +124,8 @@ interface EPPProps {
   proyectoLogo?: string;
 }
 
-const clasificaciones = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
+const clasificacionesEPP = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
+const clasificacionesHerramienta = ['Herramienta Manual', 'Herramienta Eléctrica', 'Material de Construcción', 'Equipo', 'Otro'];
 
 type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'solicitudes';
 
@@ -145,6 +148,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [showGeminiForm, setShowGeminiForm] = useState(false);
   const [showGeminiSalidaForm, setShowGeminiSalidaForm] = useState(false);
   const [showNotaSalidaForm, setShowNotaSalidaForm] = useState(false);
+  const [tipoEntregaVista, setTipoEntregaVista] = useState<'EPP' | 'Herramienta'>('EPP');
   const [showSalidaForm, setShowSalidaForm] = useState(false);
   const [reportesAbierto, setReportesAbierto] = useState(false);
   const [reporteSeleccionado, setReporteSeleccionado] = useState<TipoReporte>('inventario');
@@ -167,7 +171,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [datosExtraidos, setDatosExtraidos] = useState<any>(null);
 
-  const [productoForm, setProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+  const [productoForm, setProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0', tipo: '' as 'EPP' | 'Herramienta' | '' });
   const [remisionForm, setRemisionForm] = useState({ proveedor: '', numeracion: '', fecha: '', detalle: '' });
   const [notaSalidaForm, setNotaSalidaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
   const emptySolicitudForm = { fecha: '', supervisor: '', actividad: '', ubicacion: '', proveedor: '', fechaLimiteEntrega: '', observaciones: '', items: [{ item: '1', producto: '', unidad: '', cantidad: '', cuenta: '', proveedor: '' }] };
@@ -184,9 +188,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [salidaForm, setSalidaForm] = useState({ refItem: '', cantidad: '', trabajadorRetira: '' });
   const [showProductoEdit, setShowProductoEdit] = useState<Producto | null>(null);
   const [productosSeleccionados, setProductosSeleccionados] = useState<Set<string>>(new Set());
-  const [editingProductoForm, setEditingProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+  const [editingProductoForm, setEditingProductoForm] = useState({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0', tipo: '' as 'EPP' | 'Herramienta' | '' });
   const [busquedaProducto, setBusquedaProducto] = useState('');
   const [mostrarSugerenciasProducto, setMostrarSugerenciasProducto] = useState(false);
+  const [busquedaTrabajadorItem, setBusquedaTrabajadorItem] = useState('');
+  const [mostrarSugerenciasTrabajadorItem, setMostrarSugerenciasTrabajadorItem] = useState(false);
+  const [indiceResaltadoTrabajadorItem, setIndiceResaltadoTrabajadorItem] = useState(0);
   const [selectedNota, setSelectedNota] = useState<NotaSalida | null>(null);
   const [salidasTemporales, setSalidasTemporales] = useState<{refItem: string, cantidad: string, trabajadorRetira: string, itemNombre: string}[]>([]);
 
@@ -198,9 +205,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const [showNotaDetail, setShowNotaDetail] = useState<NotaSalida | null>(null);
   const [notasSeleccionadas, setNotasSeleccionadas] = useState<Set<string>>(new Set());
   const [editingNotaForm, setEditingNotaForm] = useState({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
-  const [editingSalidasForm, setEditingSalidasForm] = useState<{ idRegistro?: string; refItem: string; cantidad: string; busqueda: string }[]>([]);
+  const [editingSalidasForm, setEditingSalidasForm] = useState<{ idRegistro?: string; refItem: string; cantidad: string; busqueda: string; trabajadorRetira: string; busquedaTrabajador: string }[]>([]);
   const [filaBusquedaSalidaActiva, setFilaBusquedaSalidaActiva] = useState<number | null>(null);
   const [indiceResaltadoSalidaForm, setIndiceResaltadoSalidaForm] = useState(0);
+  const [filaTrabajadorActiva, setFilaTrabajadorActiva] = useState<number | null>(null);
+  const [indiceResaltadoTrabajadorForm, setIndiceResaltadoTrabajadorForm] = useState(0);
 
   const fetchData = async () => {
     setLoading(true);
@@ -323,7 +332,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       });
   };
 
-  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'salidasPorProducto' | 'dotacion';
+  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'salidasPorProducto' | 'dotacion' | 'notasSalida';
 
   const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -501,10 +510,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         break;
       }
       case 'salidas': {
-        titulo = 'Salidas por Trabajador' + sufijoPeriodo;
+        titulo = 'Entregas de EPP por Trabajador' + sufijoPeriodo;
         headers = ['Documento', 'Trabajador', 'Producto', 'Cantidad', 'Fecha'];
         rows = salidas
           .filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)))
+          .filter(s => notasSalida.find(n => n.idRegistro === s.refNotaSalida)?.tipo === 'EPP')
           .map(s => {
             const prod = productos.find(p => p.codigo === s.refItem);
             const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
@@ -513,15 +523,31 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         break;
       }
       case 'salidasPorProducto': {
-        titulo = 'Salidas por Producto' + sufijoPeriodo;
+        titulo = 'Entregas de EPP por Producto' + sufijoPeriodo;
         headers = ['Código', 'Producto', 'Cantidad', 'Trabajador', 'Fecha'];
-        const salidasFiltradas = salidas.filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)));
+        const salidasFiltradas = salidas
+          .filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)))
+          .filter(s => notasSalida.find(n => n.idRegistro === s.refNotaSalida)?.tipo === 'EPP');
         rows = [...salidasFiltradas]
           .sort((a, b) => a.refItem.localeCompare(b.refItem) || fechaRealDeSalida(a).localeCompare(fechaRealDeSalida(b)))
           .map(s => {
             const prod = productos.find(p => p.codigo === s.refItem);
             const emp = empleados.find(e => e.nroDocumento === s.trabajadorRetira);
             return [s.refItem, prod?.nombre || '-', parseInt(s.cantidad || '0'), emp ? `${emp.nombres} ${emp.apellidos}` : s.trabajadorRetira, formatearFecha(fechaRealDeSalida(s))];
+          });
+        break;
+      }
+      case 'notasSalida': {
+        titulo = 'Notas de Salida (Herramientas y Materiales)' + sufijoPeriodo;
+        headers = ['Código', 'Producto', 'Cantidad', 'Quien Retira', 'Fecha'];
+        const salidasFiltradas = salidas
+          .filter(s => enPeriodoSeleccionado(fechaRealDeSalida(s)))
+          .filter(s => (notasSalida.find(n => n.idRegistro === s.refNotaSalida)?.tipo || 'Herramienta') === 'Herramienta');
+        rows = [...salidasFiltradas]
+          .sort((a, b) => a.refItem.localeCompare(b.refItem) || fechaRealDeSalida(a).localeCompare(fechaRealDeSalida(b)))
+          .map(s => {
+            const prod = productos.find(p => p.codigo === s.refItem);
+            return [s.refItem, prod?.nombre || '-', parseInt(s.cantidad || '0'), nombreQuienRetira(s.trabajadorRetira), formatearFecha(fechaRealDeSalida(s))];
           });
         break;
       }
@@ -683,6 +709,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           fecha: datosExtraidos.fecha,
           quienRetira: datosExtraidos.quienRetira || '',
           observaciones: `Procesado por IA - ${datosExtraidos.items.length} items`,
+          tipo: 'EPP',
         }),
       });
 
@@ -715,7 +742,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         body: JSON.stringify(productoForm),
       });
       setShowProductoForm(false);
-      setProductoForm({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+      setProductoForm({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0', tipo: '' });
       fetchData();
     } catch (err: any) { setError(err.message); }
   };
@@ -730,6 +757,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       proveedor: producto.proveedor,
       clasificacion: producto.clasificacion,
       stockMinimo: producto.stockMinimo,
+      tipo: producto.tipo || '',
     });
   };
 
@@ -743,7 +771,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
       setShowProductoEdit(null);
-      setEditingProductoForm({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0' });
+      setEditingProductoForm({ codigo: '', nombre: '', proveedor: '', clasificacion: '', stockMinimo: '0', tipo: '' });
       fetchData();
     } catch (err: any) { alert('Error: ' + err.message); }
   };
@@ -838,16 +866,20 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       alert('Agregue al menos un producto a la nota');
       return;
     }
-    const quienRetiraFinal = notaSalidaForm.quienRetira || busquedaQuienRetira.trim();
-    if (!quienRetiraFinal) {
-      alert('Indique quien retira los productos');
-      return;
+    const esEPP = tipoEntregaVista === 'EPP';
+    let quienRetiraFinal = '';
+    if (!esEPP) {
+      quienRetiraFinal = notaSalidaForm.quienRetira || busquedaQuienRetira.trim();
+      if (!quienRetiraFinal) {
+        alert('Indique quien retira los productos');
+        return;
+      }
     }
     try {
       const notaId = `NS-${Date.now()}`;
-      const notaPayload = { ...notaSalidaForm, quienRetira: quienRetiraFinal };
+      const notaPayload = { ...notaSalidaForm, quienRetira: esEPP ? '' : quienRetiraFinal, tipo: tipoEntregaVista };
 
-      // 1. Crear la Nota de Salida
+      // 1. Crear la Nota de Salida / Planilla de Entrega de EPP
       await apiFetch('/api/epp/notas-salida', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -857,7 +889,8 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         }),
       });
 
-      // 2. Crear todas las Salidas en batch (trabajador = quienRetira de la nota)
+      // 2. Crear todas las Salidas en batch
+      // EPP: cada item ya tiene su propio trabajador. Herramienta: todas usan quien retira de la nota.
       const salidasBatch = salidasTemporales.map((s, idx) => ({
         idRegistro: `SAL-${Date.now()}-${idx}`,
         fechaHora: new Date().toISOString(),
@@ -865,7 +898,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         refNotaSalida: notaId,
         refItem: s.refItem,
         cantidad: s.cantidad,
-        trabajadorRetira: quienRetiraFinal,
+        trabajadorRetira: esEPP ? s.trabajadorRetira : quienRetiraFinal,
       }));
 
       await apiFetch('/api/epp/salidas/batch', {
@@ -878,9 +911,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       setNotaSalidaForm({ orden: '', fecha: '', quienRetira: '', observaciones: '' });
       setSalidasTemporales([]);
       setBusquedaQuienRetira('');
+      setBusquedaTrabajadorItem('');
+      setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' });
       fetchData();
-      alert(`Nota de salida creada con ${salidasBatch.length} item(s)!`);
-    } catch (err: any) { 
+      alert(`${esEPP ? 'Planilla de Entrega de EPP' : 'Nota de salida'} creada con ${salidasBatch.length} item(s)!`);
+    } catch (err: any) {
       alert('Error: ' + err.message);
     }
   };
@@ -890,11 +925,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       alert('Seleccione producto y cantidad');
       return;
     }
-    // Si estamos editando una nota existente, el trabajador se toma de esa nota.
-    // Si estamos creando una nota nueva, se toma de "Quien Retira" del formulario.
-    const trabajador = showNotaDetail ? showNotaDetail.quienRetira : notaSalidaForm.quienRetira;
+    // Si estamos editando una nota existente, el tipo/trabajador se toma de esa nota.
+    // Si estamos creando una Planilla de EPP nueva, cada item lleva su propio trabajador.
+    // Si estamos creando una Nota de Salida nueva, el trabajador es "Quien Retira" del formulario.
+    const notaEsEPP = showNotaDetail ? showNotaDetail.tipo === 'EPP' : tipoEntregaVista === 'EPP';
+    const trabajador = notaEsEPP
+      ? salidaForm.trabajadorRetira
+      : (showNotaDetail ? showNotaDetail.quienRetira : notaSalidaForm.quienRetira);
     if (!trabajador) {
-      alert('No se pudo determinar quien retira los productos');
+      alert(notaEsEPP ? 'Seleccione el trabajador que recibe el EPP' : 'No se pudo determinar quien retira los productos');
       return;
     }
     const prod = productos.find(p => p.codigo === salidaForm.refItem);
@@ -904,7 +943,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       trabajadorRetira: trabajador,
       itemNombre: prod?.nombre || salidaForm.refItem,
     }]);
-    setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' });
+    setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: notaEsEPP ? salidaForm.trabajadorRetira : '' });
     setBusquedaProducto('');
   };
 
@@ -1084,28 +1123,36 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   const handleEditNotaSalida = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showNotaDetail) return;
-    const quienRetiraFinal = editingNotaForm.quienRetira || busquedaQuienRetira.trim();
-    if (!quienRetiraFinal) {
-      alert('Indique quien retira los productos');
-      return;
+    const esEPP = showNotaDetail.tipo === 'EPP';
+    let quienRetiraFinal = '';
+    if (!esEPP) {
+      quienRetiraFinal = editingNotaForm.quienRetira || busquedaQuienRetira.trim();
+      if (!quienRetiraFinal) {
+        alert('Indique quien retira los productos');
+        return;
+      }
     }
     try {
       const response = await apiFetch(`/api/epp/notas-salida/${showNotaDetail.idRegistro}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editingNotaForm, quienRetira: quienRetiraFinal }),
+        body: JSON.stringify({ ...editingNotaForm, quienRetira: esEPP ? '' : quienRetiraFinal }),
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
 
       // Sincroniza las salidas (items) de la nota: actualiza las existentes,
       // crea las agregadas y borra las que se quitaron del formulario.
-      const itemsValidos = editingSalidasForm.filter(it => it.refItem.trim() && it.cantidad.trim());
+      const itemsValidos = editingSalidasForm.filter(it => it.refItem.trim() && it.cantidad.trim() && (!esEPP || it.trabajadorRetira.trim()));
+      if (esEPP && editingSalidasForm.some(it => it.refItem.trim() && it.cantidad.trim() && !it.trabajadorRetira.trim())) {
+        alert('Indique el trabajador que recibe cada item de EPP');
+        return;
+      }
       const idsActuales = new Set(itemsValidos.filter(it => it.idRegistro).map(it => it.idRegistro));
       const idsOriginales = salidasByNota(showNotaDetail.idRegistro).map(s => s.idRegistro);
       const idsAEliminar = idsOriginales.filter(id => !idsActuales.has(id));
 
       await Promise.all([
         ...itemsValidos.map((it, idx) => {
-          const body = { refItem: it.refItem, cantidad: it.cantidad.trim(), trabajadorRetira: quienRetiraFinal };
+          const body = { refItem: it.refItem, cantidad: it.cantidad.trim(), trabajadorRetira: esEPP ? it.trabajadorRetira.trim() : quienRetiraFinal };
           return it.idRegistro
             ? apiFetch(`/api/epp/salidas/${it.idRegistro}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
             : apiFetch('/api/epp/salidas', {
@@ -1136,19 +1183,33 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       quienRetira: nota.quienRetira,
       observaciones: nota.observaciones,
     });
-    setEditingSalidasForm(salidasByNota(nota.idRegistro).map(s => ({ idRegistro: s.idRegistro, refItem: s.refItem, cantidad: s.cantidad, busqueda: '' })));
+    setEditingSalidasForm(salidasByNota(nota.idRegistro).map(s => {
+      const emp = buscarEmpleado(s.trabajadorRetira);
+      return {
+        idRegistro: s.idRegistro,
+        refItem: s.refItem,
+        cantidad: s.cantidad,
+        busqueda: '',
+        trabajadorRetira: s.trabajadorRetira,
+        busquedaTrabajador: emp ? `${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}` : s.trabajadorRetira,
+      };
+    }));
     const empActual = buscarEmpleado(nota.quienRetira);
     setBusquedaQuienRetira(empActual ? `${empActual.nombres} ${empActual.apellidos} - CI: ${empActual.nroDocumento}` : nota.quienRetira);
   };
 
-  const actualizarSalidaItemForm = (idx: number, campo: 'refItem' | 'cantidad' | 'busqueda', valor: string) => {
+  const actualizarSalidaItemForm = (idx: number, campo: 'refItem' | 'cantidad' | 'busqueda' | 'trabajadorRetira' | 'busquedaTrabajador', valor: string) => {
     setEditingSalidasForm(prev => prev.map((it, i) => (i === idx ? { ...it, [campo]: valor } : it)));
   };
-  const agregarSalidaItemForm = () => setEditingSalidasForm(prev => [...prev, { refItem: '', cantidad: '', busqueda: '' }]);
+  const agregarSalidaItemForm = () => setEditingSalidasForm(prev => [...prev, { refItem: '', cantidad: '', busqueda: '', trabajadorRetira: '', busquedaTrabajador: '' }]);
   const quitarSalidaItemForm = (idx: number) => setEditingSalidasForm(prev => prev.filter((_, i) => i !== idx));
   const seleccionarProductoSalidaForm = (idx: number, codigo: string) => {
     setEditingSalidasForm(prev => prev.map((it, i) => (i === idx ? { ...it, refItem: codigo, busqueda: '' } : it)));
     setFilaBusquedaSalidaActiva(null);
+  };
+  const seleccionarTrabajadorSalidaForm = (idx: number, nroDocumento: string, display: string) => {
+    setEditingSalidasForm(prev => prev.map((it, i) => (i === idx ? { ...it, trabajadorRetira: nroDocumento, busquedaTrabajador: display } : it)));
+    setFilaTrabajadorActiva(null);
   };
 
   const productosFiltrados = productos.filter(p =>
@@ -1159,10 +1220,13 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
   const productosConStock = productosFiltrados.filter(p => stockDisponible(p.codigo) > 0);
   const productosAgotados = productosFiltrados.filter(p => stockDisponible(p.codigo) === 0);
-  const productosConStockSalida = productos.filter(p => stockDisponible(p.codigo) > 0);
+  const productosConStockSalida = productos.filter(p => stockDisponible(p.codigo) > 0 && p.tipo === tipoEntregaVista);
 
-  const clasificacionesSugeridas = [...new Set([...clasificaciones, ...productos.map(p => p.clasificacion).filter(Boolean)])]
-    .sort((a, b) => a.localeCompare(b, 'es'));
+  const clasificacionesSugeridasPara = (tipo: 'EPP' | 'Herramienta' | '') => {
+    const base = tipo === 'Herramienta' ? clasificacionesHerramienta : clasificacionesEPP;
+    const existentes = productos.filter(p => !tipo || (p.tipo || '') === tipo).map(p => p.clasificacion);
+    return [...new Set([...base, ...existentes.filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'es'));
+  };
 
   const proveedoresSugeridos = [...new Set(productos.map(p => p.proveedor).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'es'));
@@ -1179,7 +1243,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     );
   });
 
-  const notasFiltradas = notasSalida.filter(n => {
+  const notasFiltradas = notasSalida.filter(n => (n.tipo || 'Herramienta') === tipoEntregaVista).filter(n => {
     if (n.orden.toLowerCase().includes(termBusqueda) || n.quienRetira.toLowerCase().includes(termBusqueda)) return true;
     const items = salidas.filter(s => s.refNotaSalida === n.idRegistro);
     return items.some(s => {
@@ -1454,6 +1518,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
   };
 
   const descargarPDFNotaSalida = async (n: NotaSalida) => {
+    const esEPP = n.tipo === 'EPP';
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageW = 210;
     const m = 10;
@@ -1461,8 +1526,8 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     const logo = await fetchLogoData(proyectoLogo);
     const logoSize = logo ? computeLogoSize(doc, logo, 8, 32) : null;
 
-    const cols = [12, 35, 98, 30];
-    const headers = ['Ítem', 'Código', 'Producto', 'Cantidad'];
+    const cols = esEPP ? [10, 28, 68, 20, 42] : [12, 35, 98, 30];
+    const headers = esEPP ? ['Ítem', 'Código', 'Producto', 'Cant.', 'Trabajador'] : ['Ítem', 'Código', 'Producto', 'Cantidad'];
     const x0 = m;
 
     const renderCopy = (startY: number) => {
@@ -1481,7 +1546,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       // Titulo
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('NOTA DE SALIDA', m, y + 6);
+      doc.text(esEPP ? 'PLANILLA DE ENTREGA DE EPP' : 'NOTA DE SALIDA', m, y + 6);
 
       y += 14;
 
@@ -1507,7 +1572,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         y += 6;
       };
 
-      campo('Quien Retira', nombreQuienRetira(n.quienRetira));
+      if (!esEPP) campo('Quien Retira', nombreQuienRetira(n.quienRetira));
       campo('Observaciones', n.observaciones);
 
       y += 3;
@@ -1541,7 +1606,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           const productoLines = doc.splitTextToSize(productoText, cols[2] - 2);
           const rowH = 3 + productoLines.length * 2.2;
           x = x0;
-          const vals: (string | string[])[] = [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || ''];
+          const vals: (string | string[])[] = esEPP
+            ? [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || '', nombreQuienRetira(it.trabajadorRetira)]
+            : [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || ''];
           vals.forEach((val, i) => {
             const text = Array.isArray(val) ? val : [String(val)];
             doc.text(text, x + 1, y + 3);
@@ -1565,7 +1632,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
       // Firmas
       const firmaW = (w - 20) / 3;
-      const firmas = ['QUIEN RETIRA', 'ENTREGA', 'ADMINISTRACIÓN'];
+      const firmas = esEPP ? ['SUPERVISOR', 'ENTREGA', 'ADMINISTRACIÓN'] : ['QUIEN RETIRA', 'ENTREGA', 'ADMINISTRACIÓN'];
       let fx = m;
       doc.setLineWidth(0.1);
       firmas.forEach((f) => {
@@ -1600,7 +1667,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
     doc.setLineWidth(0.2);
     doc.rect(m, y2Start, w, y2 - y2Start);
 
-    doc.save(`Nota_Salida_${n.orden || n.idRegistro}.pdf`);
+    doc.save(`${esEPP ? 'Planilla_Entrega_EPP' : 'Nota_Salida'}_${n.orden || n.idRegistro}.pdf`);
   };
 
   // Planilla de entrega "por trabajador": una hoja completa en blanco (sin
@@ -1700,6 +1767,12 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         <td className="px-4 py-3 font-mono text-xs text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Codigo: </span>{p.codigo}</td>
         <td className="px-4 py-3 font-medium block sm:table-cell">{p.nombre}</td>
         <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proveedor: </span>{p.proveedor || '-'}</td>
+        <td className="px-4 py-3 block sm:table-cell">
+          <span className="text-muted-foreground/60 sm:hidden">Tipo: </span>
+          {p.tipo ? (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${p.tipo === 'EPP' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>{p.tipo === 'EPP' ? 'EPP' : 'Herramienta'}</span>
+          ) : '-'}
+        </td>
         <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Clasificación: </span>{p.clasificacion || '-'}</td>
         <td className="px-4 py-3 text-right font-mono text-emerald-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Entradas: </span>{entradas}</td>
         <td className="px-4 py-3 text-right font-mono text-amber-400 block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Salidas: </span>{salidas}</td>
@@ -1727,7 +1800,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
       </tr>
       {editando && (
         <tr className="bg-secondary/10 border-b border-border/50">
-          <td colSpan={9} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+          <td colSpan={10} className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handleEditProducto} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Codigo *</label>
@@ -1742,8 +1815,16 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 <input type="text" list="proveedores-datalist" value={editingProductoForm.proveedor} onChange={(e) => setEditingProductoForm({...editingProductoForm, proveedor: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
               <div>
+                <label className="block text-xs text-muted-foreground uppercase mb-1">Tipo *</label>
+                <select value={editingProductoForm.tipo} onChange={(e) => setEditingProductoForm({...editingProductoForm, tipo: e.target.value as 'EPP' | 'Herramienta' | ''})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" required>
+                  <option value="" disabled>Elegi un tipo...</option>
+                  <option value="EPP">EPP</option>
+                  <option value="Herramienta">Herramienta y Material</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Clasificacion</label>
-                <input type="text" list="clasificaciones-datalist" value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
+                <input type="text" list="clasificaciones-datalist-editar" value={editingProductoForm.clasificacion} onChange={(e) => setEditingProductoForm({...editingProductoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground uppercase mb-1">Stock Minimo</label>
@@ -1795,8 +1876,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <datalist id="clasificaciones-datalist">
-        {clasificacionesSugeridas.map(c => <option key={c} value={c} />)}
+      <datalist id="clasificaciones-datalist-nuevo">
+        {clasificacionesSugeridasPara(productoForm.tipo).map(c => <option key={c} value={c} />)}
+      </datalist>
+      <datalist id="clasificaciones-datalist-editar">
+        {clasificacionesSugeridasPara(editingProductoForm.tipo).map(c => <option key={c} value={c} />)}
       </datalist>
       <datalist id="proveedores-datalist">
         {proveedoresSugeridos.map(p => <option key={p} value={p} />)}
@@ -1857,8 +1941,9 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
             {[
               { key: 'inventario', label: 'Inventario Actual', desc: 'Productos con stock y estado', icon: Package, color: 'text-blue-400' },
               { key: 'entradas', label: 'Entradas por Clasificación', desc: 'Historial de entradas al inventario, agrupado por clasificación', icon: Boxes, color: 'text-emerald-400' },
-              { key: 'salidas', label: 'Salidas por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
-              { key: 'salidasPorProducto', label: 'Salidas por Producto', desc: 'Entregas de EPP agrupadas por producto', icon: Truck, color: 'text-orange-400' },
+              { key: 'salidas', label: 'Entregas de EPP por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
+              { key: 'salidasPorProducto', label: 'Entregas de EPP por Producto', desc: 'Entregas de EPP agrupadas por producto', icon: Truck, color: 'text-orange-400' },
+              { key: 'notasSalida', label: 'Notas de Salida', desc: 'Herramientas y materiales entregados', icon: Truck, color: 'text-purple-400' },
               { key: 'dotacion', label: 'Dotación de Calzados', desc: 'Control de botines por trabajador', icon: Footprints, color: 'text-amber-400' },
             ].map(opt => (
               <button
@@ -2058,7 +2143,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 <div><label className="block text-sm font-medium mb-2">Codigo *</label><input type="text" value={productoForm.codigo} onChange={(e) => setProductoForm({...productoForm, codigo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Nombre *</label><input type="text" value={productoForm.nombre} onChange={(e) => setProductoForm({...productoForm, nombre: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required /></div>
                 <div><label className="block text-sm font-medium mb-2">Proveedor</label><input type="text" list="proveedores-datalist" value={productoForm.proveedor} onChange={(e) => setProductoForm({...productoForm, proveedor: e.target.value})} placeholder="Elegi uno o escribi uno nuevo..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
-                <div><label className="block text-sm font-medium mb-2">Clasificacion</label><input type="text" list="clasificaciones-datalist" value={productoForm.clasificacion} onChange={(e) => setProductoForm({...productoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tipo *</label>
+                  <select value={productoForm.tipo} onChange={(e) => setProductoForm({...productoForm, tipo: e.target.value as 'EPP' | 'Herramienta' | ''})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" required>
+                    <option value="" disabled>Elegi un tipo...</option>
+                    <option value="EPP">EPP</option>
+                    <option value="Herramienta">Herramienta y Material</option>
+                  </select>
+                </div>
+                <div><label className="block text-sm font-medium mb-2">Clasificacion</label><input type="text" list="clasificaciones-datalist-nuevo" value={productoForm.clasificacion} onChange={(e) => setProductoForm({...productoForm, clasificacion: e.target.value})} placeholder="Elegi una o escribi una nueva..." className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div><label className="block text-sm font-medium mb-2">Stock Minimo</label><input type="number" value={productoForm.stockMinimo} onChange={(e) => setProductoForm({...productoForm, stockMinimo: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 <div className="md:col-span-3"><button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25"><Save size={18} /> Guardar Producto</button></div>
               </form>
@@ -2084,6 +2177,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Codigo</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proveedor</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Tipo</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Clasificación</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Entradas</th>
                       <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Salidas</th>
@@ -2263,31 +2357,50 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
         </div>
       )}
 
-      {/* VISTA NOTAS DE SALIDA */}
+      {/* VISTA NOTAS DE SALIDA / PLANILLA DE ENTREGA DE EPP */}
       {vista === 'entregas' && (
         <div className="space-y-4">
+          <div className="inline-flex bg-secondary/50 border border-border rounded-xl p-1 gap-1">
+            <button
+              onClick={() => { setTipoEntregaVista('EPP'); setShowNotaSalidaForm(false); setShowGeminiSalidaForm(false); setShowNotaDetail(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tipoEntregaVista === 'EPP' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Planilla de Entrega de EPP
+            </button>
+            <button
+              onClick={() => { setTipoEntregaVista('Herramienta'); setShowNotaSalidaForm(false); setShowGeminiSalidaForm(false); setShowNotaDetail(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tipoEntregaVista === 'Herramienta' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Nota de Salida
+            </button>
+          </div>
+
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Notas de Salida</h2>
+            <h2 className="text-lg font-semibold">{tipoEntregaVista === 'EPP' ? 'Planillas de Entrega de EPP' : 'Notas de Salida'}</h2>
             <div className="flex gap-2">
               {notasSeleccionadas.size > 0 && (
                 <button onClick={handleBulkDeleteNotas} className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-colors text-sm">
                   <Trash2 size={16} /> Eliminar ({notasSeleccionadas.size})
                 </button>
               )}
-              <button
-                onClick={() => setShowGeminiSalidaForm(v => !v)}
-                className={`border px-4 py-2 rounded-xl flex items-center gap-2 transition-colors text-sm ${showGeminiSalidaForm ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
-              >
-                <Brain size={16} /> Procesar con IA
-              </button>
+              {tipoEntregaVista === 'EPP' && (
+                <button
+                  onClick={() => setShowGeminiSalidaForm(v => !v)}
+                  className={`border px-4 py-2 rounded-xl flex items-center gap-2 transition-colors text-sm ${showGeminiSalidaForm ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border hover:bg-secondary/80'}`}
+                >
+                  <Brain size={16} /> Procesar con IA
+                </button>
+              )}
               <button onClick={() => {
                 const nextNum = notasSalida.filter(n => n.obra === proyecto).length + 1;
                 const hoy = fechaLocalISO(new Date());
                 setNotaSalidaForm(prev => ({...prev, orden: `NS-${String(nextNum).padStart(3, '0')}`, fecha: hoy}));
                 setBusquedaQuienRetira('');
+                setBusquedaTrabajadorItem('');
+                setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' });
                 setShowNotaSalidaForm(true);
               }} className="btn-gradient text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25 text-sm">
-                <Plus size={16} /> Nueva Nota
+                <Plus size={16} /> {tipoEntregaVista === 'EPP' ? 'Nueva Planilla' : 'Nueva Nota'}
               </button>
             </div>
           </div>
@@ -2295,14 +2408,14 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           {showGeminiSalidaForm && (
             <div className="bg-card border border-border rounded-xl p-6 scale-in">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Nota de Salida con IA</h3>
+                <h3 className="text-lg font-semibold flex items-center gap-2"><Brain size={20} className="text-primary" />Procesar Planilla de Entrega de EPP con IA</h3>
                 <button onClick={() => { setShowGeminiSalidaForm(false); setDatosExtraidos(null); setPdfFile(null); }} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
               </div>
               {!datosExtraidos ? (
                 <form onSubmit={handleGeminiSalidaSubmit} className="space-y-4">
                   <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
                     <FileText size={48} className="mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-4">Sube la nota de salida de EPP (PDF o foto)</p>
+                    <p className="text-sm text-muted-foreground mb-4">Sube la planilla de entrega de EPP (PDF o foto)</p>
                     <input type="file" accept={ACCEPT_FICHA_EMPLEADO} onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="hidden" id="epp-salida-pdf" />
                     <label htmlFor="epp-salida-pdf" className="btn-gradient text-white px-5 py-2.5 rounded-xl cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"><Plus size={18} /> Seleccionar Archivo</label>
                     {pdfFile && <p className="mt-4 text-sm text-primary">{pdfFile.name}</p>}
@@ -2352,14 +2465,15 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
           {showNotaSalidaForm && (
             <div className="glass-card p-6 scale-in">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Nueva Nota de Salida</h3>
-                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); setBusquedaProducto(''); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
+                <h3 className="font-semibold">{tipoEntregaVista === 'EPP' ? 'Nueva Planilla de Entrega de EPP' : 'Nueva Nota de Salida'}</h3>
+                <button onClick={() => { setShowNotaSalidaForm(false); setSalidasTemporales([]); setBusquedaQuienRetira(''); setBusquedaProducto(''); setBusquedaTrabajadorItem(''); setSalidaForm({ refItem: '', cantidad: '', trabajadorRetira: '' }); }} className="p-3 sm:p-2 rounded-lg hover:bg-secondary"><X size={18} /></button>
               </div>
               <form onSubmit={handleGuardarNotaCompleta}>
                 {/* Datos de la Nota */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div><label className="block text-sm font-medium mb-2">Orden (Auto)</label><input type="text" value={notaSalidaForm.orden} readOnly className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm text-muted-foreground cursor-not-allowed" /></div>
                   <div><label className="block text-sm font-medium mb-2">Fecha</label><input type="date" value={notaSalidaForm.fecha} onChange={(e) => setNotaSalidaForm({...notaSalidaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                  {tipoEntregaVista !== 'EPP' && (
                   <div className="relative">
                     <label className="block text-sm font-medium mb-2">Quien Retira *</label>
                     <input
@@ -2432,6 +2546,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       </div>
                     )}
                   </div>
+                  )}
                   <div><label className="block text-sm font-medium mb-2">Observaciones</label><input type="text" value={notaSalidaForm.observaciones} onChange={(e) => setNotaSalidaForm({...notaSalidaForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                 </div>
 
@@ -2444,7 +2559,10 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                         <div key={idx} className="flex items-center justify-between bg-secondary/50 p-3 rounded-xl text-sm">
                           <div>
                             <p className="font-medium">{s.itemNombre}</p>
-                            <p className="text-xs text-muted-foreground">Cant: {s.cantidad}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Cant: {s.cantidad}
+                              {tipoEntregaVista === 'EPP' && <> · Trabajador: {nombreQuienRetira(s.trabajadorRetira)}</>}
+                            </p>
                           </div>
                           <button type="button" onClick={() => handleEliminarItemTemporal(idx)} className="p-1 rounded hover:bg-red-500/20 text-red-400"><X size={14} /></button>
                         </div>
@@ -2456,7 +2574,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 {/* Agregar nuevo item */}
                 <div className="border-t border-border pt-4">
                   <h4 className="text-sm font-medium mb-3">Agregar Item</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className={`grid grid-cols-1 gap-4 ${tipoEntregaVista === 'EPP' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
                     <div className="relative">
                       <label className="block text-sm font-medium mb-2">Producto *</label>
                       <input
@@ -2511,6 +2629,66 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                         </div>
                       )}
                     </div>
+                    {tipoEntregaVista === 'EPP' && (
+                      <div className="relative">
+                        <label className="block text-sm font-medium mb-2">Trabajador *</label>
+                        <input
+                          type="text"
+                          value={busquedaTrabajadorItem || (salidaForm.trabajadorRetira ? nombreQuienRetira(salidaForm.trabajadorRetira) : '')}
+                          onChange={(e) => { setBusquedaTrabajadorItem(e.target.value); setMostrarSugerenciasTrabajadorItem(true); setIndiceResaltadoTrabajadorItem(0); if (salidaForm.trabajadorRetira) setSalidaForm({ ...salidaForm, trabajadorRetira: '' }); }}
+                          onFocus={() => setMostrarSugerenciasTrabajadorItem(true)}
+                          onBlur={() => setTimeout(() => setMostrarSugerenciasTrabajadorItem(false), 150)}
+                          onKeyDown={(e) => {
+                            const filtrados = buscarEmpleadosPorTexto(busquedaTrabajadorItem);
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setMostrarSugerenciasTrabajadorItem(true);
+                              setIndiceResaltadoTrabajadorItem(i => Math.min(i + 1, filtrados.length - 1));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setIndiceResaltadoTrabajadorItem(i => Math.max(i - 1, 0));
+                            } else if (e.key === 'Enter') {
+                              const emp = filtrados[indiceResaltadoTrabajadorItem];
+                              if (emp && mostrarSugerenciasTrabajadorItem) {
+                                e.preventDefault();
+                                setSalidaForm({ ...salidaForm, trabajadorRetira: emp.nroDocumento });
+                                setBusquedaTrabajadorItem('');
+                                setMostrarSugerenciasTrabajadorItem(false);
+                              }
+                            } else if (e.key === 'Escape') {
+                              setMostrarSugerenciasTrabajadorItem(false);
+                            }
+                          }}
+                          placeholder="Nombre, empresa o cedula..."
+                          className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+                          autoComplete="off"
+                        />
+                        {mostrarSugerenciasTrabajadorItem && busquedaTrabajadorItem && (
+                          <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                            {buscarEmpleadosPorTexto(busquedaTrabajadorItem).length > 0 ? (
+                              buscarEmpleadosPorTexto(busquedaTrabajadorItem).map((emp, idx) => (
+                                <button
+                                  type="button"
+                                  key={emp.nroDocumento}
+                                  ref={(el) => { if (idx === indiceResaltadoTrabajadorItem) el?.scrollIntoView({ block: 'nearest' }); }}
+                                  onMouseEnter={() => setIndiceResaltadoTrabajadorItem(idx)}
+                                  onClick={() => {
+                                    setSalidaForm({ ...salidaForm, trabajadorRetira: emp.nroDocumento });
+                                    setBusquedaTrabajadorItem('');
+                                    setMostrarSugerenciasTrabajadorItem(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${idx === indiceResaltadoTrabajadorItem ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
+                                >
+                                  {emp.nombres} {emp.apellidos} <span className="text-muted-foreground">- CI: {emp.nroDocumento}</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-2.5 text-sm text-muted-foreground">Sin resultados</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-medium mb-2">Cantidad *</label>
                       <input type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({...salidaForm, cantidad: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" min="1" />
@@ -2526,7 +2704,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                 {/* Boton guardar todo */}
                 <div className="mt-6 pt-4 border-t border-border flex gap-2">
                   <button type="submit" className="btn-gradient text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/25" disabled={salidasTemporales.length === 0}>
-                    <Save size={18} /> Guardar Nota con {salidasTemporales.length} Item(s)
+                    <Save size={18} /> Guardar {tipoEntregaVista === 'EPP' ? 'Planilla' : 'Nota'} con {salidasTemporales.length} Item(s)
                   </button>
                   <button type="button" onClick={() => setSalidasTemporales([])} className="px-5 py-2.5 bg-secondary border border-border rounded-xl hover:bg-secondary/80 transition-colors">
                     Limpiar Items
@@ -2553,7 +2731,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       )}
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha</th>
                       <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">N° Orden</th>
-                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Quien Retira</th>
+                      <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">{tipoEntregaVista === 'EPP' ? 'Trabajadores' : 'Quien Retira'}</th>
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Items</th>
                       <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
                     </tr>
@@ -2564,8 +2742,11 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                       const fechaB = b.fecha ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(0);
                       return fechaB.getTime() - fechaA.getTime();
                     }).map((n) => {
-                      const itemsCount = salidasByNota(n.idRegistro).length;
-                      const nombreRetira = nombreQuienRetira(n.quienRetira);
+                      const itemsDeNota = salidasByNota(n.idRegistro);
+                      const itemsCount = itemsDeNota.length;
+                      const nombreRetira = n.tipo === 'EPP'
+                        ? [...new Set(itemsDeNota.map(s => nombreQuienRetira(s.trabajadorRetira)))].join(', ') || '-'
+                        : nombreQuienRetira(n.quienRetira);
                       const expandida = showNotaDetail?.idRegistro === n.idRegistro;
                       return (
                         <Fragment key={n.idRegistro}>
@@ -2597,6 +2778,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                                   <div><label className="block text-xs text-muted-foreground uppercase mb-1">Orden</label><input type="text" value={editingNotaForm.orden} onChange={(e) => setEditingNotaForm({...editingNotaForm, orden: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                                   <div><label className="block text-xs text-muted-foreground uppercase mb-1">Fecha</label><input type="date" value={editingNotaForm.fecha} onChange={(e) => setEditingNotaForm({...editingNotaForm, fecha: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
+                                  {n.tipo !== 'EPP' && (
                                   <div className="relative">
                                     <label className="block text-xs text-muted-foreground uppercase mb-1">Quien Retira</label>
                                     <input
@@ -2668,6 +2850,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                       </div>
                                     )}
                                   </div>
+                                  )}
                                   <div><label className="block text-xs text-muted-foreground uppercase mb-1">Observaciones</label><input type="text" value={editingNotaForm.observaciones} onChange={(e) => setEditingNotaForm({...editingNotaForm, observaciones: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm input-glow focus:outline-none focus:border-primary/50" /></div>
                                 </div>
 
@@ -2681,7 +2864,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                   {editingSalidasForm.map((it, idx) => {
                                     const prodSeleccionado = productos.find(p => p.codigo === it.refItem);
                                     const valorMostrado = it.busqueda || (it.refItem ? `${prodSeleccionado?.nombre || it.refItem} (Stock: ${stockDisponible(it.refItem)})` : '');
-                                    const filtrados = productos.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes(it.busqueda.toLowerCase()));
+                                    const filtrados = productos.filter(p => (p.tipo || 'Herramienta') === (n.tipo || 'Herramienta') && `${p.nombre} ${p.codigo}`.toLowerCase().includes(it.busqueda.toLowerCase()));
                                     return (
                                       <div key={it.idRegistro || `nuevo-${idx}`} className="flex items-center gap-2 bg-background/50 p-3 rounded-xl">
                                         <div className="relative flex-1">
@@ -2736,6 +2919,61 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                                             </div>
                                           )}
                                         </div>
+                                        {n.tipo === 'EPP' && (
+                                          <div className="relative flex-1">
+                                            <input
+                                              type="text"
+                                              value={it.busquedaTrabajador}
+                                              onChange={(e) => {
+                                                actualizarSalidaItemForm(idx, 'busquedaTrabajador', e.target.value);
+                                                setFilaTrabajadorActiva(idx);
+                                                setIndiceResaltadoTrabajadorForm(0);
+                                                if (it.trabajadorRetira) actualizarSalidaItemForm(idx, 'trabajadorRetira', '');
+                                              }}
+                                              onFocus={() => setFilaTrabajadorActiva(idx)}
+                                              onBlur={() => setTimeout(() => setFilaTrabajadorActiva(f => (f === idx ? null : f)), 150)}
+                                              onKeyDown={(e) => {
+                                                const filtradosEmp = buscarEmpleadosPorTexto(it.busquedaTrabajador);
+                                                if (e.key === 'ArrowDown') {
+                                                  e.preventDefault();
+                                                  setFilaTrabajadorActiva(idx);
+                                                  setIndiceResaltadoTrabajadorForm(i => Math.min(i + 1, filtradosEmp.length - 1));
+                                                } else if (e.key === 'ArrowUp') {
+                                                  e.preventDefault();
+                                                  setIndiceResaltadoTrabajadorForm(i => Math.max(i - 1, 0));
+                                                } else if (e.key === 'Enter') {
+                                                  const emp = filtradosEmp[indiceResaltadoTrabajadorForm];
+                                                  if (emp && filaTrabajadorActiva === idx) { e.preventDefault(); seleccionarTrabajadorSalidaForm(idx, emp.nroDocumento, `${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`); }
+                                                } else if (e.key === 'Escape') {
+                                                  setFilaTrabajadorActiva(null);
+                                                }
+                                              }}
+                                              placeholder="Trabajador que recibe..."
+                                              className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50"
+                                              autoComplete="off"
+                                            />
+                                            {filaTrabajadorActiva === idx && it.busquedaTrabajador && (
+                                              <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-auto">
+                                                {buscarEmpleadosPorTexto(it.busquedaTrabajador).length > 0 ? (
+                                                  buscarEmpleadosPorTexto(it.busquedaTrabajador).map((emp, eIdx) => (
+                                                    <button
+                                                      type="button"
+                                                      key={emp.nroDocumento}
+                                                      ref={(el) => { if (eIdx === indiceResaltadoTrabajadorForm) el?.scrollIntoView({ block: 'nearest' }); }}
+                                                      onMouseEnter={() => setIndiceResaltadoTrabajadorForm(eIdx)}
+                                                      onClick={() => seleccionarTrabajadorSalidaForm(idx, emp.nroDocumento, `${emp.nombres} ${emp.apellidos} - CI: ${emp.nroDocumento}`)}
+                                                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${eIdx === indiceResaltadoTrabajadorForm ? 'bg-secondary/70' : 'hover:bg-secondary/50'}`}
+                                                    >
+                                                      {emp.nombres} {emp.apellidos} <span className="text-muted-foreground">- CI: {emp.nroDocumento}</span>
+                                                    </button>
+                                                  ))
+                                                ) : (
+                                                  <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
                                         <input type="number" value={it.cantidad} onChange={(e) => actualizarSalidaItemForm(idx, 'cantidad', e.target.value)} placeholder="Cant." className="w-16 sm:w-20 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm input-glow focus:outline-none focus:border-primary/50" min="1" />
                                         <button type="button" onClick={() => quitarSalidaItemForm(idx)} className="p-1.5 text-muted-foreground hover:text-red-400 shrink-0" title="Quitar item"><X size={16} /></button>
                                       </div>
