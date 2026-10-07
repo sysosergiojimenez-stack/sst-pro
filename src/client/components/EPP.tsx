@@ -2331,7 +2331,7 @@ export default function EPP({ proyecto, proyectoLogo }: EPPProps) {
                           {datosExtraidos.items.map((it: any, idx: number) => (
                             <tr key={idx} className="border-t border-border/50">
                               <td className="px-2 py-1.5">{it.codigo || '-'}</td>
-                              <td className="px-2 py-1.5">{it.nombre}</td>
+                              <td className="px-2 py-1.5">{productos.find(p => p.codigo === it.codigo)?.nombre || it.nombre}</td>
                               <td className="px-2 py-1.5 text-right">{it.cantidad}</td>
                               <td className="px-2 py-1.5">{it.trabajador || <span className="text-amber-400">sin leer</span>}</td>
                             </tr>
