@@ -71,7 +71,6 @@ interface InformeMensualProps {
 }
 
 const TIPOS_ACCIDENTE = ['Accidente con baja', 'Accidente sin baja'];
-const CLASIFICACIONES_EPP = ['CASCO', 'GAFAS', 'GUANTES', 'BOTAS', 'ARNÉS', 'ARNES', 'PROTECCION AUDITIVA', 'PROTECCION RESPIRATORIA', 'ROPA DE TRABAJO'];
 
 function nombreMes(mes: string): string {
   if (!/^\d{4}-\d{2}$/.test(mes)) return mes;
@@ -400,11 +399,21 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
         bx2 += boxWidth2 + 5;
       });
 
-      // ---- Inventarios ----
-      const clasifNorm = (c: string) => (c || '').trim().toUpperCase();
+      // ---- Inventario por Clasificación (stock disponible) ----
       const productosConStock = productos.filter(p => stockDisponible(p.codigo) > 0);
-      const productosEPP = productosConStock.filter(p => CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
-      const productosHerramientas = productosConStock.filter(p => !CLASIFICACIONES_EPP.includes(clasifNorm(p.clasificacion)));
+      const gruposPorClasif = new Map<string, { nombre: string; stock: number }[]>();
+      for (const p of productosConStock) {
+        const clasif = (p.clasificacion || '').trim() || 'Sin clasificación';
+        if (!gruposPorClasif.has(clasif)) gruposPorClasif.set(clasif, []);
+        gruposPorClasif.get(clasif)!.push({ nombre: p.nombre, stock: stockDisponible(p.codigo) });
+      }
+      const clasificacionesInventario = [...gruposPorClasif.entries()]
+        .map(([nombre, items]) => ({
+          nombre,
+          items: [...items].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+          total: items.reduce((sum, it) => sum + it.stock, 0),
+        }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
       doc.addPage();
       y = 20;
@@ -412,35 +421,36 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
       y += 4;
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Inventario General de Equipos, Materiales y Herramientas', marginLeft, y);
-      y += 8;
-      autoTable(doc, {
-        head: [['ÍTEM', 'CANT.']],
-        body: productosHerramientas.map(p => [p.nombre, String(stockDisponible(p.codigo))]),
-        startY: y,
-        styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        margin: { left: 10, right: 10 },
-      });
+      doc.text('Inventario General por Clasificación', marginLeft, y);
+      y += 10;
 
-      doc.addPage();
-      y = 20;
-      y = await drawPdfHeader(doc, proyectoHeader, y - 5, { marginLeft, marginRight });
-      y += 4;
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Inventario General de Equipo de Protección Personal e Indumentaria', marginLeft, y);
-      y += 8;
-      autoTable(doc, {
-        head: [['ÍTEM', 'CANT.']],
-        body: productosEPP.map(p => [p.nombre, String(stockDisponible(p.codigo))]),
-        startY: y,
-        styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        margin: { left: 10, right: 10 },
-      });
+      if (clasificacionesInventario.length === 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('No hay productos con stock disponible.', marginLeft, y);
+        y += 10;
+      }
+
+      for (const clasif of clasificacionesInventario) {
+        checkPageBreak(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(clasif.nombre, marginLeft, y);
+        doc.text(String(clasif.total), pageWidth - marginRight, y, { align: 'right' });
+        y += 8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        for (const item of clasif.items) {
+          checkPageBreak(7);
+          doc.setFillColor(230, 230, 230);
+          doc.rect(marginLeft, y - 4.5, contentWidth, 6.5, 'F');
+          doc.text(item.nombre, marginLeft + 1, y);
+          doc.text(String(item.stock), pageWidth - marginRight - 1, y, { align: 'right' });
+          y += 7;
+        }
+        y += 4;
+      }
 
       const safeProyecto = proyecto.denominacion.replace(/\s+/g, '_');
       doc.save(`Informe_Mensual_${safeProyecto}_${mes}.pdf`);
