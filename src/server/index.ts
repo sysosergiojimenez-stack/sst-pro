@@ -453,7 +453,7 @@ app.post('/api/gemini/epp', async (c) => {
       return c.json({ error: 'GEMINI_API_KEY no configurada' }, 500);
     }
 
-    const prompt = `Analiza este documento de factura o remision de Equipos de Proteccion Personal (EPP) y extrae la informacion en formato JSON.
+    const prompt = `Analiza este documento de factura o remision y extrae la informacion en formato JSON. El documento puede traer tanto Equipos de Proteccion Personal (EPP) como herramientas, equipos o materiales de obra, a veces mezclados en el mismo documento.
 
 Devuelve EXACTAMENTE este formato JSON (sin markdown, sin backticks, solo el JSON puro):
 
@@ -463,20 +463,22 @@ Devuelve EXACTAMENTE este formato JSON (sin markdown, sin backticks, solo el JSO
   "fecha": "DD/MM/AAAA",
   "items": [
     {
-      "codigo": "codigo del producto segun el proveedor, o genera uno como EPP-XXX si no tiene",
+      "codigo": "codigo del producto segun el proveedor, o genera uno como ITM-XXX si no tiene",
       "nombre": "nombre descriptivo del producto",
       "cantidad": "cantidad como numero",
-      "clasificacion": "una de: Casco, Gafas, Guantes, Botas, Arnés, Proteccion Auditiva, Proteccion Respiratoria, Ropa de Trabajo, Otro"
+      "tipo": "EPP o Herramienta -- EPP si el item es equipo de proteccion personal (casco, guantes, botas, lentes, arnes, proteccion auditiva/respiratoria, ropa de trabajo); Herramienta si es una herramienta, equipo, material, consumible o insumo de obra",
+      "clasificacion": "si tipo es EPP, una de: Casco, Gafas, Guantes, Botas, Arnés, Proteccion Auditiva, Proteccion Respiratoria, Ropa de Trabajo, Otro -- si tipo es Herramienta, una de: Herramienta Manual, Herramienta Eléctrica, Material de Construcción, Equipo, Otro"
     }
   ]
 }
 
 Instrucciones:
-1. Si un producto no tiene codigo, genera uno unico usando el formato EPP-XXX donde XXX es un numero secuencial (001, 002, etc.)
-2. La clasificacion debe ser una de las categorias listadas arriba
-3. Extrae TODOS los items del documento
-4. Si no hay items, devuelve un array vacio
-5. La fecha debe estar en formato DD/MM/AAAA (dia/mes/año)`;
+1. Si un producto no tiene codigo, genera uno unico usando el formato ITM-XXX donde XXX es un numero secuencial (001, 002, etc.)
+2. Clasifica el "tipo" de CADA item individualmente -- un mismo documento puede traer items de ambos tipos
+3. La clasificacion debe ser una de las categorias correspondientes al tipo, listadas arriba
+4. Extrae TODOS los items del documento
+5. Si no hay items, devuelve un array vacio
+6. La fecha debe estar en formato DD/MM/AAAA (dia/mes/año)`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,

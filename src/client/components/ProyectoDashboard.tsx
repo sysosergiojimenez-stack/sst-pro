@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert, BarChart3, FileBarChart } from 'lucide-react';
+import { Users, ArrowLeft, HardHat, ClipboardCheck, AlertTriangle, Building2, ChevronRight, CheckCircle2, ShieldCheck, Clock, Package, GraduationCap, NotebookPen, ShieldAlert, BarChart3, FileBarChart, Wrench } from 'lucide-react';
 import EmpleadosPorProyecto from './EmpleadosPorProyecto';
 import Incidentes from './Incidentes';
 import PermisosTrabajo from './PermisosTrabajo';
@@ -28,7 +28,7 @@ interface ProyectoDashboardProps {
   proyecto: Proyecto;
 }
 
-type Modulo = 'overview' | 'empleados' | 'incidentes' | 'permisos' | 'equipos-criticos' | 'epp' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
+type Modulo = 'overview' | 'empleados' | 'incidentes' | 'permisos' | 'equipos-criticos' | 'epp' | 'herramientas' | 'inspecciones' | 'capacitaciones' | 'bitacora' | 'disciplinarias' | 'indicadores' | 'informe-mensual';
 
 interface StatsProyecto {
   empleados: number;
@@ -42,6 +42,8 @@ interface StatsProyecto {
   equiposDeBaja: number;
   eppItems: number;
   eppBajoStock: number;
+  herramientasItems: number;
+  herramientasBajoStock: number;
   capacitacionesPendientes: number;
   capacitacionesRealizadas: number;
 }
@@ -54,7 +56,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
     incidentesAbiertos: 0, incidentesCerrados: 0,
     permisosAbiertos: 0, permisosCerrados: 0,
     equiposActivos: 0, equiposDeBaja: 0,
-    eppItems: 0, eppBajoStock: 0,
+    eppItems: 0, eppBajoStock: 0, herramientasItems: 0, herramientasBajoStock: 0,
     capacitacionesPendientes: 0, capacitacionesRealizadas: 0
   });
   const [loading, setLoading] = useState(true);
@@ -129,13 +131,19 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         const salData = salRes.ok ? await salRes.json() : { data: [] };
         const salidas = salData.data || [];
 
-        // Calcular stock por producto
-        let bajoStock = 0;
+        // Calcular stock por producto, separado por tipo (EPP / Herramienta)
+        let eppBajoStock = 0;
+        let herramientasBajoStock = 0;
+        const productosEPP = productos.filter((p: any) => p.tipo === 'EPP');
+        const productosHerramienta = productos.filter((p: any) => p.tipo === 'Herramienta');
         for (const prod of productos) {
           const entradasProd = entradas.filter((e: any) => e.codigo === prod.codigo).reduce((sum: number, e: any) => sum + (parseInt(e.cantidad) || 0), 0);
           const salidasProd = salidas.filter((s: any) => s.refItem === prod.codigo).reduce((sum: number, s: any) => sum + (parseInt(s.cantidad) || 0), 0);
           const stock = entradasProd - salidasProd;
-          if (stock < 5) bajoStock++;
+          if (stock < 5) {
+            if (prod.tipo === 'EPP') eppBajoStock++;
+            else herramientasBajoStock++;
+          }
         }
 
         // Fetch capacitaciones
@@ -155,8 +163,10 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
           permisosCerrados,
           equiposActivos,
           equiposDeBaja,
-          eppItems: productos.length,
-          eppBajoStock: bajoStock,
+          eppItems: productosEPP.length,
+          eppBajoStock,
+          herramientasItems: productosHerramienta.length,
+          herramientasBajoStock,
           capacitacionesPendientes: capPendientes,
           capacitacionesRealizadas: capRealizadas
         });
@@ -235,7 +245,21 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} />
+        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} soloTipo="EPP" />
+      </div>
+    );
+  }
+
+  if (moduloActivo === 'herramientas') {
+    return (
+      <div className="animate-fade-in">
+        <button
+          onClick={() => setModuloActivo('overview')}
+          className="hidden sm:flex mb-4 items-center gap-2 text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl hover:bg-secondary text-sm"
+        >
+          <ArrowLeft size={16} /> Volver al Proyecto
+        </button>
+        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} soloTipo="Herramienta" />
       </div>
     );
   }
@@ -483,6 +507,34 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                 )}
               </div>
             </button>
+            {/* Herramientas y Materiales */}
+            <button
+              onClick={() => setModuloActivo('herramientas')}
+              className="bg-card border border-border rounded-xl p-5 text-left hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                  <Wrench size={24} className="text-white" />
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <h4 className="font-semibold text-base">Herramientas y Materiales</h4>
+              <p className="text-sm text-muted-foreground mt-1">Control de herramientas, equipos y materiales de obra</p>
+              <div className="flex items-center gap-3 mt-3">
+                {loading ? (
+                  <span className="badge badge-muted">Cargando...</span>
+                ) : (
+                  <>
+                    <span className="badge badge-info"><Package size={10} />{stats.herramientasItems} items</span>
+                    {stats.herramientasBajoStock > 0 ? (
+                      <span className="badge badge-warning"><AlertTriangle size={10} />{stats.herramientasBajoStock} bajo stock</span>
+                    ) : (
+                      <span className="badge badge-success">Stock OK</span>
+                    )}
+                  </>
+                )}
+              </div>
+            </button>
             {/* Capacitacion y Charlas de Seguridad */}
             <button 
               onClick={() => setModuloActivo('capacitaciones')}
@@ -627,6 +679,17 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
                       <div className="flex items-center gap-2 text-xs text-emerald-400">
                         <CheckCircle2 size={12} />
                         <span>Stock EPP OK</span>
+                      </div>
+                    )}
+                    {stats.herramientasBajoStock > 0 ? (
+                      <div className="flex items-center gap-2 text-xs text-amber-400">
+                        <AlertTriangle size={12} />
+                        <span>{stats.herramientasBajoStock} herramientas con stock bajo</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-emerald-400">
+                        <CheckCircle2 size={12} />
+                        <span>Stock Herramientas OK</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-xs text-blue-400">
