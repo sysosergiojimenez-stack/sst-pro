@@ -605,7 +605,9 @@ El documento tiene un campo "Fecha" en el encabezado (compartido por todo el doc
 Devuelve EXACTAMENTE este formato JSON (sin markdown, sin backticks, solo el JSON puro):
 
 {
-  "fecha": "DD/MM/AAAA",
+  "diaFecha": "el numero de dia tal como esta escrito en el campo Fecha del encabezado, sin asumir ningun formato",
+  "mesFecha": "el numero de mes tal como esta escrito en el campo Fecha del encabezado, sin asumir ningun formato",
+  "anioFecha": "el numero de año (4 digitos) tal como esta escrito en el campo Fecha del encabezado",
   "items": [
     {
       "codigo": "codigo del producto tal como esta escrito, o vacio si no se leyo ninguno",
@@ -620,7 +622,7 @@ Instrucciones:
 1. Ignora filas completamente vacias (sin producto ni cantidad escritos)
 2. La columna "Firma / Nro Cedula" suele tener una firma manuscrita y, junto a ella, un numero de cedula -- extrae UNICAMENTE el numero, no intentes interpretar la firma como texto
 3. Si una fila no tiene numero de cedula legible, deja "trabajador" como string vacio, no inventes un numero
-4. La fecha es un solo campo en el encabezado, compartido por todas las filas -- formato DD/MM/AAAA (dia/mes/año)
+4. El campo Fecha del encabezado esta escrito en el documento con el formato DIA/MES/AÑO (el primer numero es el dia, el segundo es el mes) -- extrae "diaFecha", "mesFecha" y "anioFecha" como los numeros literales en ese orden, NO los reordenes ni asumas el formato MM/DD estadounidense
 5. Extrae TODAS las filas completas del documento`;
 
     const response = await fetch(
@@ -689,6 +691,13 @@ Instrucciones:
       }
     }
 
+    const dia = String(data.diaFecha || '').padStart(2, '0');
+    const mes = String(data.mesFecha || '').padStart(2, '0');
+    const anio = String(data.anioFecha || '');
+    data.fecha = (dia && mes && anio) ? `${dia}/${mes}/${anio}` : '';
+    delete data.diaFecha;
+    delete data.mesFecha;
+    delete data.anioFecha;
     data.proyecto = proyecto;
 
     return c.json({ success: true, data });
