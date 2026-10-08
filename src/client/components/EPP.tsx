@@ -3,10 +3,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { longPressHandlers } from '../hooks/useLongPress';
-import { HardHat, Wrench, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, FileDown, ClipboardList } from 'lucide-react';
+import { HardHat, Wrench, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, Shirt, FileDown, ClipboardList } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
-import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
+import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
 import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
 
 interface Producto {
@@ -128,7 +128,7 @@ interface EPPProps {
 const clasificacionesEPP = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
 const clasificacionesHerramienta = ['Herramienta Manual', 'Herramienta Eléctrica', 'Material de Construcción', 'Equipo', 'Otro'];
 
-type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'solicitudes';
+type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'dotacionUniformes' | 'solicitudes';
 
 export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
@@ -266,7 +266,8 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
     }
   };
 
-  const calcularDotacion = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida);
+  const calcularDotacion = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_BOTIN);
+  const calcularDotacionUniforme = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_UNIFORME);
 
   const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === EMPRESA_DOTACION && e.obra === proyecto);
   const dotacionActivos = empleadosDotacion
@@ -333,7 +334,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
       });
   };
 
-  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'salidasPorProducto' | 'dotacion' | 'notasSalida';
+  type TipoReporte = 'inventario' | 'entradas' | 'salidas' | 'salidasPorProducto' | 'dotacion' | 'dotacionUniformes' | 'notasSalida';
 
   const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -565,6 +566,21 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
         const filaDotacion = (emp: Empleado, estado: 'Activo' | 'Inactivo') => {
           const d = calcularDotacion(emp);
           return { fila: [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', estado], alerta: d.alerta || 'OK' };
+        };
+        rows = [
+          ...(reporteEstadoFiltro === 'Inactivo' ? [] : dotacionActivos.map(emp => filaDotacion(emp, 'Activo'))),
+          ...(reporteEstadoFiltro === 'Activo' ? [] : dotacionInactivos.map(emp => filaDotacion(emp, 'Inactivo'))),
+        ]
+          .filter(({ alerta }) => reporteAlertaFiltro.has(alerta))
+          .map(({ fila }) => fila);
+        break;
+      }
+      case 'dotacionUniformes': {
+        titulo = 'Dotación de Uniformes';
+        headers = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Última Dotación', 'Próxima Dotación', 'Alerta', 'Estado Empleado'];
+        const filaDotacion = (emp: Empleado, estado: 'Activo' | 'Inactivo') => {
+          const d = calcularDotacionUniforme(emp);
+          return { fila: [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK', estado], alerta: d.alerta || 'OK' };
         };
         rows = [
           ...(reporteEstadoFiltro === 'Inactivo' ? [] : dotacionActivos.map(emp => filaDotacion(emp, 'Activo'))),
@@ -1959,6 +1975,7 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
                 { key: 'salidas', label: 'Entregas de EPP por Trabajador', desc: 'Entregas de EPP a empleados', icon: ArrowDownCircle, color: 'text-red-400' },
                 { key: 'salidasPorProducto', label: 'Entregas de EPP por Producto', desc: 'Entregas de EPP agrupadas por producto', icon: Truck, color: 'text-orange-400' },
                 { key: 'dotacion', label: 'Dotación de Calzados', desc: 'Control de botines por trabajador', icon: Footprints, color: 'text-amber-400' },
+                { key: 'dotacionUniformes', label: 'Dotación de Uniformes', desc: 'Control de uniformes por trabajador', icon: Shirt, color: 'text-cyan-400' },
               ] : [
                 { key: 'notasSalida', label: 'Notas de Salida', desc: 'Herramientas y materiales entregados', icon: Truck, color: 'text-purple-400' },
               ]),
@@ -2001,12 +2018,12 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
                 ))}
               </select>
             )}
-            {(reporteSeleccionado === 'inventario' || reporteSeleccionado === 'dotacion') && reporteMes !== 'todos' && (
+            {(reporteSeleccionado === 'inventario' || reporteSeleccionado === 'dotacion' || reporteSeleccionado === 'dotacionUniformes') && reporteMes !== 'todos' && (
               <span className="text-xs text-muted-foreground">(no aplica a este reporte, muestra el estado actual)</span>
             )}
           </div>
 
-          {reporteSeleccionado === 'dotacion' && (
+          {(reporteSeleccionado === 'dotacion' || reporteSeleccionado === 'dotacionUniformes') && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="text-xs text-muted-foreground uppercase">Alerta</span>
               {[
@@ -2110,7 +2127,10 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
           { id: 'productos' as VistaEPP, label: 'Productos', icon: Package },
           { id: 'remisiones' as VistaEPP, label: 'Remisiones', icon: Truck },
           { id: 'entregas' as VistaEPP, label: soloTipo === 'EPP' ? 'Planillas de Entrega de EPP' : 'Notas de Salida', icon: ArrowDownCircle },
-          ...(soloTipo === 'EPP' ? [{ id: 'dotacion' as VistaEPP, label: 'Dotacion de Calzados', icon: Footprints }] : []),
+          ...(soloTipo === 'EPP' ? [
+            { id: 'dotacion' as VistaEPP, label: 'Dotacion de Calzados', icon: Footprints },
+            { id: 'dotacionUniformes' as VistaEPP, label: 'Dotacion de Uniformes', icon: Shirt },
+          ] : []),
           { id: 'solicitudes' as VistaEPP, label: 'Solicitud de Suministro', icon: FileSpreadsheet },
         ].map(tab => (
           <button key={tab.id} onClick={() => setVista(tab.id)}
@@ -3083,6 +3103,113 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
                                 <td className="px-4 py-3 font-medium block sm:table-cell">{emp.nombres} {emp.apellidos}</td>
                                 <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Contrato: </span>{formatearFecha(emp.fechaInicioContrato || '')}</td>
                                 <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Calce: </span>{emp.calce || '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ultima dotacion: </span>{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proxima dotacion: </span>{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                                <td className="px-4 py-3 text-center block sm:table-cell">
+                                  {d.alerta === 'Vencido' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
+                                  ) : d.alerta === 'Proximo a vencer' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium"><AlertCircle size={10} /> Proximo a vencer</span>
+                                  ) : d.alerta === 'Sin dotacion registrada' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-medium">Sin registro</span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium"><CheckCircle2 size={10} /> OK</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {vista === 'dotacionUniformes' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold">Dotacion de Uniformes</h2>
+            <p className="text-sm text-muted-foreground mt-1">Empleados de ALTAZENTA NORTE SA - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de uniforme (chaqueta o pantalon)</p>
+          </div>
+          {empleadosDotacion.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground"><Shirt size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de ALTAZENTA NORTE SA en este proyecto</p></div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activos ({dotacionActivos.length})</h3>
+                <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm block sm:table">
+                      <thead className="hidden sm:table-header-group">
+                        <tr className="bg-secondary/50 border-b border-border">
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha Inicio Contrato</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Ultima Dotacion</th>
+                          <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proxima Dotacion</th>
+                          <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
+                        </tr>
+                      </thead>
+                      <tbody className="block sm:table-row-group">
+                        {dotacionActivos.map(emp => {
+                          const d = calcularDotacionUniforme(emp);
+                          return (
+                            <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{emp.nroDocumento}</td>
+                              <td className="px-4 py-3 font-medium block sm:table-cell">{emp.nombres} {emp.apellidos}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Contrato: </span>{formatearFecha(emp.fechaInicioContrato || '')}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ultima dotacion: </span>{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proxima dotacion: </span>{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
+                              <td className="px-4 py-3 text-center block sm:table-cell">
+                                {d.alerta === 'Vencido' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-medium"><AlertTriangle size={10} /> Vencido</span>
+                                ) : d.alerta === 'Proximo a vencer' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium"><AlertCircle size={10} /> Proximo a vencer</span>
+                                ) : d.alerta === 'Sin dotacion registrada' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-medium">Sin registro</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium"><CheckCircle2 size={10} /> OK</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              {/* FIN ACTIVOS DOTACION UNIFORMES */}
+
+              {dotacionInactivos.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inactivos ({dotacionInactivos.length})</h3>
+                  <div className="bg-card border border-border rounded-xl overflow-hidden opacity-60">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm block sm:table">
+                        <thead className="hidden sm:table-header-group">
+                          <tr className="bg-secondary/50 border-b border-border">
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Documento</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Nombre y Apellido</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Fecha Inicio Contrato</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Ultima Dotacion</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Proxima Dotacion</th>
+                            <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Alerta</th>
+                          </tr>
+                        </thead>
+                        <tbody className="block sm:table-row-group">
+                          {dotacionInactivos.map(emp => {
+                            const d = calcularDotacionUniforme(emp);
+                            return (
+                              <tr key={emp.nroDocumento} className="border-b border-border/50 hover:bg-secondary/30 transition-colors block sm:table-row mb-2 sm:mb-0 rounded-lg sm:rounded-none border border-border/50 sm:border-0 sm:border-b p-2 sm:p-0">
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell">{emp.nroDocumento}</td>
+                                <td className="px-4 py-3 font-medium block sm:table-cell">{emp.nombres} {emp.apellidos}</td>
+                                <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Contrato: </span>{formatearFecha(emp.fechaInicioContrato || '')}</td>
                                 <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Ultima dotacion: </span>{d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-'}</td>
                                 <td className="px-4 py-3 text-muted-foreground block sm:table-cell"><span className="text-muted-foreground/60 sm:hidden">Proxima dotacion: </span>{d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-'}</td>
                                 <td className="px-4 py-3 text-center block sm:table-cell">

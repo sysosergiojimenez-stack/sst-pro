@@ -16,6 +16,7 @@ export const fechaLocalISO = (d: Date): string => {
 
 export const EMPRESA_DOTACION = 'ALTAZENTA NORTE SA';
 export const CLASIFICACIONES_BOTIN = ['BOTIN P/ OBRERO', 'BOTIN P/ SUPERVISOR'];
+export const CLASIFICACIONES_UNIFORME = ['UNIFORME', 'UNIFORMES'];
 export const DIAS_VIGENCIA_DOTACION = 160;
 export const DIAS_ALERTA_PROXIMO = 15;
 
@@ -50,7 +51,8 @@ export function calcularDotacion(
   emp: DotacionEmpleado,
   salidas: DotacionSalida[],
   productos: DotacionProducto[],
-  notasSalida: DotacionNotaSalida[]
+  notasSalida: DotacionNotaSalida[],
+  clasificaciones: string[] = CLASIFICACIONES_BOTIN
 ): ResultadoDotacion {
   const salidasDelEmpleado = salidas.filter(s => s.trabajadorRetira === emp.nroDocumento);
   const conProductoYNota = salidasDelEmpleado.map(s => {
@@ -58,16 +60,16 @@ export function calcularDotacion(
     const nota = notasSalida.find(n => n.idRegistro === s.refNotaSalida);
     return { s, prod, nota };
   });
-  const entregasBotin = conProductoYNota
-    .filter(x => x.prod && x.nota?.fecha && CLASIFICACIONES_BOTIN.includes(x.prod.clasificacion?.trim().toUpperCase() || '') && (!x.prod.tipo || x.prod.tipo === 'EPP'));
+  const entregasDelTipo = conProductoYNota
+    .filter(x => x.prod && x.nota?.fecha && clasificaciones.includes(x.prod.clasificacion?.trim().toUpperCase() || '') && (!x.prod.tipo || x.prod.tipo === 'EPP'));
 
-  if (entregasBotin.length === 0) {
+  if (entregasDelTipo.length === 0) {
     return { ultimaDotacion: '', proximaDotacion: '', alerta: 'Sin dotacion registrada' };
   }
 
   let fechaMasReciente: Date | null = null;
   let fechaMasRecienteStr = '';
-  for (const e of entregasBotin) {
+  for (const e of entregasDelTipo) {
     const d = parseFechaLocal(e.nota!.fecha);
     if (!isNaN(d.getTime()) && (!fechaMasReciente || d > fechaMasReciente)) {
       fechaMasReciente = d;
