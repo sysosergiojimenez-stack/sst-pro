@@ -359,9 +359,12 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
   // como ya funcionaba -- a pedido, no se toca el caso manual.
   const fechaRealDeSalida = (s: Salida): string => {
     const nota = notasSalida.find(n => n.idRegistro === s.refNotaSalida);
-    if (nota && nota.observaciones.startsWith('Procesado por IA')) {
-      return normalizarFechaAISO(nota.fecha) || s.fechaHora;
-    }
+    // La fecha real de la entrega es la de la nota (nota.fecha), no
+    // s.fechaHora (cuando se registro la salida en el sistema). Las notas
+    // migradas desde Sheets tienen fechaHora en formato "DD/MM/AAAA HH:mm:ss",
+    // que new Date() interpreta mal (como MM/DD) -- por eso se prefiere
+    // siempre nota.fecha, ya normalizada a ISO.
+    if (nota?.fecha) return normalizarFechaAISO(nota.fecha);
     return s.fechaHora;
   };
 
