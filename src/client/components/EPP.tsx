@@ -3023,10 +3023,10 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold">Dotacion de Calzados de Seguridad</h2>
-            <p className="text-sm text-muted-foreground mt-1">Empleados de ALTAZENTA NORTE SA - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de Botin P/ Obrero</p>
+            <p className="text-sm text-muted-foreground mt-1">Empleados de Nómina - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de Botin P/ Obrero</p>
           </div>
           {empleadosDotacion.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground"><Footprints size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de ALTAZENTA NORTE SA en este proyecto</p></div>
+            <div className="text-center py-16 text-muted-foreground"><Footprints size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de Nómina en este proyecto</p></div>
           ) : (
             <div className="space-y-6">
               <div>
@@ -3134,10 +3134,10 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold">Dotacion de Uniformes</h2>
-            <p className="text-sm text-muted-foreground mt-1">Empleados de ALTAZENTA NORTE SA - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de uniforme (chaqueta o pantalon)</p>
+            <p className="text-sm text-muted-foreground mt-1">Empleados de Nómina - renovacion cada {DIAS_VIGENCIA_DOTACION} dias desde la ultima entrega de uniforme (chaqueta o pantalon)</p>
           </div>
           {empleadosDotacion.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground"><Shirt size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de ALTAZENTA NORTE SA en este proyecto</p></div>
+            <div className="text-center py-16 text-muted-foreground"><Shirt size={48} className="mx-auto mb-4 opacity-50" /><p className="text-lg font-medium">No hay empleados de Nómina en este proyecto</p></div>
           ) : (
             <div className="space-y-6">
               <div>
