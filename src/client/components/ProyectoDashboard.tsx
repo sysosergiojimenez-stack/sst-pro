@@ -22,6 +22,7 @@ interface Proyecto {
   ubicacion: string;
   logo: string;
   fechaInicioObra: string;
+  empresaNomina: string;
 }
 
 interface ProyectoDashboardProps {
@@ -245,7 +246,7 @@ export default function ProyectoDashboard({ proyecto }: ProyectoDashboardProps) 
         >
           <ArrowLeft size={16} /> Volver al Proyecto
         </button>
-        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} soloTipo="EPP" />
+        <EPP proyecto={proyecto.denominacion} proyectoLogo={proyecto.logo} soloTipo="EPP" empresaNomina={proyecto.empresaNomina} />
       </div>
     );
   }

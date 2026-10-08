@@ -123,6 +123,7 @@ interface EPPProps {
   proyecto: string;
   proyectoLogo?: string;
   soloTipo: 'EPP' | 'Herramienta';
+  empresaNomina?: string;
 }
 
 const clasificacionesEPP = ['Casco', 'Gafas', 'Guantes', 'Botas', 'Arnés', 'Proteccion Auditiva', 'Proteccion Respiratoria', 'Ropa de Trabajo', 'Otro'];
@@ -130,7 +131,7 @@ const clasificacionesHerramienta = ['Herramienta Manual', 'Herramienta Eléctric
 
 type VistaEPP = 'productos' | 'remisiones' | 'entregas' | 'dotacion' | 'dotacionUniformes' | 'solicitudes';
 
-export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
+export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }: EPPProps) {
   const [vista, setVista] = useState<VistaEPP>('productos');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [remisiones, setRemisiones] = useState<Remision[]>([]);
@@ -269,7 +270,8 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo }: EPPProps) {
   const calcularDotacion = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_BOTIN);
   const calcularDotacionUniforme = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_UNIFORME);
 
-  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === EMPRESA_DOTACION && e.obra === proyecto);
+  const empresaDotacionProyecto = (empresaNomina || EMPRESA_DOTACION).trim().toUpperCase();
+  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === empresaDotacionProyecto && e.obra === proyecto);
   const dotacionActivos = empleadosDotacion
     .filter(e => (e.estado || 'Activo') !== 'Inactivo')
     .sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));

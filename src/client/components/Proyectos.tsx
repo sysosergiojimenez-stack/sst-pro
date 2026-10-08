@@ -12,6 +12,7 @@ interface Proyecto {
   ubicacion: string;
   logo: string;
   fechaInicioObra: string;
+  empresaNomina: string;
 }
 
 interface ProyectosProps {
@@ -27,7 +28,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Proyecto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [form, setForm] = useState({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '' });
+  const [form, setForm] = useState({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '', empresaNomina: '' });
   const [subiendoLogo, setSubiendoLogo] = useState(false);
 
   const fetchProyectos = async () => {
@@ -53,7 +54,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
   useEffect(() => {
     if (nuevoProyectoTrigger > 0) {
       setEditing(null);
-      setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '' });
+      setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '', empresaNomina: '' });
       setShowForm(true);
     }
   }, [nuevoProyectoTrigger]);
@@ -78,7 +79,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
       const body = editing ? { ...form, rowIndex: editing.rowIndex } : { ...form, fechaHora: new Date().toISOString() };
       const response = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error'); }
-      setShowForm(false); setEditing(null); setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '' });
+      setShowForm(false); setEditing(null); setForm({ idRegistro: '', denominacion: '', ubicacion: '', logo: '', fechaInicioObra: '', empresaNomina: '' });
       fetchProyectos();
     } catch (err: any) { setError(err.message); }
   };
@@ -94,7 +95,7 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
 
   const startEdit = (proyecto: Proyecto) => {
     setEditing(proyecto);
-    setForm({ idRegistro: proyecto.idRegistro, denominacion: proyecto.denominacion, ubicacion: proyecto.ubicacion, logo: proyecto.logo, fechaInicioObra: proyecto.fechaInicioObra || '' });
+    setForm({ idRegistro: proyecto.idRegistro, denominacion: proyecto.denominacion, ubicacion: proyecto.ubicacion, logo: proyecto.logo, fechaInicioObra: proyecto.fechaInicioObra || '', empresaNomina: proyecto.empresaNomina || '' });
     setShowForm(true);
   };
 
@@ -164,6 +165,12 @@ export default function Proyectos({ onSelectProyecto, nuevoProyectoTrigger = 0 }
               <div>
                 <label className="block text-sm font-medium mb-2">Fecha de Inicio de Obra</label>
                 <input type="date" value={form.fechaInicioObra} onChange={(e) => setForm({...form, fechaInicioObra: e.target.value})} className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Empresa de Nómina</label>
+                <input type="text" value={form.empresaNomina} onChange={(e) => setForm({...form, empresaNomina: e.target.value})} placeholder="Empresa cuyos empleados reciben dotación de EPP" className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm input-glow focus:outline-none focus:border-primary/50" />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

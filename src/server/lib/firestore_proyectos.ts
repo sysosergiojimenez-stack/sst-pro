@@ -11,6 +11,7 @@ export interface Proyecto {
   ubicacion: string;
   logo: string;
   fechaInicioObra: string;
+  empresaNomina: string;
 }
 
 function docToProyecto(id: string, data: FirebaseFirestore.DocumentData): Proyecto {
@@ -23,6 +24,7 @@ function docToProyecto(id: string, data: FirebaseFirestore.DocumentData): Proyec
     ubicacion: data.ubicacion || '',
     logo: data.logo || '',
     fechaInicioObra: data.fechaInicioObra || '',
+    empresaNomina: data.empresaNomina || '',
   };
 }
 
@@ -46,6 +48,7 @@ export async function appendProyecto(proyecto: Omit<Proyecto, 'rowIndex'>): Prom
     ubicacion: proyecto.ubicacion,
     logo: proyecto.logo || '',
     fechaInicioObra: proyecto.fechaInicioObra || '',
+    empresaNomina: proyecto.empresaNomina || '',
   });
   console.log('Proyecto agregado:', idRegistro);
   return idRegistro;
@@ -53,7 +56,7 @@ export async function appendProyecto(proyecto: Omit<Proyecto, 'rowIndex'>): Prom
 
 export async function updateProyecto(idRegistro: string, proyecto: Partial<Omit<Proyecto, 'rowIndex'>>): Promise<void> {
   const updates: Record<string, string> = {};
-  for (const key of ['fechaHora', 'userEmail', 'denominacion', 'ubicacion', 'logo', 'fechaInicioObra'] as const) {
+  for (const key of ['fechaHora', 'userEmail', 'denominacion', 'ubicacion', 'logo', 'fechaInicioObra', 'empresaNomina'] as const) {
     if (proyecto[key] !== undefined) updates[key] = proyecto[key] as string;
   }
   if (Object.keys(updates).length === 0) {
