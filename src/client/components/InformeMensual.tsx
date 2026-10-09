@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { FileBarChart, Loader2, Download, Users, AlertTriangle, ShieldAlert, Package } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader } from '../lib/pdfHeader';
-import { calcularDotacion, fechaLocalISO, EMPRESA_DOTACION } from '../lib/dotacionCalculos';
+import { calcularDotacion, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME } from '../lib/dotacionCalculos';
 
 interface Proyecto {
   rowIndex: number;
@@ -15,6 +15,7 @@ interface Proyecto {
   ubicacion: string;
   logo: string;
   fechaInicioObra: string;
+  empresaNomina?: string;
 }
 
 interface Empleado {
@@ -140,10 +141,19 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
 
   const empleadosActivos = empleados.filter(e => (e.estado || 'Activo').trim().toLowerCase() !== 'inactivo');
 
-  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === EMPRESA_DOTACION);
+  // Empresa cuyos empleados reciben dotacion: la "Empresa de Nomina" del proyecto
+  // (igual que en el modulo EPP), con la constante como respaldo.
+  const empresaDotacionProyecto = (proyecto.empresaNomina || EMPRESA_DOTACION).trim().toUpperCase();
+  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === empresaDotacionProyecto);
   const dotacionActivos = empleadosDotacion.filter(e => (e.estado || 'Activo') !== 'Inactivo').sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
-  const dotacionesVencidas = dotacionActivos.filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Vencido').length;
-  const dotacionesProximas = dotacionActivos.filter(e => calcularDotacion(e, salidas, productos, notasSalida).alerta === 'Proximo a vencer').length;
+  const dotacionCalzado = (e: Empleado) => calcularDotacion(e, salidas, productos, notasSalida, CLASIFICACIONES_BOTIN);
+  const dotacionUniforme = (e: Empleado) => calcularDotacion(e, salidas, productos, notasSalida, CLASIFICACIONES_UNIFORME);
+  // Cuenta cada dotacion (calzado y uniforme) vencida o proxima a vencer
+  const contarAlerta = (alerta: string) =>
+    dotacionActivos.filter(e => dotacionCalzado(e).alerta === alerta).length +
+    dotacionActivos.filter(e => dotacionUniforme(e).alerta === alerta).length;
+  const dotacionesVencidas = contarAlerta('Vencido');
+  const dotacionesProximas = contarAlerta('Proximo a vencer');
 
   const totalEntradasByProducto = (codigo: string) => entradas.filter(e => e.codigo === codigo).reduce((sum, e) => sum + parseInt(e.cantidad || '0'), 0);
   const totalSalidasByProducto = (codigo: string) => salidas.filter(s => s.refItem === codigo).reduce((sum, s) => sum + parseInt(s.cantidad || '0'), 0);
@@ -304,31 +314,44 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
         y += 6;
       }
 
-      // ---- Dotación de Indumentaria ----
-      doc.addPage();
-      y = 20;
-      y = await drawPdfHeader(doc, proyectoHeader, y - 5, { marginLeft, marginRight });
-      y += 4;
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Dotación de Indumentaria', marginLeft, y);
-      y += 8;
+      // ---- Dotación de Calzados y de Uniformes ----
+      const tablaDotacion = async (
+        titulo: string,
+        conCalce: boolean,
+        calcular: (e: Empleado) => ReturnType<typeof calcularDotacion>,
+      ) => {
+        doc.addPage();
+        y = 20;
+        y = await drawPdfHeader(doc, proyectoHeader, y - 5, { marginLeft, marginRight });
+        y += 4;
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(titulo, marginLeft, y);
+        y += 8;
 
-      const dotacionHeaders = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', 'Calce', 'Última Dotación', 'Próxima Dotación', 'Alerta'];
-      const dotacionRows = dotacionActivos.map(emp => {
-        const d = calcularDotacion(emp, salidas, productos, notasSalida);
-        return [emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''), emp.calce || '-', d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK'];
-      });
+        const headers = ['Documento', 'Nombre y Apellido', 'Fecha Inicio Contrato', ...(conCalce ? ['Calce'] : []), 'Última Dotación', 'Próxima Dotación', 'Alerta'];
+        const rows = dotacionActivos.map(emp => {
+          const d = calcular(emp);
+          return [
+            emp.nroDocumento, `${emp.nombres} ${emp.apellidos}`, formatearFecha(emp.fechaInicioContrato || ''),
+            ...(conCalce ? [emp.calce || '-'] : []),
+            d.ultimaDotacion ? formatearFecha(d.ultimaDotacion) : '-', d.proximaDotacion ? formatearFecha(d.proximaDotacion) : '-', d.alerta || 'OK',
+          ];
+        });
 
-      autoTable(doc, {
-        head: [dotacionHeaders],
-        body: dotacionRows,
-        startY: y,
-        styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        margin: { left: 10, right: 10 },
-      });
+        autoTable(doc, {
+          head: [headers],
+          body: rows.length > 0 ? rows : [['Sin empleados con dotación en este proyecto', ...Array(headers.length - 1).fill('')]],
+          startY: y,
+          styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak' },
+          headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          margin: { left: 10, right: 10 },
+        });
+      };
+
+      await tablaDotacion('Dotación de Calzados', true, dotacionCalzado);
+      await tablaDotacion('Dotación de Uniformes', false, dotacionUniforme);
 
       // ---- Resumen de Accidentes e Incidentes ----
       doc.addPage();
