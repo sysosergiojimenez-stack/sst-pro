@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { FileBarChart, Loader2, Download, Users, AlertTriangle, ShieldAlert, Package } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader } from '../lib/pdfHeader';
-import { calcularDotacion, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME } from '../lib/dotacionCalculos';
+import { calcularDotacion, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME, empresaCoincide } from '../lib/dotacionCalculos';
 
 interface Proyecto {
   rowIndex: number;
@@ -143,8 +143,8 @@ export default function InformeMensual({ proyecto }: InformeMensualProps) {
 
   // Empresa cuyos empleados reciben dotacion: la "Empresa de Nomina" del proyecto
   // (igual que en el modulo EPP), con la constante como respaldo.
-  const empresaDotacionProyecto = (proyecto.empresaNomina || EMPRESA_DOTACION).trim().toUpperCase();
-  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === empresaDotacionProyecto);
+  const empresaDotacionProyecto = proyecto.empresaNomina || EMPRESA_DOTACION;
+  const empleadosDotacion = empleados.filter(e => empresaCoincide(e.empresa, empresaDotacionProyecto));
   const dotacionActivos = empleadosDotacion.filter(e => (e.estado || 'Activo') !== 'Inactivo').sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
   const dotacionCalzado = (e: Empleado) => calcularDotacion(e, salidas, productos, notasSalida, CLASIFICACIONES_BOTIN);
   const dotacionUniforme = (e: Empleado) => calcularDotacion(e, salidas, productos, notasSalida, CLASIFICACIONES_UNIFORME);

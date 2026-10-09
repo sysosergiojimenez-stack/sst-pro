@@ -6,7 +6,7 @@ import { longPressHandlers } from '../hooks/useLongPress';
 import { HardHat, Wrench, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, Shirt, FileDown, ClipboardList } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
-import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared } from '../lib/dotacionCalculos';
+import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared, empresaCoincide } from '../lib/dotacionCalculos';
 import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
 
 interface Producto {
@@ -270,8 +270,8 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
   const calcularDotacion = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_BOTIN);
   const calcularDotacionUniforme = (emp: Empleado) => calcularDotacionShared(emp, salidas, productos, notasSalida, CLASIFICACIONES_UNIFORME);
 
-  const empresaDotacionProyecto = (empresaNomina || EMPRESA_DOTACION).trim().toUpperCase();
-  const empleadosDotacion = empleados.filter(e => (e.empresa || '').trim().toUpperCase() === empresaDotacionProyecto && e.obra === proyecto);
+  const empresaDotacionProyecto = empresaNomina || EMPRESA_DOTACION;
+  const empleadosDotacion = empleados.filter(e => empresaCoincide(e.empresa, empresaDotacionProyecto) && e.obra === proyecto);
   const dotacionActivos = empleadosDotacion
     .filter(e => (e.estado || 'Activo') !== 'Inactivo')
     .sort((a, b) => a.nombres.localeCompare(b.nombres, 'es'));
