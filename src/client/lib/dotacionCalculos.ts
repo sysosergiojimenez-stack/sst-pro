@@ -15,6 +15,31 @@ export const fechaLocalISO = (d: Date): string => {
 };
 
 export const EMPRESA_DOTACION = 'ALTAZENTA NORTE SA';
+
+const SUFIJOS_SOCIETARIOS = new Set(['SA', 'SRL', 'SAE', 'SAS', 'SACI', 'LTDA']);
+
+// Deja el nombre de una empresa en una forma comparable: sin tildes ni mayusculas,
+// sin puntuacion, con los espacios colapsados y sin el sufijo societario final.
+// "Desarrolladora Altamira S.A." y "DESARROLLADORA ALTAMIRA SA" dan el mismo resultado.
+export function normalizarEmpresa(nombre: string): string {
+  const base = (nombre || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\./g, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+    // "S A" / "S R L" (siglas escritas con espacios) -> "SA" / "SRL"
+    .replace(/\bS A\b/g, 'SA')
+    .replace(/\bS R L\b/g, 'SRL');
+  const palabras = base.split(' ').filter(Boolean);
+  if (palabras.length > 1 && SUFIJOS_SOCIETARIOS.has(palabras[palabras.length - 1])) palabras.pop();
+  return palabras.join(' ');
+}
+
+export function empresaCoincide(empresaEmpleado: string, empresaProyecto: string): boolean {
+  const buscada = normalizarEmpresa(empresaProyecto);
+  return buscada !== '' && normalizarEmpresa(empresaEmpleado) === buscada;
+}
 export const CLASIFICACIONES_BOTIN = ['BOTIN P/ OBRERO', 'BOTIN P/ SUPERVISOR'];
 export const CLASIFICACIONES_UNIFORME = ['UNIFORME', 'UNIFORMES'];
 export const DIAS_VIGENCIA_DOTACION = 160;
