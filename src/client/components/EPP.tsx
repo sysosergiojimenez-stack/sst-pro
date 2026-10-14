@@ -2650,7 +2650,14 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
                         <input
                           type="text"
                           value={busquedaTrabajadorItem || (salidaForm.trabajadorRetira ? nombreQuienRetira(salidaForm.trabajadorRetira) : '')}
-                          onChange={(e) => { setBusquedaTrabajadorItem(e.target.value); setMostrarSugerenciasTrabajadorItem(true); setIndiceResaltadoTrabajadorItem(0); if (salidaForm.trabajadorRetira) setSalidaForm({ ...salidaForm, trabajadorRetira: '' }); }}
+                          onChange={(e) => {
+                            setBusquedaTrabajadorItem(e.target.value);
+                            setMostrarSugerenciasTrabajadorItem(true);
+                            setIndiceResaltadoTrabajadorItem(0);
+                            // No forzamos que coincida con un empleado registrado: puede
+                            // ser una CI que no esta en el padron, y debe poder guardarse igual.
+                            setSalidaForm({ ...salidaForm, trabajadorRetira: e.target.value });
+                          }}
                           onFocus={() => setMostrarSugerenciasTrabajadorItem(true)}
                           onBlur={() => setTimeout(() => setMostrarSugerenciasTrabajadorItem(false), 150)}
                           onKeyDown={(e) => {
@@ -2941,9 +2948,12 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
                                               value={it.busquedaTrabajador}
                                               onChange={(e) => {
                                                 actualizarSalidaItemForm(idx, 'busquedaTrabajador', e.target.value);
+                                                // No forzamos que el texto coincida con un empleado
+                                                // registrado: puede ser una CI que no esta en el
+                                                // padron, y debe poder guardarse igual.
+                                                actualizarSalidaItemForm(idx, 'trabajadorRetira', e.target.value);
                                                 setFilaTrabajadorActiva(idx);
                                                 setIndiceResaltadoTrabajadorForm(0);
-                                                if (it.trabajadorRetira) actualizarSalidaItemForm(idx, 'trabajadorRetira', '');
                                               }}
                                               onFocus={() => setFilaTrabajadorActiva(idx)}
                                               onBlur={() => setTimeout(() => setFilaTrabajadorActiva(f => (f === idx ? null : f)), 150)}
