@@ -2595,7 +2595,15 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
                       <input
                         type="text"
                         value={busquedaProducto || (salidaForm.refItem ? `${productos.find(p => p.codigo === salidaForm.refItem)?.nombre || ''} (Stock: ${stockDisponible(salidaForm.refItem)})` : '')}
-                        onChange={(e) => { setBusquedaProducto(e.target.value); setMostrarSugerenciasProducto(true); setIndiceResaltadoProducto(0); if (salidaForm.refItem) setSalidaForm({ ...salidaForm, refItem: '' }); }}
+                        onChange={(e) => {
+                          setBusquedaProducto(e.target.value);
+                          setMostrarSugerenciasProducto(true);
+                          setIndiceResaltadoProducto(0);
+                          // No forzamos que coincida con un producto del catalogo:
+                          // puede ser un item que todavia no esta cargado ahi, y
+                          // debe poder guardarse igual con el texto escrito.
+                          setSalidaForm({ ...salidaForm, refItem: e.target.value });
+                        }}
                         onFocus={() => setMostrarSugerenciasProducto(true)}
                         onBlur={() => setTimeout(() => setMostrarSugerenciasProducto(false), 150)}
                         onKeyDown={(e) => {
@@ -2897,7 +2905,10 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
                                               actualizarSalidaItemForm(idx, 'busqueda', e.target.value);
                                               setFilaBusquedaSalidaActiva(idx);
                                               setIndiceResaltadoSalidaForm(0);
-                                              if (it.refItem) actualizarSalidaItemForm(idx, 'refItem', '');
+                                              // No forzamos que coincida con un producto del
+                                              // catalogo: puede ser un item que todavia no esta
+                                              // cargado ahi, y debe poder guardarse igual.
+                                              actualizarSalidaItemForm(idx, 'refItem', e.target.value);
                                             }}
                                             onFocus={() => setFilaBusquedaSalidaActiva(idx)}
                                             onBlur={() => setTimeout(() => setFilaBusquedaSalidaActiva(f => (f === idx ? null : f)), 150)}
