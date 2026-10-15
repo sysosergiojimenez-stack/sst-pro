@@ -1640,15 +1640,23 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6);
       if (items.length > 0) {
+        // Items que no estan en el catalogo de productos no tienen codigo
+        // propio: se les asigna uno correlativo NS-<nro de nota>-<orden>
+        // (01, 02...) para que la columna Codigo nunca quede vacia ni
+        // repita el nombre del item.
+        let contadorSinCatalogo = 0;
         items.forEach((it, idx) => {
           const prod = productos.find(p => p.codigo === it.refItem);
           const productoText = prod ? `${prod.codigo} - ${prod.nombre}` : (it.refItem || '');
           const productoLines = doc.splitTextToSize(productoText, cols[2] - 2);
           const rowH = 3 + productoLines.length * 2.2;
           x = x0;
+          const codigoMostrado = prod
+            ? prod.codigo
+            : `NS-${n.orden || n.idRegistro}-${String(++contadorSinCatalogo).padStart(2, '0')}`;
           const vals: (string | string[])[] = esEPP
-            ? [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || '', nombreQuienRetira(it.trabajadorRetira)]
-            : [String(idx + 1), prod?.codigo || it.refItem || '', productoLines, it.cantidad || ''];
+            ? [String(idx + 1), codigoMostrado, productoLines, it.cantidad || '', nombreQuienRetira(it.trabajadorRetira)]
+            : [String(idx + 1), codigoMostrado, productoLines, it.cantidad || ''];
           vals.forEach((val, i) => {
             const text = Array.isArray(val) ? val : [String(val)];
             doc.text(text, x + 1, y + 3);
