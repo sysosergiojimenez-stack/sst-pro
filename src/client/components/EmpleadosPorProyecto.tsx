@@ -566,9 +566,14 @@ export default function EmpleadosPorProyecto({ proyecto }: EmpleadosPorProyectoP
         const fecha = parseFechaDDMYYYY(fechaRaw);
         if (!fecha) continue;
 
-        const horas = horasRaw.split(/\s+/).filter(Boolean);
-        const horaEntrada = horas[0] || '';
-        const horaSalida = horas.length > 1 ? horas[horas.length - 1] : '';
+        const horas = horasRaw.match(/\d{1,2}:\d{2}/g) || [];
+        let horaEntrada = horas[0] || '';
+        let horaSalida = horas.length > 1 ? horas[horas.length - 1] : '';
+        // Una sola marcacion: antes de las 12:00 es entrada, desde las 12:00 es salida.
+        if (horas.length === 1 && parseInt(horas[0].split(':')[0], 10) >= 12) {
+          horaSalida = horas[0];
+          horaEntrada = '';
+        }
 
         registros.push({ nroDocumento, fecha, horaEntrada, horaSalida, horasRaw, proyecto: proyecto.denominacion });
       }
