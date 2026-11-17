@@ -12,3 +12,4 @@ mi-app.zip
 .idea
 src/client/**/*.test.*
 src/server/**/*.test.*
+.github

@@ -6,6 +6,8 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+# La imagen final solo necesita las dependencias de produccion
+RUN npm prune --omit=dev
 RUN echo '{"name":"sst-pro-server","version":"1.0.0","private":true}' > dist/server/package.json
 
 FROM node:20-slim
