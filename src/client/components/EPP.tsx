@@ -6,6 +6,7 @@ import { longPressHandlers } from '../hooks/useLongPress';
 import { HardHat, Wrench, Plus, FileText, Search, X, Brain, Save, Package, Truck, CheckCircle2, AlertTriangle, Boxes, ArrowDownCircle, User, FileSpreadsheet, Download, AlertCircle, Pencil, Trash2, Footprints, Shirt, FileDown, ClipboardList } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { drawPdfHeader, fetchLogoData, computeLogoSize } from '../lib/pdfHeader';
+import { dibujarTituloFormulario, SST_FOR_03_TITULO, SST_FOR_03_SUBTITULO } from '../lib/pdfWidgets';
 import { parseFechaLocal, fechaLocalISO, EMPRESA_DOTACION, CLASIFICACIONES_BOTIN, CLASIFICACIONES_UNIFORME, DIAS_VIGENCIA_DOTACION, DIAS_ALERTA_PROXIMO, calcularDotacion as calcularDotacionShared, empresaCoincide } from '../lib/dotacionCalculos';
 import { ACCEPT_FICHA_EMPLEADO, mimeFichaEmpleado } from '../lib/fichaMime';
 
@@ -1584,11 +1585,17 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
       }
 
       // Titulo
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(esEPP ? 'PLANILLA DE ENTREGA DE EPP' : 'NOTA DE SALIDA', m, y + 6);
-
-      y += 14;
+      if (esEPP) {
+        // La planilla de EPP lleva el titulo del formulario SST-FOR-03, debajo
+        // del logo / nombre del proyecto.
+        y = dibujarTituloFormulario(doc, m, y + 10, w, SST_FOR_03_TITULO, SST_FOR_03_SUBTITULO, { altoBarra: 9, tamanoTitulo: 11, tamanoSubtitulo: 7.5 });
+        y += 2;
+      } else {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('NOTA DE SALIDA', m, y + 6);
+        y += 14;
+      }
 
       // Nro y Fecha
       doc.setFontSize(9);
@@ -1730,15 +1737,8 @@ export default function EPP({ proyecto, proyectoLogo, soloTipo, empresaNomina }:
 
     const yHeader = await drawPdfHeader(doc, { denominacion: proyecto, logo: proyectoLogo }, 10, { marginLeft: m, marginRight: m });
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('NOTA DE SALIDA', m, yHeader + 6);
-    const tituloW = doc.getTextWidth('NOTA DE SALIDA');
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Entrega de EPP - Dotación', m + tituloW + 4, yHeader + 6);
-
-    let y = yHeader + 14;
+    let y = dibujarTituloFormulario(doc, m, yHeader + 4, w, SST_FOR_03_TITULO, SST_FOR_03_SUBTITULO, { altoBarra: 12, tamanoTitulo: 12, tamanoSubtitulo: 8 });
+    y += 5;
 
     // Solo la fecha en el encabezado (sin "Quien Retira" -- cada fila ahora
     // tiene su propia columna de Firma).
